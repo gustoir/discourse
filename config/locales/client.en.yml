@@ -1567,7 +1567,10 @@ en:
       with_topics: "%{filter} topics"
       with_category: "%{filter} %{category} topics"
       latest:
-        title: "Latest"
+        title:
+          zero: "Latest"
+          one: "Latest (1)"
+          other: "Latest ({{count}})"
         help: "topics with recent posts"
       hot:
         title: "Hot"
@@ -2055,6 +2058,7 @@ en:
             delete_post: "delete post"
             impersonate: "impersonate"
             anonymize_user: "anonymize user"
+            roll_up: "roll up IP blocks"
         screened_emails:
           title: "Screened Emails"
           description: "When someone tries to create a new account, the following email addresses will be checked and the registration will be blocked, or some other action performed."

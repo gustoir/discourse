@@ -18,15 +18,35 @@ var controllerOpts = {
 
   isSearch: Em.computed.equal('model.filter', 'search'),
 
+  searchTerm: function(){
+    return this.get('model.params.q');
+  }.property('isSearch,model.params,model'),
+
   actions: {
 
     changeSort: function(sortBy) {
-      if (sortBy === this.get('order')) {
-        this.toggleProperty('ascending');
+      if (this.get('isSearch')) {
+        var term = this.get('searchTerm');
+        var order;
+
+        if (sortBy === 'activity') { order = 'latest'; }
+        if (sortBy === 'views') { order = 'views'; }
+
+        if (order && term.indexOf("order:" + order) === -1) {
+          term = term.replace(/order:[a-z]+/, '');
+          term = term.trim() + " order:" + order;
+          this.set('model.params.q', term);
+          this.get('model').refreshSort();
+        }
+
       } else {
-        this.setProperties({ order: sortBy, ascending: false });
+        if (sortBy === this.get('order')) {
+          this.toggleProperty('ascending');
+        } else {
+          this.setProperties({ order: sortBy, ascending: false });
+        }
+        this.get('model').refreshSort(sortBy, this.get('ascending'));
       }
-      this.get('model').refreshSort(sortBy, this.get('ascending'));
     },
 
     // Show newly inserted topics

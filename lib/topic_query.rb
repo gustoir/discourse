@@ -92,7 +92,10 @@ class TopicQuery
                     .joins("JOIN (#{sql}) X on X.id = topics.id")
                     .order("X.pos")
 
-        posts_map = Hash[*search.posts.map{|p| [p.topic_id, p]}.flatten]
+        posts_map = {}
+        search.posts.each do |p|
+          (posts_map[p.topic_id] ||= []) << p
+        end
       end
     end
 
@@ -107,8 +110,10 @@ class TopicQuery
 
 
     list.topics.each do |topic|
-      if post = posts_map[topic.id]
-        topic.search_data = {excerpt: search.blurb(post), post_number: post.post_number}
+      if posts = posts_map[topic.id]
+        if post = posts.shift
+          topic.search_data = {excerpt: search.blurb(post), post_number: post.post_number}
+        end
       end
     end
 
@@ -208,7 +213,7 @@ class TopicQuery
     end
 
     unpinned_topics = topics.where("NOT ( #{pinned_clause} )")
-    pinned_topics = topics.where(pinned_clause)
+    pinned_topics = topics.dup.offset(nil).where(pinned_clause)
 
     per_page = options[:per_page] || per_page_setting
     limit = per_page unless options[:limit] == false
@@ -217,7 +222,7 @@ class TopicQuery
     if page == 0
       (pinned_topics + unpinned_topics)[0...limit] if limit
     else
-      offset = (page * per_page - pinned_topics.count) - 1
+      offset = (page * per_page) - pinned_topics.count - 1
       offset = 0 unless offset > 0
       unpinned_topics.offset(offset).to_a
     end
