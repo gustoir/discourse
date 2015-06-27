@@ -68,7 +68,7 @@
           {{category-link c.model allowUncategorized="true"}}
 
           {{#if c.unreadTotal}}
-            <a href={{unbound c.model.url}} class='badge badge-notification'>{{c.unreadTotal}}</a>
+            <a href="{{unbound c.model.url}}" class='badge badge-notification'>{{c.unreadTotal}}</a>
           {{/if}}
 
           {{#if c.showTopicCount}}
