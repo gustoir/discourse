@@ -383,7 +383,7 @@ fa_IR:
         instructions: "تصاویر پس زمینه در مرکز قرار خواهند گرفت و عرض  پیشفرض آن 590 پیکسل است"
       email:
         title: "ایمیل"
-        instructions: "هرگز بصورت عمومی نشان نده"
+        instructions: "هرگز بصورت عمومی نشان داده نمی‌شود"
         ok: "ایمیلی برای تایید برایتان می‌فرستیم"
         invalid: "لطفا یک آدرس ایمیل معتبر وارد کنید"
         authenticated: "ایمیل شما تصدیق شد توسط {{provider}}"
@@ -399,7 +399,7 @@ fa_IR:
         ok: "نام انتخابی شما به نطر می رسد خوب است"
       username:
         title: "نام کاربری"
-        instructions: "منحصر به فرد،بدون فاصله،کوتاه"
+        instructions: "منحصر به فرد، بدون فاصله، کوتاه"
         short_instructions: "می توانید به کاربران دیگر اشاره کنید با@{{username}}"
         available: "نام کاربری شما موجود است"
         global_match: "ایمیل منطبق نام کاربری ثبت شد."
@@ -486,7 +486,7 @@ fa_IR:
         same_as_username: "رمز عبورتان با نام کاربری شما برابر است."
         same_as_email: "رمز عبورتان با ایمیل شما برابر است. "
         ok: "گذرواژهٔ خوبی است."
-        instructions: "در آخرین %{count} کاراکتر"
+        instructions: "حداقل %{count} حرف"
       associated_accounts: "ورود ها"
       ip_address:
         title: "آخرین نشانی IP"
@@ -1320,7 +1320,10 @@ fa_IR:
       with_topics: "%{filter} موضوعات"
       with_category: "%{filter} %{category} موضوعات"
       latest:
-        title: "آخرین ها"
+        title:
+          zero: "آخرین"
+          one: "آخرین (1)"
+          other: "آخرین ({{count}})"
         help: "موضوعات با نوشته های تازه"
       hot:
         title: "داغ"
@@ -1384,6 +1387,7 @@ fa_IR:
         this_month: "این ماه"
         this_week: "این هفته"
         today: "امروز"
+        other_periods: "نمایش بالاترین‌های:"
     browser_update: 'متاسفانه,<a href="http://www.discourse.org/faq/#browser">مرورگر شما خیلی قدیمی است برای ادامه کار در این وب سایت</a>. لطفا <a href="http://browsehappy.com">مرورگر خود را بروز رسانی نمایید</a>.'
     permission_types:
       full: "ساختن / پاسخ دادن / دیدن"
