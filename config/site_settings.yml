@@ -57,7 +57,7 @@ required:
 
 basic:
   default_locale:
-    default: 'en'
+    default: 'fa_IR'
     enum: 'LocaleSiteSetting'
     refresh: true
     shadowed_by_global: true

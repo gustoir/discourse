@@ -1,8 +1,10 @@
+# coding: utf-8
 # Some sanity checking so we don't count on an unindexed column on boot
 if User.limit(20).count < 20 && User.where(admin: true).count == 1
   notice =
     if GlobalSetting.developer_emails.blank?
-      "Congratulations, you installed Discourse! Unfortunately, no administrator emails were defined during setup, so finalizing the configuration <a href='https://meta.discourse.org/t/how-to-create-an-administrator-account-after-install/14046'>may be difficult</a>."
+      #"Congratulations, you installed Discourse! Unfortunately, no administrator emails were defined during setup, so finalizing the configuration <a href='https://meta.discourse.org/t/how-to-create-an-administrator-account-after-install/14046'>may be difficult</a>."
+      "مبارکه، شما دیسکورس را نصب کردید! متاسفانه هیچ ایمیل ادمینی در طول نصب تعریف نشده است،‌ بنابراین تکمیل<a href='https://meta.discourse.org/t/how-to-create-an-administrator-account-after-install/14046'> پیکربندی</a>  کمی سخت خواهد بود."
     else
       emails = GlobalSetting.developer_emails.split(",")
       if emails.length > 1
@@ -10,7 +12,8 @@ if User.limit(20).count < 20 && User.where(admin: true).count == 1
       else
         emails = emails[0]
       end
-      "Congratulations, you installed Discourse! Register a new admin account with #{emails} to finalize configuration."
+      "مبارکه، شما دیسکورس را نصب کردید! یک حساب کاربری با ایمیل بسازید و تنظیمات را تکمیل کنید."
+      #"Congratulations, you installed Discourse! Register a new admin account with #{emails} to finalize configuration."
     end
 
   if notice != SiteSetting.global_notice
