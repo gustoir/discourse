@@ -12,6 +12,8 @@ fa_IR:
     long_date: "MMMM D, YYYY h:mma"
   title: "گفتمان"
   topics: "موضوعات"
+  post: "نوشته"
+  topic: "موضوع"
   posts: "نوشته ها"
   loading: "بارگذاری..."
   powered_by_html: 'قدرت گرفته از<a href="http://www.discourse.org">دیسکورس</a>فارسی سازی<a href="http://discours.ir/t/1-0/33"> دیسکورس فارسی</a>, برای نمایش بهتر جاوا اسکریپت را فعال کنید.'
@@ -1345,7 +1347,7 @@ fa_IR:
         اگر شما نبوده‌اید٬ می توانید با خیال راحت این ایمیل را نادیده بگیرید.
 
         بر روی پیوند پیش رو برای انتخاب رمز عبور جدید کلیک کنید.
-       
+
         %{base_url}/users/password-reset/%{email_token}
     set_password:
       subject_template: "تنظیم رمز عبور [%{site_name}] "
