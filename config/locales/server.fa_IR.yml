@@ -16,7 +16,7 @@ fa_IR:
   post: "نوشته"
   topic: "موضوع"
   loading: "بارگذاری..."
-  powered_by_html: 'قدرت گرفته از<a href="http://www.discourse.org">دیسکورس</a>فارسی سازی<a href="http://discours.ir/t/1-0/33"> دیسکورس فارسی</a>, برای نمایش بهتر جاوا اسکریپت را فعال کنید.'
+  powered_by_html: 'قدرت گرفته از<a href="http://www.discourse.org">دیسکورس</a, برای نمایش بهتر جاوا اسکریپت را فعال کنید.'
   log_in: "ورود"
   via: "%{username} از %{site_name}"
   is_reserved: "محفوظ است"
