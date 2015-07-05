@@ -149,17 +149,27 @@ fa_IR:
   education:
     until_posts:
       other: "%{count} ارسال"
-    new-topic: "خوش آمدید به  %{site_name} &mdash; ** ممنون برای شروع گفتگو!**\n\n- آیا عنوان اونقدر جالب هست برای خواندن با صدای بلند ؟‌خلاصه ای خوبیه ؟ \n\n- چه کسی  به این علاقه مند خواهد شد؟ چرا می تونه مهم باشه؟ چه نوع پاسخی را می خواهید ؟ \n\n- به همراه کلمه های که عموما در جستار تو برای *پیدا* کردن استفاده میشه. برای گروه کردن جستارت با جستارهای مرتبط٬ و دسته بندی انتخابی. \n\nبرای بیشتر[دستورالعمل های انجمن را ببین](/guidelines). این پنل اول فقط به شما نشان داد می شه %{education_posts_text}.\n"
+    new-topic: |
+      به %{site_name} خوش آمدید   &mdash; **ممنون برای شروع گفتگو!**
+
+      - آیا عنوان آنقدر جالب هست که با صدای بلند خوانده شود؟ ‌خلاصه ی خوبی است؟
+
+      - چه کسی به این موضوع علاقه مند خواهد شد؟ چرا می تواند مهم باشد؟ چه نوع پاسخی را می خواهید؟
+
+      - کلمات معمول را در متن خود بگنجانید تا مطالب را بتوان راحتتر پیدا کرد، برای اینکه مطلب خود را با مطالب دیگر مرتبط کنید یک دسته بندی انتخاب کنید.
+
+      برای اطلاعات بیشتر[دستورالعمل های انجمن را ببین](/guidelines). این پنل فقط برای  %{education_posts_text} اول نشان داده میشود.
     new-reply: |
-      Welcome to %{site_name} &mdash; **thanks for contributing!**
+        به %{site_name} خوش آمدید &mdash; **از اینکه در سایت مشارکت می کنید ممنویم!**
 
-      - Does your reply improve the conversation in some way?
+          - آیا پاسخ شما به نحوی این گفتگو را بهتر میکند؟
 
-      - Be kind to your fellow community members.
+          - با کسانی که در وب سایت عضو هستند مهربان باشید.
 
-      - Constructive criticism is welcome, but criticize *ideas*, not people.
+          - انتقاد سازنده را با آغوش باز می پذیریم، اما ایده ها را نقد کنید نه افراد را.
 
-      For more, [see our community guidelines](/guidelines). This panel will only appear for your first %{education_posts_text}.
+        برای یافتن اطلاعات بیشتر به [راهنمای](/guidelines) سایت مراجعه نمایید. این پیغام تنها برای %{education_posts_text} اول شما نمایش داده میشود.
+
     avatar: |
       ### How about a new picture for your account?
 
@@ -1060,12 +1070,12 @@ fa_IR:
   invite_password_instructions:
     subject_template: "تنظیم رمز عبور برای حساب کاربری {site_name}%"
     text_body_template: |
-      Thanks for accepting your invitation to %{site_name} -- welcome!
+      از اینکه دعوت به سایت %{site_name} را پذیرفتید متشکریم -- خوش آمدید!
 
-      Click this link to choose a password now:
+      برای انتخاب گذرواژه این پیوند را کلیک کنید:
       %{base_url}/users/password-reset/%{email_token}
 
-      If you don't remember your password, or don't have one yet, choose "I forgot my password" when logging in with your email address.
+      اگر گذرواژه خود را به یاد ندارید، یا اگر گذرواژه ای ندارید، "گذرواژه‌ام را فراموش کرده‌ام" راانتخاب کنید زمانی که میخواهید وارد سیستم شوید
   test_mailer:
     subject_template: "[%{site_name}] ایمیل تست دهش"
     text_body_template: |
