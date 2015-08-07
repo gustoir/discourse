@@ -12,6 +12,7 @@
 # type: email    - Must be a valid email address.
 # type: username - Must match the username of an existing user.
 # type: list     - A list of values, chosen from a set of valid values defined in the choices option.
+# type: enum     - A single value, chosen from a set of valid values in the choices option.
 #
 # A type:list setting with the word 'colors' in its name will make color values have a bold line of the corresponding color
 #
@@ -107,8 +108,9 @@ basic:
   post_menu:
     client: true
     type: list
-    default: 'like|share|flag|edit|bookmark|delete|admin|reply'
+    default: 'like-count|like|share|flag|edit|bookmark|delete|admin|reply'
     choices:
+     - like-count
      - like
      - edit
      - flag
@@ -146,7 +148,11 @@ basic:
   category_style:
     client: true
     default: 'bullet'
-    enum: 'CategoryStyleSetting'
+    type: enum
+    choices:
+      - bar
+      - box
+      - bullet
     preview: '<span class="badge-wrapper {{value}}"><span class="badge-category-parent-bg" style="background-color: #aaa;"></span><span class="badge-category-bg" style="background-color: #777;"></span><span style="color: #fff;" data-drop-close="true" class="badge-category clear-badge">Category</span></span>'
   enable_mobile_theme:
     client: true
@@ -263,6 +269,9 @@ users:
     default: 20
     min: 8
     max: 60
+  reserved_usernames:
+    type: list
+    default: "admin|moderator|administrator|mod|sys|system|community|info|you|name|username|user|nickname|discourse|discourseorg|discourseforum|support"
   min_password_length:
     client: true
     default: 8
@@ -382,6 +391,9 @@ posting:
   traditional_markdown_linebreaks:
     client: true
     default: false
+  allow_html_tables:
+    client: true
+    default: false
   suppress_reply_directly_below:
     client: true
     default: true
@@ -484,6 +496,7 @@ email:
   pop3_polling_port: 995
   pop3_polling_username: ''
   pop3_polling_password: ''
+  log_mail_processing_failures: false
   email_in:
     default: false
     client: true
@@ -621,6 +634,7 @@ trust:
   tl3_promotion_min_duration:
     default: 14
     min: 0
+    max: 20000
   tl3_requires_likes_given:
     default: 30
     min: 0
@@ -671,6 +685,10 @@ spam:
   num_flaggers_to_close_topic: 5
   num_flags_to_close_topic: 12
   auto_respond_to_flag_actions: true
+  min_first_post_typing_time: 3000
+  auto_block_fast_typers_on_first_post: true
+  auto_block_fast_typers_max_trust_level: 0
+  auto_block_first_post_regex: ""
 
 rate_limits:
   unique_posts_mins:
@@ -679,7 +697,7 @@ rate_limits:
       default: 5
   rate_limit_create_topic: 15
   rate_limit_create_post: 5
-  rate_limit_new_user_create_topic: 60
+  rate_limit_new_user_create_topic: 120
   rate_limit_new_user_create_post: 30
   max_topics_per_day: 20
   max_private_messages_per_day: 20
@@ -689,7 +707,7 @@ rate_limits:
   max_edits_per_day: 30
   max_invites_per_day: 10
   max_topic_invitations_per_day: 30
-  max_topics_in_first_day: 5
+  max_topics_in_first_day: 3
   max_replies_in_first_day: 10
   tl2_additional_likes_per_day_multiplier: 1.5
   tl3_additional_likes_per_day_multiplier: 2
@@ -802,6 +820,10 @@ uncategorized:
     default: 'ascii'
     enum: 'SlugSetting'
 
+  permalink_normalizations:
+    default: ''
+    type: list
+
   # Search
   min_search_term_length:
     client: true
@@ -911,7 +933,7 @@ uncategorized:
 
   disable_edit_notifications: false
 
-  vacuum_db_days: 90
+  vacuum_db_days: 9000
   last_vacuum:
     default: 0
     hidden: true

@@ -165,13 +165,16 @@ class TopicsController < ApplicationController
   def status
     params.require(:status)
     params.require(:enabled)
-    status, topic_id  = params[:status], params[:topic_id].to_i
-    enabled = (params[:enabled] == 'true')
+    params.permit(:until)
+
+    status  = params[:status]
+    topic_id = params[:topic_id].to_i
+    enabled = params[:enabled] == 'true'
 
     check_for_status_presence(:status, status)
     @topic = Topic.find_by(id: topic_id)
     guardian.ensure_can_moderate!(@topic)
-    @topic.update_status(status, enabled, current_user)
+    @topic.update_status(status, enabled, current_user, until: params[:until])
     render nothing: true
   end
 
@@ -370,7 +373,8 @@ class TopicsController < ApplicationController
       current_user,
       params[:topic_id].to_i,
       params[:topic_time].to_i,
-      (params[:timings] || []).map{|post_number, t| [post_number.to_i, t.to_i]}
+      (params[:timings] || []).map{|post_number, t| [post_number.to_i, t.to_i]},
+      {mobile: view_context.mobile_view?}
     )
     render nothing: true
   end

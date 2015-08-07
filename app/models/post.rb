@@ -37,6 +37,7 @@ class Post < ActiveRecord::Base
   has_many :uploads, through: :post_uploads
 
   has_one :post_search_data
+  has_one :post_stat
 
   has_many :post_details
 
@@ -73,7 +74,7 @@ class Post < ActiveRecord::Base
   end
 
   def self.types
-    @types ||= Enum.new(:regular, :moderator_action)
+    @types ||= Enum.new(:regular, :moderator_action, :small_action)
   end
 
   def self.cook_methods
@@ -99,10 +100,10 @@ class Post < ActiveRecord::Base
     # consistency checks should fix, but message
     # is safe to skip
     MessageBus.publish("/topic/#{topic_id}", {
-        id: id,
-        post_number: post_number,
-        updated_at: Time.now,
-        type: type
+      id: id,
+      post_number: post_number,
+      updated_at: Time.now,
+      type: type
     }, group_ids: topic.secure_group_ids) if topic
   end
 
@@ -179,10 +180,12 @@ class Post < ActiveRecord::Base
 
     new_cooked = Plugin::Filter.apply(:after_post_cook, self, cooked)
 
-    if new_cooked != cooked && new_cooked.blank?
-      Rails.logger.warn("Plugin is blanking out post: #{self.url}\nraw: #{self.raw}")
-    elsif new_cooked.blank?
-      Rails.logger.warn("Blank post detected post: #{self.url}\nraw: #{self.raw}")
+    if post_type == Post.types[:regular]
+      if new_cooked != cooked && new_cooked.blank?
+        Rails.logger.warn("Plugin is blanking out post: #{self.url}\nraw: #{self.raw}")
+      elsif new_cooked.blank?
+        Rails.logger.warn("Blank post detected post: #{self.url}\nraw: #{self.raw}")
+      end
     end
 
     new_cooked
@@ -400,7 +403,7 @@ class Post < ActiveRecord::Base
     return if user_id == new_user.id
 
     edit_reason = I18n.t('change_owner.post_revision_text',
-      old_user: self.user.username_lower,
+      old_user: (self.user.username_lower rescue nil) || I18n.t('change_owner.deleted_user'),
       new_user: new_user.username_lower
     )
 

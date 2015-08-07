@@ -224,13 +224,13 @@ en:
       For more, [see our community guidelines](/guidelines). This panel will only appear for your first %{education_posts_text}.
 
     avatar: |
-      ### How about a new picture for your account?
+      ### How about a picture for your account?
 
-      You've posted a few topics and replies, but your avatar isn't as unique as you are -- it's the same default avatar all new users have.
+      You've posted a few topics and replies, but your profile picture isn't as unique as you are -- it's just a letter.
 
-      Have you considered **[visiting your user profile](%{profile_path})** and uploading a custom image that represents you?
+      Have you considered **[visiting your user profile](%{profile_path})** and uploading a picture that represents you?
 
-      It's easier to follow community discussions and find interesting people in conversations when everyone has a unique avatar!
+      It's easier to follow discussions and find interesting people in conversations when everyone has a unique profile picture!
 
     sequential_replies: |
       ### Consider replying to several posts at once
@@ -454,7 +454,7 @@ en:
         other: "almost %{count} years ago"
 
   password_reset:
-    no_token: "Sorry, that password change link is too old. Select 'I forgot my password' to get a new link."
+    no_token: "Sorry, that password change link is too old. Select the Log In button and use 'I forgot my password' to get a new link."
     choose_new: "Please choose a new password"
     choose: "Please choose a password"
     update: 'Update Password'
@@ -652,6 +652,14 @@ en:
       title: "Total"
       xaxis: "Day"
       yaxis: "Total API Requests"
+    page_view_logged_in_mobile_reqs:
+      title: "Logged In API Requests"
+      xaxis: "Day"
+      yaxis: "Mobile Logged In API Requests"
+    page_view_anon_mobile_reqs:
+      title: "Anon API Requests"
+      xaxis: "Day"
+      yaxis: "Mobile Anon API Requests"
     http_background_reqs:
       title: "Background"
       xaxis: "Day"
@@ -684,6 +692,10 @@ en:
       title: "Topics with no response"
       xaxis: "Day"
       yaxis: "Total"
+    mobile_visits:
+      title: "User Visits"
+      xaxis: "Day"
+      yaxis: "Number of visits"
 
   dashboard:
     rails_env_warning: "Your server is running in %{env} mode."
@@ -691,6 +703,7 @@ en:
     host_names_warning: "Your config/database.yml file is using the default localhost hostname. Update it to use your site's hostname."
     gc_warning: 'Your server is using default ruby garbage collection parameters, which will not give you the best performance. Read this topic on performance tuning: <a href="http://meta.discourse.org/t/tuning-ruby-and-rails-for-discourse/4126" target="_blank">Tuning Ruby and Rails for Discourse</a>.'
     sidekiq_warning: 'Sidekiq is not running. Many tasks, like sending emails, are executed asynchronously by sidekiq. Please ensure at least one sidekiq process is running. <a href="https://github.com/mperham/sidekiq" target="_blank">Learn about Sidekiq here</a>.'
+    queue_size_warning: 'The number of queued jobs is %{queue_size}, which is high. This could indicate a problem with the Sidekiq process(es), or you may need to add more Sidekiq workers.'
     memory_warning: 'Your server is running with less than 1 GB of total memory. At least 1 GB of memory is recommended.'
     google_oauth2_config_warning: 'The server is configured to allow signup and log in with Google OAuth2 (enable_google_oauth2_logins), but the client id and client secret values are not set. Go to <a href="/admin/site_settings">the Site Settings</a> and update the settings. <a href="https://meta.discourse.org/t/configuring-google-login-for-discourse/15858" target="_blank">See this guide to learn more</a>.'
     facebook_config_warning: 'The server is configured to allow signup and log in with Facebook (enable_facebook_logins), but the app id and app secret values are not set. Go to <a href="/admin/site_settings">the Site Settings</a> and update the settings. <a href="https://meta.discourse.org/t/configuring-facebook-login-for-discourse/13394" target="_blank">See this guide to learn more</a>.'
@@ -785,11 +798,11 @@ en:
     post_onebox_maxlength: "Maximum length of a oneboxed Discourse post in characters."
     onebox_domains_whitelist: "A list of domains to allow oneboxing for; these domains should support OpenGraph or oEmbed. Test them at http://iframely.com/debug"
 
-    logo_url: "The logo image at the top left of your site; if left blank, the site title text will be shown."
-    digest_logo_url: "The alternate logo used at the top of your site's email digest. If left blank `logo_url` will be used. eg: http://example.com/logo.png"
-    logo_small_url: "The small logo image at the top left of your site, seen when scrolling down. If left blank, a home glyph will be shown."
+    logo_url: "The logo image at the top left of your site, should be a wide rectangle shape. If left blank site title text will be shown."
+    digest_logo_url: "The alternate logo image used at the top of your site's email digest. Should be a wide rectangle shape. If left blank `logo_url` will be used."
+    logo_small_url: "The small logo image at the top left of your site, should be a square shape, seen when scrolling down. If left blank a home glyph will be shown."
     favicon_url: "A favicon for your site, see http://en.wikipedia.org/wiki/Favicon"
-    mobile_logo_url: "The fixed position logo image used at the top left of your mobile site. If left blank `logo_url` will be used."
+    mobile_logo_url: "The fixed position logo image used at the top left of your mobile site. Should be a square shape. If left blank, `logo_url` will be used. eg: http://example.com/uploads/default/logo.png"
     apple_touch_icon_url: "Icon used for Apple touch devices. Recommended size is 144px by 144px."
 
     notification_email: "The from: email address used when sending all essential system emails. The domain specified here must have SPF, DKIM and reverse PTR records set correctly for email to arrive."
@@ -830,6 +843,7 @@ en:
     flag_sockpuppets: "If a new user replies to a topic from the same IP address as the new user who started the topic, flag both of their posts as potential spam."
 
     traditional_markdown_linebreaks: "Use traditional linebreaks in Markdown, which require two trailing spaces for a linebreak."
+    allow_html_tables: "Allow tables to be entered in Markdown using HTML tags, TABLE, THEAD, TD, TR, TH are whiteliseted (requires full rebake on all old posts containing tables)"
     post_undo_action_window_mins: "Number of minutes users are allowed to undo recent actions on a post (like, flag, etc)."
     must_approve_users: "Staff must approve all new user accounts before they are allowed to access the site. WARNING: enabling this for a live site will revoke access for existing non-staff users!"
     ga_tracking_code: "Google analytics (ga.js) tracking code code, eg: UA-12345678-9; see http://google.com/analytics"
@@ -886,6 +900,8 @@ en:
 
     min_username_length: "Minimum username length in characters. WARNING: ANY EXISTING USERS WITH NAMES SHORTER THAN THIS WILL BE UNABLE TO ACCESS THE SITE."
     max_username_length: "Maximum username length in characters. WARNING: ANY EXISTING USERS WITH NAMES LONGER THAN THIS WILL BE UNABLE TO ACCESS THE SITE."
+
+    reserved_usernames: "Usernames for which signup is not allowed."
 
     min_password_length: "Minimum password length."
     block_common_passwords: "Don't allow passwords that are in the 10,000 most common passwords."
@@ -1062,6 +1078,10 @@ en:
     num_flags_to_close_topic: "Minimum number of active flags that is required to automatically pause a topic for intervention"
 
     auto_respond_to_flag_actions: "Enable automatic reply when disposing a flag."
+    min_first_post_typing_time: "Minimum amount of time in milliseconds a user must type during first post, if threshold is not met post will automatically enter the needs approval queue. Set to 0 to disable (not recommended)"
+    auto_block_fast_typers_on_first_post: "Automatically block users that do not meet min_first_post_typing_time"
+    auto_block_fast_typers_max_trust_level: "Maximum trust level to auto block fast typers"
+    auto_block_first_post_regex: "Case insensitive regex that if passed will cause first post by user to be blocked and sent to approval queue. Example: raging|a[bc]a , will cause all posts containing raging or aba or aca to be blocked on first. Only applies to first post."
 
     reply_by_email_enabled: "Enable replying to topics via email."
     reply_by_email_address: "Template for reply by email incoming email address, for example: %{reply_key}@reply.example.com or replies+%{reply_key}@example.com"
@@ -1078,6 +1098,7 @@ en:
     pop3_polling_host: "The host to poll for email via POP3."
     pop3_polling_username: "The username for the POP3 account to poll for email."
     pop3_polling_password: "The password for the POP3 account to poll for email."
+    log_mail_processing_failures: "Log all email processing failures to http://yoursitename.com/logs"
     email_in: "Allow users to post new topics via email (requires pop3 polling). Configure the addresses in the \"Settings\" tab of each category."
     email_in_min_trust: "The minimum trust level a user needs to have to be allowed to post new topics via email."
     email_prefix: "The [label] used in the subject of emails. It will default to 'title' if not set."
@@ -1092,8 +1113,8 @@ en:
     email_editable: "Allow users to change their e-mail address after registration."
     logout_redirect: "Location to redirect browser to after logout EG: (http://somesite.com/logout)"
 
-    allow_uploaded_avatars: "Allow users to upload custom avatars."
-    allow_animated_avatars: "Allow users to use animated gif avatars. WARNING: run the avatars:refresh rake task after changing this setting."
+    allow_uploaded_avatars: "Allow users to upload custom profile pictures."
+    allow_animated_avatars: "Allow users to use animated gif profile pictures. WARNING: run the avatars:refresh rake task after changing this setting."
     allow_animated_thumbnails: "Generates animated thumbnails of animated gifs."
     default_avatars: "URLs to avatars that will be used by default for new users until they change them."
     automatically_download_gravatars: "Download Gravatars for users upon account creation or email change."
@@ -1104,7 +1125,7 @@ en:
     disable_digest_emails: "Disable digest emails for all users."
     default_external_links_in_new_tab: "Open external links in a new tab. Users can change this in their preferences."
 
-    detect_custom_avatars: "Whether or not to check that users have uploaded custom avatars."
+    detect_custom_avatars: "Whether or not to check that users have uploaded custom profile pictures."
     max_daily_gravatar_crawls: "Maximum number of times Discourse will check Gravatar for custom avatars in a day"
     public_user_custom_fields: "A whitelist of custom fields for a user that can be shown publicly."
     staff_user_custom_fields: "A whitelist of custom fields for a user that can be shown to staff."
@@ -1124,6 +1145,8 @@ en:
     daily_performance_report: "Analyze NGINX logs daily and post a Staff Only topic with details"
 
     suppress_uncategorized_badge: "Don't show the badge for uncategorized topics in topic lists."
+
+    permalink_normalizations: "Apply the following regex before matching permalinks, for example: /(\\/topic.*)\\?.*/\\1 will strip query strings from topic routes. Format is regex+string use \\1 etc. to access captures"
 
     global_notice: "Display an URGENT, EMERGENCY global banner notice to all visitors, change to blank to hide it (HTML allowed)."
 
@@ -1224,14 +1247,15 @@ en:
 
   move_posts:
     new_topic_moderator_post:
-      one: "I moved a post to a new topic: %{topic_link}"
-      other: "I moved %{count} posts to a new topic: %{topic_link}"
+      one: "A post was split to a new topic: %{topic_link}"
+      other: "%{count} posts were split to a new topic: %{topic_link}"
     existing_topic_moderator_post:
-      one: "I moved a post to an existing topic: %{topic_link}"
-      other: "I moved %{count} posts to an existing topic: %{topic_link}"
+      one: "A post was merged into an existing topic: %{topic_link}"
+      other: "%{count} posts were merged into an existing topic: %{topic_link}"
 
   change_owner:
     post_revision_text: "Ownership transferred from %{old_user} to %{new_user}"
+    deleted_user: "a deleted user"
 
   emoji:
     errors:
@@ -1288,6 +1312,8 @@ en:
     omniauth_error_unknown: "Something went wrong processing your log in, please try again."
     new_registrations_disabled: "New account registrations are not allowed at this time."
     password_too_long: "Passwords are limited to 200 characters."
+    email_too_long: "The email you provided is too long. Mailbox names must be no more than 254 characters, and domain names must be no more than 253 characters."
+    reserved_username: "That username is not allowed."
     missing_user_field: "You have not completed all the user fields"
     close_window: "Authentication is complete. Close this window to continue."
 
@@ -1349,7 +1375,7 @@ en:
       Click this link to choose a password now:
       %{base_url}/users/password-reset/%{email_token}
 
-      If you don't remember your password, or don't have one yet, choose "I forgot my password" when logging in with your email address.
+      (If the link above has expired, choose "I forgot my password" when logging in with your email address.)
 
   test_mailer:
     subject_template: "[%{site_name}] Email Deliverability Test"
@@ -1521,6 +1547,10 @@ en:
         To use [standard Emoji](http://www.emoji.codes/), just type `:` to match by name, or use the traditional smileys `;)`
 
         <img src="%{base_url}/images/welcome/emoji-completion-2x.png" width="144" height="153">
+
+        To generate a summary for a link, paste it on a line by itself:
+
+        <img src="%{base_url}/images/welcome/link-oneboxing-animation.gif" width="480" height="228">
 
         ## Actions
 
@@ -1996,7 +2026,7 @@ en:
         (If you need to communicate with [staff members](%{base_url}/about) as a new user, just reply to this message.)
 
     signup:
-      subject_template: "[%{site_name}] Activate your new account"
+      subject_template: "[%{site_name}] Confirm your new account"
       text_body_template: |
         Welcome to %{site_name}!
 
@@ -2033,8 +2063,6 @@ en:
       too_large: "Sorry, the file you are trying to upload is too big (maximum size is %{max_size_kb}KB)."
     images:
       too_large: "Sorry, the image you are trying to upload is too big (maximum size is %{max_size_kb}KB), please resize it and try again."
-      fetch_failure: "Sorry, there has been an error while fetching the image."
-      unknown_image_type: "Sorry, but the file you tried to upload doesn't appear to be an image."
       size_not_found: "Sorry, but we couldn't determine the size of the image. Maybe your image is corrupted?"
 
   flag_reason:
@@ -2166,7 +2194,7 @@ en:
 
       ## [Powered by You](#power)
 
-      This site is operated by your [friendly local staff](/about) and *you*, the community. If you have any further questions about how things should work here, open a new topic in the [meta category](/c/meta) and let's discuss! If there's a critical or urgent issue that can't be handled by a meta topic or flag, contact us via the [staff page](/about).
+      This site is operated by your [friendly local staff](/about) and *you*, the community. If you have any further questions about how things should work here, open a new topic in the [site feedback category](/c/site-feedback) and let's discuss! If there's a critical or urgent issue that can't be handled by a meta topic or flag, contact us via the [staff page](/about).
 
       <a name="tos"></a>
 
@@ -2283,7 +2311,7 @@ en:
 
       ## [14. Disclaimer of Warranties](#14)
 
-      The Website is provided "as is". %{company_name} and its suppliers and licensors hereby disclaim all warranties of any kind, express or implied, including, without limitation, the warranties of merchantability, fitness for a particular purpose and non-infringement. Neither %{company_name} nor its suppliers and licensors, makes any warranty that the Website will be error free or that cess thereto will be continuous or uninterrupted. If you’re actually reading this, here’s [a treat](http://www.newyorker.com/online/blogs/shouts/2012/12/the-hundred-best-lists-of-all-time.html). You understand that you download from, or otherwise obtain content or services through, the Website at your own discretion and risk.
+      The Website is provided "as is". %{company_name} and its suppliers and licensors hereby disclaim all warranties of any kind, express or implied, including, without limitation, the warranties of merchantability, fitness for a particular purpose and non-infringement. Neither %{company_name} nor its suppliers and licensors, makes any warranty that the Website will be error free or that access thereto will be continuous or uninterrupted. If you’re actually reading this, here’s [a treat](http://www.newyorker.com/online/blogs/shouts/2012/12/the-hundred-best-lists-of-all-time.html). You understand that you download from, or otherwise obtain content or services through, the Website at your own discretion and risk.
 
       <a name="15"></a>
 
@@ -2426,78 +2454,54 @@ en:
   badges:
     long_descriptions:
       autobiographer: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for filling out <a href="/my/preferences">your user profile</a> and selecting a profile picture. Letting the community know more about who you are and what you're interested in makes for a better, more connected community.
       first_like: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted the first time you like a post using the :heart: button. Liking posts is a great way to let your fellow community members know that what they posted was interesting, useful, cool, or fun. Share the love!
       first_link: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted the first time you place a link to another topic in a reply. Linking topics helps fellow readers find interesting related conversations, by showing connections between topics in both directions.
       first_quote: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted the first time you quote a post in your reply. Quoting relevant sections of earlier posts in your reply helps keep discussions focused and on topic.
       first_share: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted the first time you share a link to a reply or topic using the share button. Sharing links is a great way to show off interesting discussions with the rest of the world and grow your community.
       read_guidelines: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for <a href="/guidelines">reading the community guidelines</a>. Following and sharing these simple guidelines helps build a safe, fun, and sustainable community.
       reader: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for reading a long topic. Reading is fundamental. Reading closely helps you follow the conversation and leads to better, more complete replies.
       editor: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for editing your post. Don't hesitate to edit your posts any time to improve them, fix small mistakes, or add anything you forgot.
       first_flag: |
-        Flagging is critical to the health of your community. If you notice any posts that require moderator attention please
-        do not hesitate to flag. You may also use the flagging dialog to send <b>messages</b> to users once you reach
-        trust level 1.
+        This badge is granted for flagging a post. Flagging is critical to the health of your community. If you notice any posts that require moderator attention please
+        do not hesitate to flag. You may also use the flagging dialog to send <b>messages</b> to fellow users.
       nice_share: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for sharing a link to a post that's visited by 25 outside visitors. Nice job! Sharing links to interesting discussions with friends is an excellent way to grow our community.
       welcome: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted when you receive your first like on a post. Congratulations, you've posted something that your fellow community members found interesting, cool, or useful!
       anniversary: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted when you've been a member for a year with at least one post in that year. Thanks for sticking around and contributing to our community!
       good_share: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for sharing a link to a post that's visited by 300 outside visitors. Good work! You've shown off an interesting discussion to a <i>lot</i> of new people and helped us grow.
       great_share: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for sharing a link to a post that's visited by 100 outside visitors. Wow! You've promoted an interesting discussion to a huge new audience for this community, and helped us grow in a big way.
       nice_post: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for creating a reply that gets 10 likes. Nice job!
       nice_topic: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for creating a topic that gets 10 likes. Nice job!
       good_post: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for creating a reply that gets 25 likes. Good work!
       good_topic: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for creating a topic that gets 25 likes. Good work!
       great_post: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for creating a post that gets 50 likes. Wow!
       great_topic: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted for creating a reply that gets 50 likes. Wow!
       basic: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted when you reach trust level 1. Thanks for sticking around a little while and reading a few topics to learn what our community is about. Your new user restrictions have been lifted, and you've been granted all essential community abilities, such as personal messaging, flagging, wiki editing, and the ability to post images and multiple links.
       member: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted when you reach trust level 2. Thanks for participating over a period of weeks to more join our community. You can now send personal invitations from your user page or individual topics, create group messages, and a few more likes per day.
       regular: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted when you reach trust level 3. Thanks for being a regular part of our community over a period of months, one of the most active readers and a reliable contributor to what makes this community great. You can now recategorize and rename topics, access a private lounge area, more powerful spam flags, and lots more likes per day.
       leader: |
-        Blah blah blah
-        Blah blah blah
+        This badge is granted when you reach trust level 4. You're a leader in this community as selected by staff, and set a positive example for the community in your deeds and words. You have the ability to edit all posts, take topic moderator actions such as pin, close, unlist, archive, split, and merge, and tons of likes per day.
 
   admin_login:
     success: "Email Sent"

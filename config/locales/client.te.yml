@@ -8,9 +8,6 @@
 te:
   js:
     number:
-      format:
-        separator: "."
-        delimiter: ","
       human:
         storage_units:
           format: '%n %u'
@@ -22,9 +19,6 @@ te:
             kb: కేబీ
             mb: యంబీ
             tb: టీబీ
-      short:
-        thousands: "{{number}}k"
-        millions: "{{number}}M"
     dates:
       time: "h:mm a"
       long_no_year: "MMM D h:mm a"
@@ -412,7 +406,6 @@ te:
         every_three_days: "ప్రతి మూడు రోజులకీ"
         weekly: "ప్రతీవారం"
         every_two_weeks: "ప్రతి రెండు వారాలకీ"
-      email_always: "నేను ఈసైటుపై క్రియాశీలంగా ఉన్నా నాకు ఈమెయిల్ పంపుట ఆపవద్దు"
       other_settings: "ఇతర"
       categories_settings: "వర్గాలు"
       new_topic_duration:
@@ -683,7 +676,6 @@ te:
       remote_tip: "బొమ్మకు లంకె"
       remote_tip_with_attachments: "బొమ్మకు లేదా దస్త్రానికి లంకె ({{authorized_extensions}})"
       hint: "(మీరు వాటిని ఎడిటరులోకి లాగి వదిలెయ్యటు ద్వారా కూడా ఎగుమతించవచ్చు)"
-      hint_for_supported_browsers: "(మీరు వాటిని ఎడిటరులోకి లాగి వదిలెయ్యటు ద్వారా కూడా ఎగుమతించవచ్చు)"
       uploading: "ఎగుమతవుతోంది"
       image_link: "మీ బొమ్మ చూపే లంకె"
     search:
@@ -930,9 +922,6 @@ te:
       expand_collapse: "పెంచు/తుంచు"
       more_links: "{{count}} ఇంకా..."
       unread: "టపా చదవనిది"
-      has_replies:
-        one: "జవాబు"
-        other: "జవాబులు"
       errors:
         create: "క్షమించాలి. మీ టపా సృష్టించుటలో దోషం. దయచేసి మరలా ప్రయత్నించండి. "
         edit: "క్షమించాలి. మీ టపా సవరించుటలో దోషం. మరలా ప్రయత్నించండి"
@@ -1220,7 +1209,6 @@ te:
       with_topics: "%{filter} విషయాలు"
       with_category: "%{filter} %{category} విషయాలు"
       latest:
-        title: "తాజా"
         help: "ఇటీవలి టపాలతోని విషయాలు"
       hot:
         title: "వేడివేడి"
@@ -1266,9 +1254,6 @@ te:
       top:
         title: "అగ్ర"
         help: "గత సంవత్సరం, నెల, వారం లేదా రోజులోని అత్యంత క్రియాశీల విషయాలు"
-        this_year: "ఈ సంవత్సరం"
-        this_month: "ఈ నెల"
-        this_week: "ఈ వారం"
         today: "ఈ రోజు"
     browser_update: 'దురదృష్టవశాత్తు, <a href="http://www.discourse.org/faq/#browser">ఈ సైట్ లో పనిచేయడానికి మీ బ్రౌజర్ చాలా పాతది </a>. దయచేసి <a href="http://browsehappy.com">మీ బ్రౌజర్ ని నవీకరించండి</a>.'
     permission_types:

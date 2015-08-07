@@ -115,7 +115,7 @@ export default Ember.ObjectController.extend(Presence, {
     const c = this.get('model');
     if (c) {
       opts = opts || {};
-      const wmd = $('#wmd-input'),
+      const wmd = $('.wmd-input'),
             val = wmd.val() || '',
             position = opts.position === "cursor" ? wmd.caret() : val.length,
             caret = c.appendText(text, position, opts);
@@ -168,15 +168,15 @@ export default Ember.ObjectController.extend(Presence, {
   }.property('model.loading'),
 
   save(force) {
-    const composer = this.get('model'),
-          self = this;
+    const composer = this.get('model');
+    const self = this;
 
     // Clear the warning state if we're not showing the checkbox anymore
     if (!this.get('showWarning')) {
       this.set('model.isWarning', false);
     }
 
-    if(composer.get('cantSubmitPost')) {
+    if (composer.get('cantSubmitPost')) {
       const now = Date.now();
       this.setProperties({
         'view.showTitleTip': now,
@@ -413,7 +413,7 @@ export default Ember.ObjectController.extend(Presence, {
       }
 
       // we need a draft sequence for the composer to work
-      if (opts.draftSequence === void 0) {
+      if (opts.draftSequence === undefined) {
         return Discourse.Draft.get(opts.draftKey).then(function(data) {
           opts.draftSequence = data.draft_sequence;
           opts.draft = data.draft;
@@ -536,7 +536,7 @@ export default Ember.ObjectController.extend(Presence, {
   },
 
   closeAutocomplete() {
-    $('#wmd-input').autocomplete({ cancel: true });
+    $('.wmd-input').autocomplete({ cancel: true });
   },
 
   showOptions() {

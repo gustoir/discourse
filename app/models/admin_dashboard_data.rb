@@ -1,6 +1,7 @@
 require_dependency 'mem_info'
 
 class AdminDashboardData
+  include StatsCacheable
 
   GLOBAL_REPORTS ||= [
     'visits',
@@ -15,7 +16,7 @@ class AdminDashboardData
     'emails',
   ]
 
-  PAGE_VIEW_REPORTS ||= ['page_view_total_reqs'] + ApplicationRequest.req_types.keys.select { |r| r =~ /^page_view_/ }.map { |r| r + "_reqs" }
+  PAGE_VIEW_REPORTS ||= ['page_view_total_reqs'] + ApplicationRequest.req_types.keys.select { |r| r =~ /^page_view_/ && r !~ /mobile/ }.map { |r| r + "_reqs" }
 
   PRIVATE_MESSAGE_REPORTS ||= [
     'user_to_user_private_messages',
@@ -29,14 +30,14 @@ class AdminDashboardData
 
   USER_REPORTS ||= ['users_by_trust_level']
 
-  # TODO: MOBILE_REPORTS
+  MOBILE_REPORTS ||= ['mobile_visits'] + ApplicationRequest.req_types.keys.select {|r| r =~ /mobile/}.map { |r| r + "_reqs" }
 
   def problems
     [ rails_env_check,
       ruby_version_check,
       host_names_check,
       gc_checks,
-      sidekiq_check,
+      sidekiq_check || queue_size_check,
       ram_check,
       google_oauth2_config_check,
       facebook_config_check,
@@ -57,13 +58,7 @@ class AdminDashboardData
 
 
   def self.fetch_stats
-    AdminDashboardData.new
-  end
-
-  def self.fetch_cached_stats
-    # The DashboardStats job is responsible for generating and caching this.
-    stats = $redis.get(stats_cache_key)
-    stats ? JSON.parse(stats) : nil
+    AdminDashboardData.new.as_json
   end
 
   def self.stats_cache_key
@@ -81,6 +76,7 @@ class AdminDashboardData
       private_message_reports: AdminDashboardData.reports(PRIVATE_MESSAGE_REPORTS),
       http_reports: AdminDashboardData.reports(HTTP_REPORTS),
       user_reports: AdminDashboardData.reports(USER_REPORTS),
+      mobile_reports: AdminDashboardData.reports(MOBILE_REPORTS),
       admins: User.admins.count,
       moderators: User.moderators.count,
       suspended: User.suspended.count,
@@ -94,11 +90,6 @@ class AdminDashboardData
 
   def self.reports(source)
     source.map { |type| Report.find(type).as_json }
-  end
-
-  # Could be configurable, multisite need to support it.
-  def self.recalculate_interval
-    30 # minutes
   end
 
   def rails_env_check
@@ -116,6 +107,11 @@ class AdminDashboardData
   def sidekiq_check
     last_job_performed_at = Jobs.last_job_performed_at
     I18n.t('dashboard.sidekiq_warning') if Jobs.queued > 0 and (last_job_performed_at.nil? or last_job_performed_at < 2.minutes.ago)
+  end
+
+  def queue_size_check
+    queue_size = Jobs.queued
+    I18n.t('dashboard.queue_size_warning', queue_size: queue_size) unless queue_size < 100_000
   end
 
   def ram_check

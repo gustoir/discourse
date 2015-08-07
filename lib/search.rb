@@ -99,6 +99,7 @@ class Search
     @guardian = @opts[:guardian] || Guardian.new
     @search_context = @opts[:search_context]
     @include_blurbs = @opts[:include_blurbs] || false
+    @blurb_length = @opts[:blurb_length]
     @limit = Search.per_facet
 
     term = process_advanced_search!(term)
@@ -116,7 +117,7 @@ class Search
       @limit = Search.per_filter
     end
 
-    @results = GroupedSearchResults.new(@opts[:type_filter], term, @search_context, @include_blurbs)
+    @results = GroupedSearchResults.new(@opts[:type_filter], term, @search_context, @include_blurbs, @blurb_length)
   end
 
   def self.execute(term, opts=nil)
@@ -214,12 +215,12 @@ class Search
   end
 
   advanced_filter(/category:(.+)/) do |posts,match|
-    category_id = Category.find_by('name ilike ?', match).try(:id)
+    category_id = Category.find_by('name ilike ? OR id = ?', match, match.to_i).try(:id)
     posts.where("topics.category_id = ?", category_id)
   end
 
   advanced_filter(/user:(.+)/) do |posts,match|
-    user_id = User.find_by('username_lower = ?', match.downcase).try(:id)
+    user_id = User.find_by('username_lower = ? OR id = ?', match.downcase, match.to_i).try(:id)
     posts.where("posts.user_id = #{user_id}")
   end
 

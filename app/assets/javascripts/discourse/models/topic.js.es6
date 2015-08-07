@@ -1,22 +1,12 @@
+import { flushMap } from 'discourse/models/store';
 import RestModel from 'discourse/models/rest';
 
 const Topic = RestModel.extend({
   message: null,
-  errorTitle: null,
   errorLoading: false,
 
   fancyTitle: function() {
-    let title = this.get("fancy_title");
-
-    if (Discourse.SiteSettings.enable_emoji && title.indexOf(":") >= 0) {
-      title = title.replace(/:[^\s:]+:?/g, function(m) {
-        const emoji = Discourse.Emoji.translations[m] ? Discourse.Emoji.translations[m] : m.slice(1, m.length - 1),
-              url = Discourse.Emoji.urlFor(emoji);
-        return url ? "<img src='" + url + "' title='" + emoji + "' alt='" + emoji + "' class='emoji'>" : m;
-      });
-    }
-
-    return title;
+    return Discourse.Emoji.unescape(this.get('fancy_title'));
   }.property("fancy_title"),
 
   // returns createdAt if there's no bumped date
@@ -80,7 +70,7 @@ const Topic = RestModel.extend({
   }.property('url'),
 
   url: function() {
-    let slug = this.get('slug');
+    let slug = this.get('slug') || '';
     if (slug.trim().length === 0) {
       slug = "topic";
     }
@@ -164,13 +154,17 @@ const Topic = RestModel.extend({
     this.saveStatus(property, !!this.get(property));
   },
 
-  saveStatus(property, value) {
+  saveStatus(property, value, until) {
     if (property === 'closed' && value === true) {
       this.set('details.auto_close_at', null);
     }
     return Discourse.ajax(this.get('url') + "/status", {
       type: 'PUT',
-      data: { status: property, enabled: !!value }
+      data: {
+        status: property,
+        enabled: !!value,
+        until: until
+      }
     });
   },
 
@@ -469,28 +463,6 @@ Topic.reopenClass({
     return Discourse.ajax(url + ".json", {data: data});
   },
 
-  mergeTopic(topicId, destinationTopicId) {
-    const promise = Discourse.ajax("/t/" + topicId + "/merge-topic", {
-      type: 'POST',
-      data: {destination_topic_id: destinationTopicId}
-    }).then(function (result) {
-      if (result.success) return result;
-      promise.reject(new Error("error merging topic"));
-    });
-    return promise;
-  },
-
-  movePosts(topicId, opts) {
-    const promise = Discourse.ajax("/t/" + topicId + "/move-posts", {
-      type: 'POST',
-      data: opts
-    }).then(function (result) {
-      if (result.success) return result;
-      promise.reject(new Error("error moving posts topic"));
-    });
-    return promise;
-  },
-
   changeOwners(topicId, opts) {
     const promise = Discourse.ajax("/t/" + topicId + "/change-owner", {
       type: 'POST',
@@ -529,5 +501,25 @@ Topic.reopenClass({
     return Discourse.ajax("/t/id_for/" + slug);
   }
 });
+
+function moveResult(result) {
+  if (result.success) {
+    // We should be hesitant to flush the map but moving ids is one rare case
+    flushMap();
+    return result;
+  }
+  throw "error moving posts topic";
+}
+
+export function movePosts(topicId, data) {
+  return Discourse.ajax("/t/" + topicId + "/move-posts", { type: 'POST', data }).then(moveResult);
+}
+
+export function mergeTopic(topicId, destinationTopicId) {
+  return Discourse.ajax("/t/" + topicId + "/merge-topic", {
+    type: 'POST',
+    data: {destination_topic_id: destinationTopicId}
+  }).then(moveResult);
+}
 
 export default Topic;

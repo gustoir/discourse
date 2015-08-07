@@ -1,6 +1,6 @@
 class UploadsController < ApplicationController
   before_filter :ensure_logged_in, except: [:show]
-  skip_before_filter :preload_json, :check_xhr, only: [:show]
+  skip_before_filter :preload_json, :check_xhr, :redirect_to_login_if_required, only: [:show]
 
   def create
     type = params.require(:type)
@@ -30,6 +30,7 @@ class UploadsController < ApplicationController
     RailsMultisite::ConnectionManagement.with_connection(params[:site]) do |db|
       return render_404 unless Discourse.store.internal?
       return render_404 if SiteSetting.prevent_anons_from_downloading_files && current_user.nil?
+      return render_404 if SiteSetting.login_required? && db == "default" && current_user.nil?
 
       if upload = Upload.find_by(sha1: params[:sha]) || Upload.find_by(id: params[:id], url: request.env["PATH_INFO"])
         opts = { filename: upload.original_filename }
@@ -59,13 +60,7 @@ class UploadsController < ApplicationController
         content_type = file.content_type
       end
 
-      # when we're dealing with an avatar, crop it to its maximum size
-      if type == "avatar" && FileHelper.is_image?(filename)
-        max = Discourse.avatar_sizes.max
-        OptimizedImage.resize(tempfile.path, tempfile.path, max, max, allow_animation: SiteSetting.allow_animated_avatars)
-      end
-
-      upload = Upload.create_for(current_user.id, tempfile, filename, tempfile.size, content_type: content_type)
+      upload = Upload.create_for(current_user.id, tempfile, filename, tempfile.size, content_type: content_type, image_type: type)
 
       if upload.errors.empty? && current_user.admin?
         retain_hours = params[:retain_hours].to_i

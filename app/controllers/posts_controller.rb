@@ -88,7 +88,18 @@ class PostsController < ApplicationController
   end
 
   def create
+
+    if !is_api? && current_user.blocked?
+
+      # error has parity with what user would get if they posted when blocked
+      # and it went through post creator
+      render json: {errors: [I18n.t("topic_not_found")]}, status: 422
+      return
+    end
+
     @manager_params = create_params
+    @manager_params[:first_post_checks] = !is_api?
+
     manager = NewPostManager.new(current_user, @manager_params)
 
     if is_api?
@@ -131,8 +142,14 @@ class PostsController < ApplicationController
       changes[:category_id] = params[:post][:category_id] if params[:post][:category_id]
     end
 
+    # We don't need to validate edits to small action posts by staff
+    opts = {}
+    if post.post_type == Post.types[:small_action] && current_user.staff?
+      opts[:skip_validations] = true
+    end
+
     revisor = PostRevisor.new(post)
-    if revisor.revise!(current_user, changes)
+    if revisor.revise!(current_user, changes, opts)
       TopicLink.extract_from(post)
       QuotedPost.extract_from(post)
     end
@@ -347,7 +364,7 @@ class PostsController < ApplicationController
   # If a param is present it uses that result structure.
   def backwards_compatible_json(json_obj, success)
     json_obj.symbolize_keys!
-    if params[:nested_post].blank? && json_obj[:errors].blank?
+    if params[:nested_post].blank? && json_obj[:errors].blank? && json_obj[:action] != :enqueued
       json_obj = json_obj[:post]
     end
 
@@ -397,7 +414,6 @@ class PostsController < ApplicationController
       # Awful hack, but you can't seem to remove the `default_scope` when joining
       # So instead I grab the topics separately
       topic_ids = posts.dup.pluck(:topic_id)
-      secured_category_ids = guardian.secure_category_ids
       topics = Topic.where(id: topic_ids).with_deleted.where.not(archetype: 'private_message')
       topics = topics.secured(guardian)
 
@@ -416,7 +432,9 @@ class PostsController < ApplicationController
       :category,
       :target_usernames,
       :reply_to_post_number,
-      :auto_track
+      :auto_track,
+      :typing_duration_msecs,
+      :composer_open_duration_msecs
     ]
 
     # param munging for WordPress

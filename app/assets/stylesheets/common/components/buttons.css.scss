@@ -5,6 +5,7 @@
 // Base
 // --------------------------------------------------
 
+
 .btn {
   display: inline-block;
   margin: 0;
@@ -125,20 +126,20 @@
     color: $secondary;
   }
   &:before {
-    margin-right: 7px;
-    font-family: zocial;
-    line-height: 0.9;
+    margin-right: 9px;
+    font-family: FontAwesome;
+    font-size: 17px;
   }
   &.google, &.google_oauth2 {
     background: $google;
     &:before {
-      content: "G";
+      content: $fa-var-google;
     }
   }
   &.facebook {
     background: $facebook;
     &:before {
-      content: "f";
+      content: $fa-var-facebook;
     }
   }
   &.cas {
@@ -147,19 +148,19 @@
   &.twitter {
     background: $twitter;
     &:before {
-      content: "T";
+      content: $fa-var-twitter;
     }
   }
   &.yahoo {
     background: $yahoo;
     &:before {
-      content: "Y";
+      content: $fa-var-yahoo;
     }
   }
   &.github {
     background: $github;
     &:before {
-      content: "g";
+      content: $fa-var-github;
     }
   }
 }
