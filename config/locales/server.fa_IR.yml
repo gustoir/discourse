@@ -504,7 +504,7 @@ fa_IR:
       xaxis: "روز"
       yaxis: "تعداد پیام ها"
     moderator_warning_private_messages:
-      title: "هشدل مدیر"
+      title: "هشدار مدیر"
       xaxis: "روز"
       yaxis: "تعداد پیام ها"
     notify_moderators_private_messages:
