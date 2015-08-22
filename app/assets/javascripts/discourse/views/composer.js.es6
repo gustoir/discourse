@@ -3,9 +3,10 @@ import afterTransition from 'discourse/lib/after-transition';
 import loadScript from 'discourse/lib/load-script';
 import avatarTemplate from 'discourse/lib/avatar-template';
 import positioningWorkaround from 'discourse/lib/safari-hacks';
+import debounce from 'discourse/lib/debounce';
 import { linkSeenMentions, fetchUnseenMentions } from 'discourse/lib/link-mentions';
 
-const ComposerView = Discourse.View.extend(Ember.Evented, {
+const ComposerView = Ember.View.extend(Ember.Evented, {
   _lastKeyTimeout: null,
   templateName: 'composer',
   elementId: 'reply-control',
@@ -37,10 +38,10 @@ const ComposerView = Discourse.View.extend(Ember.Evented, {
   }.observes('loading'),
 
   postMade: function() {
-    return this.present('model.createdPost') ? 'created-post' : null;
+    return !Ember.isEmpty(this.get('model.createdPost')) ? 'created-post' : null;
   }.property('model.createdPost'),
 
-  refreshPreview: Discourse.debounce(function() {
+  refreshPreview: debounce(function() {
     if (this.editor) {
       this.editor.refreshPreview();
     }
@@ -130,7 +131,6 @@ const ComposerView = Discourse.View.extend(Ember.Evented, {
       onDrag(sizePx) { self.movePanels.apply(self, [sizePx]); }
     });
     afterTransition($replyControl, resizer);
-    this.ensureMaximumDimensionForImagesInPreview();
     this.set('controller.view', this);
 
     positioningWorkaround(this.$());
@@ -139,21 +139,6 @@ const ComposerView = Discourse.View.extend(Ember.Evented, {
   _unlinkView: function() {
     this.set('controller.view', null);
   }.on('willDestroyElement'),
-
-  ensureMaximumDimensionForImagesInPreview() {
-    // This enforce maximum dimensions of images in the preview according
-    // to the current site settings.
-    // For interactivity, we immediately insert the locally cooked version
-    // of the post into the stream when the user hits reply. We therefore also
-    // need to enforce these rules on the .cooked version.
-    // Meanwhile, the server is busy post-processing the post and generating thumbnails.
-    const style = Discourse.Mobile.mobileView ?
-                'max-width: 100%; height: auto;' :
-                'max-width:' + Discourse.SiteSettings.max_image_width + 'px;' +
-                'max-height:' + Discourse.SiteSettings.max_image_height + 'px;';
-
-    $('<style>#reply-control .wmd-preview img:not(.thumbnail), .cooked img:not(.thumbnail) {' + style + '}</style>').appendTo('head');
-  },
 
   click() {
     this.get('controller').send('openIfDraft');
@@ -232,7 +217,7 @@ const ComposerView = Discourse.View.extend(Ember.Evented, {
   initEditor() {
     // not quite right, need a callback to pass in, meaning this gets called once,
     // but if you start replying to another topic it will get the avatars wrong
-    let $wmdInput, editor;
+    let $wmdInput;
     const self = this;
     this.wmdInput = $wmdInput = this.$('.wmd-input');
     if ($wmdInput.length === 0 || $wmdInput.data('init') === true) return;
@@ -258,7 +243,7 @@ const ComposerView = Discourse.View.extend(Ember.Evented, {
       }
     });
 
-    this.editor = editor = Discourse.Markdown.createEditor({
+    this.editor = Discourse.Markdown.createEditor({
       containerElement: this.element,
       lookupAvatarByPostNumber(postNumber, topicId) {
         const posts = self.get('controller.controllers.topic.model.postStream.posts');
@@ -295,7 +280,7 @@ const ComposerView = Discourse.View.extend(Ember.Evented, {
     this.set('editor', this.editor);
     this.loadingChanged();
 
-    const saveDraft = Discourse.debounce((function() {
+    const saveDraft = debounce((function() {
       return self.get('controller').saveDraft();
     }), 2000);
 
@@ -548,10 +533,13 @@ const ComposerView = Discourse.View.extend(Ember.Evented, {
     const self = this;
 
     Em.run.next(() => {
-      const sizePx = self.get('composeState') === Discourse.Composer.CLOSED ? 0 : $('#reply-control').height();
-      $('#main-outlet').css('padding-bottom', sizePx);
+      $('#main-outlet').css('padding-bottom', 0);
       // need to wait a bit for the "slide down" transition of the composer
       Em.run.later(() => {
+        if (self.get('composeState') !== Discourse.Composer.CLOSED) {
+          $('#main-outlet').css('padding-bottom', $('#reply-control').height());
+        }
+
         this.appEvents.trigger("composer:closed");
       }, 400);
     });

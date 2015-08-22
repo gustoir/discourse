@@ -1,5 +1,7 @@
 import { flushMap } from 'discourse/models/store';
 import RestModel from 'discourse/models/rest';
+import { propertyEqual } from 'discourse/lib/computed';
+import { longDate } from 'discourse/lib/formatter';
 
 const Topic = RestModel.extend({
   message: null,
@@ -20,8 +22,8 @@ const Topic = RestModel.extend({
   }.property('bumped_at', 'createdAt'),
 
   bumpedAtTitle: function() {
-    return I18n.t('first_post') + ": " + Discourse.Formatter.longDate(this.get('createdAt')) + "\n" +
-           I18n.t('last_post') + ": " + Discourse.Formatter.longDate(this.get('bumpedAt'));
+    return I18n.t('first_post') + ": " + longDate(this.get('createdAt')) + "\n" +
+           I18n.t('last_post') + ": " + longDate(this.get('bumpedAt'));
   }.property('bumpedAt'),
 
   createdAt: function() {
@@ -155,8 +157,12 @@ const Topic = RestModel.extend({
   },
 
   saveStatus(property, value, until) {
-    if (property === 'closed' && value === true) {
-      this.set('details.auto_close_at', null);
+    if (property === 'closed') {
+      this.incrementProperty('posts_count');
+
+      if (value === true) {
+        this.set('details.auto_close_at', null);
+      }
     }
     return Discourse.ajax(this.get('url') + "/status", {
       type: 'PUT',
@@ -364,7 +370,7 @@ const Topic = RestModel.extend({
     return( e && e.substr(e.length - 8,8) === '&hellip;' );
   }.property('excerpt'),
 
-  readLastPost: Discourse.computed.propertyEqual('last_read_post_number', 'highest_post_number'),
+  readLastPost: propertyEqual('last_read_post_number', 'highest_post_number'),
   canClearPin: Em.computed.and('pinned', 'readLastPost')
 
 });
@@ -470,6 +476,17 @@ Topic.reopenClass({
     }).then(function (result) {
       if (result.success) return result;
       promise.reject(new Error("error changing ownership of posts"));
+    });
+    return promise;
+  },
+
+  changeTimestamp(topicId, timestamp) {
+    const promise = Discourse.ajax("/t/" + topicId + '/change-timestamp', {
+      type: 'PUT',
+      data: { timestamp: timestamp },
+    }).then(function(result) {
+      if (result.success) return result;
+      promise.reject(new Error("error updating timestamp of topic"));
     });
     return promise;
   },

@@ -109,24 +109,25 @@ es:
       google+: 'comparte este enlace en Google+'
       email: 'comparte este enlace por email'
     action_codes:
+      split_topic: "dividió este tema"
       autoclosed:
-        enabled: 'cerró este tema %{when}'
-        disabled: 'abrió este tema %{when}'
+        enabled: 'cerrado %{when}'
+        disabled: 'abierto %{when}'
       closed:
-        enabled: 'cerró este tema %{when}'
-        disabled: 'abrió este tema %{when}'
+        enabled: 'cerrado %{when}'
+        disabled: 'abierto %{when}'
       archived:
-        enabled: 'archivó este tema %{when}'
-        disabled: 'desarchivó este tema %{when}'
+        enabled: 'archivado %{when}'
+        disabled: 'desarchivado %{when}'
       pinned:
-        enabled: 'puso este tema como destacado %{when}'
-        disabled: 'quitó este tema como destacado %{when}'
+        enabled: 'destacado %{when}'
+        disabled: 'sin destacar %{when}'
       pinned_globally:
-        enabled: 'puso en destacados este team de forma global %{when}'
-        disabled: 'quitó este tema de destacados  %{when}'
+        enabled: 'destacado globalmente %{when}'
+        disabled: 'sin destacar %{when}'
       visible:
-        enabled: 'puso en lista este tema  %{when}'
-        disabled: 'quitó de la lista este tema %{when}'
+        enabled: 'listado %{when}'
+        disabled: 'sin listar %{when}'
     topic_admin_menu: "acciones de administrador para el tema"
     emails_are_disabled: "Todos los emails salientes han sido desactivados por un administrador. No se enviará ninguna notificación por email."
     edit: 'editar el título y la categoría de este tema'
@@ -142,7 +143,7 @@ es:
     admin_title: "Admin"
     flags_title: "Reportes"
     show_more: "ver más"
-    show_help: "ayuda"
+    show_help: "opciones"
     links: "Enlaces"
     links_lowercase:
       one: "enlace"
@@ -371,6 +372,17 @@ es:
       invited_by: "Invitado Por"
       trust_level: "Nivel de Confianza"
       notifications: "Notificaciones"
+      desktop_notifications:
+        label: "Notificaciones de escritorio"
+        not_supported: "Las notificaciones no están disponibles en este navegador. Lo sentimos."
+        perm_default: "Activar notificaciones"
+        perm_denied_btn: "Permiso denegado"
+        perm_denied_expl: "Has denegado el permiso para las notificaciones. Usa tu navegador para activarlas, después haz clic en el botón cuando esté hecho. (En escritorio: el icono a la izquierda de la barra de direcciones. En móvil: 'info del sitio'.)"
+        disable: "Desactivar notificaciones"
+        currently_enabled: "(activadas actualmente)"
+        enable: "Activar notificaciones"
+        currently_disabled: "(desactivadas actualmente)"
+        each_browser_note: "Nota: Tendrás que cambiar esta opción para cada navegador que uses."
       dismiss_notifications: "Marcador todos como leídos"
       dismiss_notifications_tooltip: "Marcar todas las notificaciones no leídas como leídas"
       disable_jump_reply: "No dirigirme a mi post cuando responda"
@@ -383,6 +395,7 @@ es:
       admin: "{{user}} es un administrador"
       moderator_tooltip: "Este usuario es un moderador"
       admin_tooltip: "Este usuario es un administrador"
+      blocked_tooltip: "El usuario está bloqueado"
       suspended_notice: "Este usuario ha sido suspendido hasta {{date}}."
       suspended_reason: "Causa: "
       github_profile: "Github"
@@ -443,7 +456,7 @@ es:
         upload_title: "Sube tu foto"
         upload_picture: "Subir Imagen"
         image_is_not_a_square: "Advertencia: hemos recortado su imagen; la anchura y la altura no eran iguales."
-        cache_notice: "Has cambiado tu avatar correctamente, podría tardar un poco en aparecer debido al caching del navegador."
+        cache_notice: "Has cambiado correctamente tu imagen de perfil pero podría tardar un poco en aparecer debido al caching del navegador."
       change_profile_background:
         title: "Fondo de perfil"
         instructions: "Fondos de perfil serán centrados y tendrán un ancho por default de 850px."
@@ -530,6 +543,7 @@ es:
         search: "escribe para buscar invitaciones..."
         title: "Invitaciones"
         user: "Invitar Usuario"
+        sent: "Enviadas"
         none: "No has invitado a nadie todavía."
         truncated: "Mostrando las primeras {{count}} invitaciones."
         redeemed: "Invitaciones aceptadas"
@@ -872,6 +886,9 @@ es:
         bookmarks: "No hay más temas guardados en marcadores."
         search: "No hay más resultados de búsqueda."
     topic:
+      unsubscribe:
+        stop_notifications: "Ahora recibirás menos notificaciones desde <strong>{{title}}</strong>"
+        change_notification_state: "El estado actual de notificación para ti es"
       filter_to: "{{post_count}} posts en este tema"
       create: 'Crear tema'
       create_long: 'Crear un nuevo tema'
@@ -1104,8 +1121,8 @@ es:
           one: Has seleccionado <b>1</b> post.
           other: Has seleccionado <b>{{count}}</b> posts.
     post:
-      reply: "Respondiendo a {{link}} {{replyAvatar}} {{username}}"
-      reply_topic: "Responder a {{link}}"
+      reply: "<i class='fa fa-mail-forward'></i> {{replyAvatar}} {{usernameLink}}"
+      reply_topic: "<i class='fa fa-mail-forward'></i> {{link}}"
       quote_reply: "citar"
       edit: "Editando {{link}} {{replyAvatar}} {{username}}"
       edit_reason: "Motivo:"
@@ -1778,6 +1795,7 @@ es:
         header: "Encabezado"
         top: "Top"
         footer: "Pie de página"
+        embedded_css: "CSS embebido"
         head_tag:
           text: "</head>"
           title: "HTML insertado antes de la etiqueta </head>"
@@ -2455,11 +2473,11 @@ es:
           name: Lector
           description: Leyó todos los posts en un tema con más de 100
     google_search: |
-      <h2>Buscar con Google</h2>
+      <h3>Buscar con Google</h3>
       <p>
-      <form action='//google.com/search' id='google-search' onsubmit="document.getElementById('google-query').value = 'site:' + window.location.host + ' ' + document.getElementById('user-query').value; return true;">
-      <input type="text" id='user-query' value="">
-      <input type='hidden' id='google-query' name="q">
-      <button class="btn btn-primary">Google</button>
-      </form>
+        <form action='//google.com/search' id='google-search' onsubmit="document.getElementById('google-query').value = 'site:' + window.location.host + ' ' + document.getElementById('user-query').value; return true;">
+          <input type="text" id='user-query' value="">
+          <input type='hidden' id='google-query' name="q">
+          <button class="btn btn-primary">Google</button>
+        </form>
       </p>
