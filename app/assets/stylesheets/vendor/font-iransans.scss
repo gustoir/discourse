@@ -1,8 +1,8 @@
 @font-face {
   font-family: SDF;
   src:
-  font_url('/assets/IRANSans-Light-web.woff') format('woff'),
-  font_url('/assets/IRANSans-Light-web.ttf') format('truetype');
+  font_url('#{$fa-font-path}/IRANSans-Light-web.woff') format('woff'),
+  font_url('#{$fa-font-path}/IRANSans-Light-web.ttf') format('truetype');
 
   font-weight: normal;
   font-style: normal;
@@ -11,8 +11,8 @@
 @font-face {
   font-family: SDF;
   src:
-  font_url('/assets/IRANSans-Bold-web.woff') format('woff'),
-  font_url('/assets/IRANSans-Bold-web.ttf') format('truetype');
+  font_url('#{$fa-font-path}/IRANSans-Bold-web.woff') format('woff'),
+  font_url('#{$fa-font-path}/IRANSans-Bold-web.ttf') format('truetype');
 
   font-weight: bold;
   font-style: normal;
