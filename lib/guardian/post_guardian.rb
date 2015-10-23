@@ -30,7 +30,7 @@ module PostGuardian
       not(action_key == :like && is_my_own?(post)) &&
 
       # new users can't notify_user because they are not allowed to send private messages
-      not(action_key == :notify_user && !@user.has_trust_level?(TrustLevel[1])) &&
+      not(action_key == :notify_user && !@user.has_trust_level?(SiteSetting.min_trust_to_send_messages)) &&
 
       # can't send private messages if they're disabled globally
       not(action_key == :notify_user && !SiteSetting.enable_private_messages) &&
@@ -144,10 +144,13 @@ module PostGuardian
   end
 
   def can_see_post?(post)
-    post.present? &&
-      (is_admin? ||
-      ((is_moderator? || !post.deleted_at.present?) &&
-        can_see_topic?(post.topic)))
+    return false if post.blank?
+    return true if is_admin?
+    return false unless can_see_topic?(post.topic)
+    return false unless post.user == @user || Topic.visible_post_types(@user).include?(post.post_type)
+    return false if !is_moderator? && post.deleted_at.present?
+
+    true
   end
 
   def can_view_edit_history?(post)

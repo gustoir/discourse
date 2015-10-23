@@ -99,7 +99,7 @@ class TopicUser < ActiveRecord::Base
           auto_track_after = User.select(:auto_track_topics_after_msecs).find_by(id: user_id).auto_track_topics_after_msecs
           auto_track_after ||= SiteSetting.default_other_auto_track_topics_after_msecs
 
-          if auto_track_after >= 0 && auto_track_after <= (attrs[:total_msecs_viewed] || 0)
+          if auto_track_after >= 0 && auto_track_after <= (attrs[:total_msecs_viewed].to_i || 0)
             attrs[:notification_level] ||= notification_levels[:tracking]
           end
 
@@ -282,6 +282,28 @@ SQL
     end
 
     builder.exec(action_type_id: PostActionType.types[action_type])
+  end
+
+  # cap number of unread topics at count, bumping up highest_seen / last_read if needed
+  def self.cap_unread!(user_id, count)
+    sql = <<SQL
+    UPDATE topic_users tu
+    SET last_read_post_number = max_number,
+        highest_seen_post_number = max_number
+    FROM (
+      SELECT MAX(post_number) max_number, p.topic_id FROM posts p
+      WHERE deleted_at IS NULL
+      GROUP BY p.topic_id
+    ) m
+    WHERE tu.user_id = :user_id AND
+          m.topic_id = tu.topic_id AND
+          tu.topic_id IN (
+            #{TopicTrackingState.report_raw_sql(skip_new: true, select: "topics.id")}
+            offset :count
+          )
+SQL
+
+    TopicUser.exec_sql(sql, user_id: user_id, count: count)
   end
 
   def self.ensure_consistency!(topic_id=nil)

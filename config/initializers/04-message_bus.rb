@@ -17,7 +17,12 @@ end
 
 MessageBus.group_ids_lookup do |env|
   user = CurrentUser.lookup_from_env(env)
-  user.groups.select('groups.id').map{|g| g.id} if user
+  if user && user.admin?
+    # special rule, admin is allowed access to all groups
+    Group.pluck(:id)
+  elsif user
+    user.groups.pluck('groups.id')
+  end
 end
 
 MessageBus.on_connect do |site_id|
@@ -46,7 +51,7 @@ end
 MessageBus.cache_assets = !Rails.env.development?
 MessageBus.enable_diagnostics
 
-if Rails.env == "test"
+if Rails.env == "test" || $0 =~ /rake$/
   # disable keepalive in testing
   MessageBus.keepalive_interval = -1
 end

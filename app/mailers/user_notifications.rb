@@ -41,11 +41,8 @@ class UserNotifications < ActionMailer::Base
     build_email( user.email, template: "user_notifications.account_created", email_token: opts[:email_token])
   end
 
-  # On error, use english
   def short_date(dt)
     I18n.l(dt, format: :short)
-  rescue I18n::MissingTranslationData
-    I18n.l(dt, format: :short, locale: 'en')
   end
 
   def digest(user, opts={})
@@ -178,6 +175,7 @@ class UserNotifications < ActionMailer::Base
                         .where("post_number < ?", post.post_number)
                         .where(user_deleted: false)
                         .where(hidden: false)
+                        .where(post_type: Topic.visible_post_types)
                         .order('created_at desc')
                         .limit(SiteSetting.email_posts_context)
 

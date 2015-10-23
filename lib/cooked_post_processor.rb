@@ -11,7 +11,11 @@ class CookedPostProcessor
     @opts = opts
     @post = post
     @previous_cooked = (@post.cooked || "").dup
-    @doc = Nokogiri::HTML::fragment(post.cooked)
+    # NOTE: we re-cook the post here in order to prevent timing issues with edits
+    # cf. https://meta.discourse.org/t/edit-of-rebaked-post-doesnt-show-in-html-only-in-raw/33815/6
+    cooking_options = post.cooking_options || opts[:cooking_options] || {}
+    cooking_options[:topic_id] = post.topic_id
+    @doc = Nokogiri::HTML::fragment(post.cook(post.raw, cooking_options.symbolize_keys))
     @size_cache = {}
   end
 
@@ -60,7 +64,7 @@ class CookedPostProcessor
       convert_to_link!(img)
     end
 
-    update_topic_image(images)
+    update_topic_image
   end
 
   def extract_images
@@ -68,6 +72,17 @@ class CookedPostProcessor
     @doc.css("img[src]") -
     # minus, data images
     @doc.css("img[src^='data']") -
+    # minus, emojis
+    @doc.css("img.emoji") -
+    # minus, image inside oneboxes
+    oneboxed_images -
+    # minus, images inside quotes
+    @doc.css(".quote img")
+  end
+
+  def extract_images_for_topic
+    # all image with a src attribute
+    @doc.css("img[src]") -
     # minus, emojis
     @doc.css("img.emoji") -
     # minus, image inside oneboxes
@@ -94,7 +109,20 @@ class CookedPostProcessor
 
   def get_size_from_attributes(img)
     w, h = img["width"].to_i, img["height"].to_i
-    return [w, h] if w > 0 && h > 0
+    return [w, h] unless w <= 0 || h <= 0
+    # if only width or height are specified attempt to scale image
+    if w > 0 || h > 0
+      w = w.to_f
+      h = h.to_f
+      original_width, original_height = get_size(img["src"]).map {|integer| integer.to_f}
+      if w > 0
+        ratio = w/original_width
+        return [w.floor, (original_height*ratio).floor]
+      else
+        ratio = h/original_height
+        return [(original_width*ratio).floor, h.floor]
+      end
+    end
   end
 
   def get_size_from_image_sizes(src, image_sizes)
@@ -218,9 +246,9 @@ class CookedPostProcessor
     span
   end
 
-  def update_topic_image(images)
+  def update_topic_image
     if @post.is_first_post?
-      img = images.first
+      img = extract_images_for_topic.first
       @post.topic.update_column(:image_url, img["src"][0...255]) if img["src"].present?
     end
   end
@@ -232,7 +260,9 @@ class CookedPostProcessor
     }
 
     # apply oneboxes
-    Oneboxer.apply(@doc) { |url| Oneboxer.onebox(url, args) }
+    Oneboxer.apply(@doc, topic_id: @post.topic_id) { |url|
+      Oneboxer.onebox(url, args)
+    }
 
     # make sure we grab dimensions for oneboxed images
     oneboxed_images.each { |img| limit_size!(img) }

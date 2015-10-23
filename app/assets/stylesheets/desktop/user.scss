@@ -39,14 +39,6 @@
     }
   }
 
-  .pagedown-editor {
-    width: 450px;
-
-    textarea {
-      width: 440px;
-    }
-  }
-
   .bio-composer #wmd-quote-post {
     display: none;
   }
@@ -102,6 +94,12 @@
     margin: 20px 0 10px 0;
   }
 
+}
+
+.viewing-self .user-main .about.collapsed-info {
+  .secondary, .staff-counters {
+    display: inherit;
+  }
 }
 
 .user-main {
@@ -219,6 +217,7 @@
       .details {
         padding: 15px;
         margin: 0;
+        color: dark-light-choose($secondary, lighten($primary, 10%));
       }
     }
 
@@ -359,7 +358,7 @@
         padding: 5px 10px;
         width: 140px;
         margin-bottom: 10px;
-        }
+      }
 
       .right {
         float: right;

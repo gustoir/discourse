@@ -23,6 +23,9 @@ uk:
             kb: КБ
             mb: МБ
             tb: ТБ
+      short:
+        thousands: "{{number}}k"
+        millions: "{{number}}M"
     dates:
       time: "HH:mm"
       tiny:
@@ -157,7 +160,6 @@ uk:
     revert: "Повернути"
     failed: "Помилка"
     switch_to_anon: "Потайливий перегляд"
-    switch_from_anon: "Полишити потайливий перегляд"
     banner:
       close: "Сховати"
     choose_topic:
@@ -297,7 +299,6 @@ uk:
       watched_categories: "Відслідковувані"
       tracked_categories: "Відстежувані"
       muted_categories: "Ігноровані"
-      muted_categories_instructions: "Ви не будете отримувати жодних сповіщень про нові теми у цих категоріях, і вони не з'являтимуться у вкладці Непрочитані."
       delete_account: "Delete My Account"
       delete_account_confirm: "Are you sure you want to permanently delete your account? This action cannot be undone!"
       deleted_yourself: "Your account has been deleted successfully."
@@ -394,7 +395,6 @@ uk:
         search: "шукати запрошення..."
         title: "Запрошення"
         user: "Запрошений користувач"
-        truncated: "Показано перші {{count}} запрошень."
         redeemed: "Прийняті запрошення"
         redeemed_at: "Прийнято"
         pending: "Запрошення, що очікують"
@@ -546,7 +546,6 @@ uk:
       edit_reason_placeholder: "чому Ви редагуєте допис?"
       show_edit_reason: "(додати причину редагування)"
       view_new_post: "Перегляньте свій новий допис."
-      saving: "Збереження..."
       saved: "Збережено!"
       uploading: "Завантаження..."
       show_preview: 'попередній перегляд &raquo;'
@@ -593,7 +592,6 @@ uk:
       searching: "Пошук ..."
       context:
         topic: "Пошук в цій темі"
-    site_map: "перейти до іншого переліку або категорії тем"
     go_back: 'повернутися назад'
     not_logged_in_user: 'сторінка користувача з підсумком поточної діяльності та налаштуваннями'
     current_user: 'перейти до Вашої сторінки користувача'
@@ -689,7 +687,6 @@ uk:
           title: "Ігнорувати"
         muted:
           title: "Ігнорувати"
-          description: "Ви ніколи не будете отримувати жодних сповіщень з цієї теми, і вона не буде відображатися у Вашій вкладці \"Непрочитані\"."
       actions:
         recover: "Відкликати видалення теми"
         delete: "Видалити тему"
@@ -888,8 +885,6 @@ uk:
           title: "Слідкувати"
         tracking:
           title: "Стежити"
-        regular:
-          title: "Звичайний"
         muted:
           title: "Ігноровані"
     flagging:
@@ -911,12 +906,12 @@ uk:
     topic_statuses:
       locked:
         help: "цю тему закрито; нові відповіді більше не приймаються"
+      archived:
+        help: "цю тему заархівовано; вона заморожена і її не можна змінити"
       unpinned:
         title: "Не закріплені"
       pinned:
         title: "Закріплені"
-      archived:
-        help: "цю тему заархівовано; вона заморожена і її не можна змінити"
     posts: "Дописи"
     posts_lowercase: "дописи"
     posts_long: "тема містить {{number}} дописів"

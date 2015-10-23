@@ -6,30 +6,19 @@ def rails_master?
   ENV["RAILS_MASTER"] == '1'
 end
 
-def rails_42?
-  ENV["RAILS42"] == '1'
-end
-
 if rails_master?
   gem 'arel', git: 'https://github.com/rails/arel.git'
   gem 'rails', git: 'https://github.com/rails/rails.git'
   gem 'rails-observers', git: 'https://github.com/rails/rails-observers.git'
   gem 'seed-fu', git: 'https://github.com/SamSaffron/seed-fu.git', branch: 'discourse'
-elsif rails_42?
-  gem 'rails', '~> 4.2.1'
-  gem 'rails-observers', git: 'https://github.com/rails/rails-observers.git'
-  gem 'seed-fu', '~> 2.3.5'
 else
-  gem 'rails', '~> 4.1.10'
+  gem 'rails', '~> 4.2'
   gem 'rails-observers'
-  gem 'seed-fu', '~> 2.3.3'
+  gem 'seed-fu', '~> 2.3.5'
 end
 
-# Rails 4.1.6+ will relax the mail gem version requirement to `~> 2.5, >= 2.5.4`.
-# However, mail gem 2.6.x currently does not work with discourse because of the
-# reference to `Mail::RFC2822Parser` in `lib/email.rb`. This ensure discourse
-# would continue to work with Rails 4.1.6+ when it is released.
-gem 'mail', '~> 2.5.4'
+gem 'mail'
+gem 'mime-types', require: 'mime/types/columnar'
 
 #gem 'redis-rails'
 gem 'hiredis'
@@ -46,9 +35,9 @@ gem 'barber'
 gem 'babel-transpiler'
 
 gem 'message_bus'
-gem 'rails_multisite', path: 'vendor/gems/rails_multisite'
 
-gem 'redcarpet', require: false
+gem 'rails_multisite'
+
 gem 'fast_xs'
 
 gem 'fast_xor'
@@ -63,7 +52,8 @@ gem 'email_reply_parser'
 
 # note: for image_optim to correctly work you need to follow
 # https://github.com/toy/image_optim
-gem 'image_optim'
+# pinned due to https://github.com/toy/image_optim/pull/75, docker image must be upgraded to upgrade
+gem 'image_optim', '0.20.2'
 gem 'multi_json'
 gem 'mustache'
 gem 'nokogiri'
@@ -90,6 +80,7 @@ gem 'rinku'
 gem 'sanitize'
 gem 'sass'
 gem 'sidekiq'
+gem 'sidekiq-statistic'
 
 # for sidekiq web
 gem 'sinatra', require: false
@@ -131,7 +122,7 @@ group :test, :development do
   gem 'rspec-given'
   gem 'pry-nav'
   gem 'spork-rails'
-  gem 'byebug'
+  gem 'byebug', require: ENV['RM_INFO'].nil?
 end
 
 group :development do

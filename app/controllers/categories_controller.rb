@@ -4,6 +4,7 @@ class CategoriesController < ApplicationController
 
   before_filter :ensure_logged_in, except: [:index, :show, :redirect]
   before_filter :fetch_category, only: [:show, :update, :destroy]
+  before_filter :initialize_staff_action_logger, only: [:create, :update, :destroy]
   skip_before_filter :check_xhr, only: [:index, :redirect]
 
   def redirect
@@ -16,6 +17,7 @@ class CategoriesController < ApplicationController
     options = {}
     options[:latest_posts] = params[:latest_posts] || SiteSetting.category_featured_topics
     options[:parent_category_id] = params[:parent_category_id]
+    options[:is_homepage] = current_homepage == "categories".freeze
 
     @list = CategoryList.new(guardian, options)
     @list.draft_key = Draft::NEW_TOPIC
@@ -24,7 +26,7 @@ class CategoriesController < ApplicationController
 
     discourse_expires_in 1.minute
 
-    unless current_homepage == 'categories'
+    unless current_homepage == "categories"
       @title = I18n.t('js.filters.categories.title')
     end
 
@@ -36,7 +38,7 @@ class CategoriesController < ApplicationController
   end
 
   def move
-    guardian.ensure_can_create!(Category)
+    guardian.ensure_can_create_category!
 
     params.require("category_id")
     params.require("position")
@@ -47,6 +49,24 @@ class CategoriesController < ApplicationController
     else
       render status: 500, json: failed_json
     end
+  end
+
+  def reorder
+    guardian.ensure_can_create_category!
+
+    params.require(:mapping)
+    change_requests = MultiJson.load(params[:mapping])
+    by_category = Hash[change_requests.map { |cat, pos| [Category.find(cat.to_i), pos] }]
+
+    unless guardian.is_admin?
+      raise Discourse::InvalidAccess unless by_category.keys.all? { |c| guardian.can_see_category? c }
+    end
+
+    by_category.each do |cat, pos|
+      cat.position = pos
+      cat.save if cat.position_changed?
+    end
+    render json: success_json
   end
 
   def show
@@ -62,10 +82,18 @@ class CategoriesController < ApplicationController
     position = category_params.delete(:position)
 
     @category = Category.create(category_params.merge(user: current_user))
-    return render_json_error(@category) unless @category.save
 
-    @category.move_to(position.to_i) if position
-    render_serialized(@category, CategorySerializer)
+    if @category.save
+      @category.move_to(position.to_i) if position
+
+      Scheduler::Defer.later "Log staff action create category" do
+        @staff_action_logger.log_category_creation(@category)
+      end
+
+      render_serialized(@category, CategorySerializer)
+    else
+      return render_json_error(@category) unless @category.save
+    end
   end
 
   def update
@@ -84,8 +112,15 @@ class CategoriesController < ApplicationController
       end
 
       category_params.delete(:position)
+      old_permissions = Category.find(@category.id).permissions_params
 
-      cat.update_attributes(category_params)
+      if result = cat.update_attributes(category_params)
+        Scheduler::Defer.later "Log staff action change category settings" do
+          @staff_action_logger.log_category_settings_change(@category, category_params, old_permissions)
+        end
+      end
+
+      result
     end
   end
 
@@ -114,6 +149,10 @@ class CategoriesController < ApplicationController
     guardian.ensure_can_delete!(@category)
     @category.destroy
 
+    Scheduler::Defer.later "Log staff action delete category" do
+      @staff_action_logger.log_category_deletion(@category)
+    end
+
     render json: success_json
   end
 
@@ -139,6 +178,7 @@ class CategoriesController < ApplicationController
                         :position,
                         :email_in,
                         :email_in_allow_strangers,
+                        :suppress_from_homepage,
                         :parent_category_id,
                         :auto_close_hours,
                         :auto_close_based_on_last_post,
@@ -154,5 +194,9 @@ class CategoriesController < ApplicationController
 
     def fetch_category
       @category = Category.find_by(slug: params[:id]) || Category.find_by(id: params[:id].to_i)
+    end
+
+    def initialize_staff_action_logger
+      @staff_action_logger = StaffActionLogger.new(current_user)
     end
 end

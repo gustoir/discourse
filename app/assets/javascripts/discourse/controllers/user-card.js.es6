@@ -37,7 +37,7 @@ export default Ember.Controller.extend({
 
   show(username, postId, target) {
     // XSS protection (should be encapsulated)
-    username = username.toString().replace(/[^A-Za-z0-9_]/g, "");
+    username = username.toString().replace(/[^A-Za-z0-9_\.\-]/g, "");
 
     // Don't show on mobile
     if (Discourse.Mobile.mobileView) {
@@ -67,6 +67,7 @@ export default Ember.Controller.extend({
 
     const args = { stats: false };
     args.include_post_count_for = this.get('controllers.topic.model.id');
+    args.skip_track_visit = true;
 
     return Discourse.User.findByUsername(username, args).then((user) => {
       if (user.topic_post_count) {

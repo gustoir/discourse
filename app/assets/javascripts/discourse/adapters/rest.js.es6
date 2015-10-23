@@ -1,3 +1,4 @@
+import StaleResult from 'discourse/lib/stale-result';
 const ADMIN_MODELS = ['plugin', 'site-customization', 'embeddable-host'];
 
 export function Result(payload, responseJson) {
@@ -23,9 +24,7 @@ export default Ember.Object.extend({
     return "/";
   },
 
-  pathFor(store, type, findArgs) {
-    let path = this.basePath(store, type, findArgs) + Ember.String.underscore(store.pluralize(type));
-
+  appendQueryParams(path, findArgs) {
     if (findArgs) {
       if (typeof findArgs === "object") {
         const queryString = Object.keys(findArgs)
@@ -33,15 +32,19 @@ export default Ember.Object.extend({
                                   .map(k => k + "=" + encodeURIComponent(findArgs[k]));
 
         if (queryString.length) {
-          path += "?" + queryString.join('&');
+          return path + "?" + queryString.join('&');
         }
       } else {
         // It's serializable as a string if not an object
-        path += "/" + findArgs;
+        return path + "/" + findArgs;
       }
     }
-
     return path;
+  },
+
+  pathFor(store, type, findArgs) {
+    let path = this.basePath(store, type, findArgs) + Ember.String.underscore(store.pluralize(type));
+    return this.appendQueryParams(path, findArgs);
   },
 
   findAll(store, type) {
@@ -51,6 +54,10 @@ export default Ember.Object.extend({
 
   find(store, type, findArgs) {
     return ajax(this.pathFor(store, type, findArgs)).catch(rethrow);
+  },
+
+  findStale() {
+    return new StaleResult();
   },
 
   update(store, type, id, attrs) {

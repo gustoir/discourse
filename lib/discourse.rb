@@ -43,7 +43,13 @@ module Discourse
   class InvalidParameters < StandardError; end
 
   # When they don't have permission to do something
-  class InvalidAccess < StandardError; end
+  class InvalidAccess < StandardError
+    attr_reader :obj
+    def initialize(msg=nil, obj=nil)
+      super(msg)
+      @obj = obj
+    end
+  end
 
   # When something they want is not found
   class NotFound < StandardError; end
@@ -64,16 +70,8 @@ module Discourse
     @filters ||= [:latest, :unread, :new, :read, :posted, :bookmarks]
   end
 
-  def self.feed_filters
-    @feed_filters ||= [:latest]
-  end
-
   def self.anonymous_filters
     @anonymous_filters ||= [:latest, :top, :categories]
-  end
-
-  def self.logged_in_filters
-    @logged_in_filters ||= Discourse.filters - Discourse.anonymous_filters
   end
 
   def self.top_menu_items
@@ -209,7 +207,7 @@ module Discourse
   end
 
   def self.base_url
-    return base_url_no_prefix + base_uri
+    base_url_no_prefix + base_uri
   end
 
   def self.enable_readonly_mode
@@ -342,7 +340,7 @@ module Discourse
       while true
         begin
           sleep GlobalSetting.connection_reaper_interval
-          reap_connections(GlobalSetting.connection_reaper_age)
+          reap_connections(GlobalSetting.connection_reaper_age, GlobalSetting.connection_reaper_max_age)
         rescue => e
           Discourse.handle_exception(e, {message: "Error reaping connections"})
         end
@@ -350,12 +348,12 @@ module Discourse
     end
   end
 
-  def self.reap_connections(age)
+  def self.reap_connections(idle, max_age)
     pools = []
     ObjectSpace.each_object(ActiveRecord::ConnectionAdapters::ConnectionPool){|pool| pools << pool}
 
     pools.each do |pool|
-      pool.drain(age.seconds)
+      pool.drain(idle.seconds, max_age.seconds)
     end
   end
 

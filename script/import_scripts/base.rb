@@ -194,6 +194,25 @@ class ImportScripts::Base
     g.tap(&:save)
   end
 
+  def all_records_exist?(type, import_ids)
+    return false if import_ids.empty?
+
+    Post.exec_sql('create temp table import_ids(val varchar(200) primary key)')
+
+    import_id_clause = import_ids.map{|id| "('#{PG::Connection.escape_string(id.to_s)}')"}.join(",")
+    Post.exec_sql("insert into import_ids values #{import_id_clause}")
+
+    existing = "#{type.to_s.classify}CustomField".constantize.where(name: 'import_id')
+    existing = existing.joins('JOIN import_ids ON val=value')
+
+    if existing.count == import_ids.length
+      puts "Skipping #{import_ids.length} already imported #{type}"
+      return true
+    end
+  ensure
+    Post.exec_sql('drop table import_ids')
+  end
+
   # Iterate through a list of user records to be imported.
   # Takes a collection, and yields to the block for each element.
   # Block should return a hash with the attributes for the User model.
@@ -258,9 +277,8 @@ class ImportScripts::Base
     if opts[:username].blank? ||
       opts[:username].length < User.username_length.begin ||
       opts[:username].length > User.username_length.end ||
-      opts[:username] =~ /[^A-Za-z0-9_]/ ||
-      opts[:username][0] =~ /[^A-Za-z0-9]/ ||
-      !User.username_available?(opts[:username])
+      !User.username_available?(opts[:username]) ||
+      !UsernameValidator.new(opts[:username]).valid_format?
       opts[:username] = UserNameSuggester.suggest(opts[:username] || opts[:name] || opts[:email])
     end
     opts[:email] = opts[:email].downcase
@@ -289,13 +307,18 @@ class ImportScripts::Base
       if opts[:active] && opts[:password].present?
         u.activate
       end
-    rescue
+    rescue => e
       # try based on email
-      existing = User.find_by(email: opts[:email].downcase)
-      if existing
-        existing.custom_fields["import_id"] = import_id
-        existing.save!
-        u = existing
+      if e.record.errors.messages[:email].present?
+        existing = User.find_by(email: opts[:email].downcase)
+        if existing
+          existing.custom_fields["import_id"] = import_id
+          existing.save!
+          u = existing
+        end
+      else
+        puts "Error on record: #{opts}"
+        raise e
       end
     end
     post_create_action.try(:call, u) if u.persisted?
@@ -428,6 +451,8 @@ class ImportScripts::Base
     [created, skipped]
   end
 
+  STAFF_GUARDIAN = Guardian.new(User.find(-1))
+
   def create_post(opts, import_id)
     user = User.find(opts[:user_id])
     post_create_action = opts.delete(:post_create_action)
@@ -436,6 +461,7 @@ class ImportScripts::Base
     opts[:custom_fields] ||= {}
     opts[:custom_fields]['import_id'] = import_id
 
+    opts[:guardian] = STAFF_GUARDIAN
     if @bbcode_to_md
       opts[:raw] = opts[:raw].bbcode_to_md(false) rescue opts[:raw]
     end

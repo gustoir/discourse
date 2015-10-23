@@ -53,6 +53,32 @@ end
 
 describe PostsController do
 
+  describe 'latest' do
+    let(:user) { log_in }
+    let!(:post) { Fabricate(:post, user: user) }
+    let!(:topicless_post) { Fabricate(:post, user: user, raw: '<p>Car 54, where are you?</p>') }
+
+    before do
+      topicless_post.update topic_id: -100
+    end
+
+    it 'does not return posts without a topic for json' do
+      xhr :get, :latest, format: :json
+      expect(response).to be_success
+      json = ::JSON.parse(response.body)
+      post_ids = json['latest_posts'].map { |p| p['id'] }
+      expect(post_ids).to include post.id
+      expect(post_ids).to_not include topicless_post.id
+    end
+
+    it 'does not return posts without a topic for rss' do
+      xhr :get, :latest, format: :rss
+      expect(response).to be_success
+      expect(assigns(:posts)).to include post
+      expect(assigns(:posts)).to_not include topicless_post
+    end
+  end
+
   describe 'cooked' do
     before do
       post = Post.new(cooked: 'wat')
@@ -141,8 +167,9 @@ describe PostsController do
     end
 
     it 'asks post for replies' do
-      Post.any_instance.expects(:replies)
-      xhr :get, :replies, post_id: post.id
+      p1 = Fabricate(:post)
+      xhr :get, :replies, post_id: p1.id
+      expect(response.status).to eq(200)
     end
   end
 
@@ -618,7 +645,7 @@ describe PostsController do
         end
 
         it "passes reply_to_post_number through" do
-          xhr :post, :create, {raw: 'hello', reply_to_post_number: 6789}
+          xhr :post, :create, {raw: 'hello', reply_to_post_number: 6789, topic_id: 1234}
           expect(assigns(:manager_params)['reply_to_post_number']).to eq('6789')
         end
 
@@ -678,7 +705,7 @@ describe PostsController do
       end
 
       it "ensures regular user cannot see the revisions" do
-        u = log_in(:user)
+        log_in(:user)
         xhr :get, :revisions, post_id: post_revision.post_id, revision: post_revision.number
         expect(response).to be_forbidden
       end
@@ -831,7 +858,7 @@ describe PostsController do
       it "doesn't return secured categories for moderators if they don't have access" do
         user = Fabricate(:user)
         admin = Fabricate(:admin)
-        moderator = Fabricate(:moderator)
+        Fabricate(:moderator)
 
         group = Fabricate(:group)
         group.add(user)
@@ -852,7 +879,7 @@ describe PostsController do
       it "doesn't return PMs for moderators" do
         user = Fabricate(:user)
         admin = Fabricate(:admin)
-        moderator = Fabricate(:moderator)
+        Fabricate(:moderator)
 
         pm_post = create_post(user: user, archetype: 'private_message', target_usernames: [admin.username])
         PostDestroyer.new(admin, pm_post).destroy
@@ -869,7 +896,7 @@ describe PostsController do
         user = Fabricate(:user)
         admin = Fabricate(:admin)
 
-        post_not_deleted = create_post(user: user)
+        create_post(user: user)
         post_deleted_by_user = create_post(user: user)
         post_deleted_by_admin = create_post(user: user)
 

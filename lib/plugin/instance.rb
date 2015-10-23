@@ -78,7 +78,7 @@ class Plugin::Instance
 
   # Adds a class method to a class, respecting if plugin is enabled
   def add_class_method(klass, attr, &block)
-    klass = klass.to_s.classify.constantize
+    klass = klass.to_s.classify.constantize rescue klass.to_s.constantize
 
     hidden_method_name = :"#{attr}_without_enable_check"
     klass.send(:define_singleton_method, hidden_method_name, &block)
@@ -90,7 +90,7 @@ class Plugin::Instance
   end
 
   def add_model_callback(klass, callback, &block)
-    klass = klass.to_s.classify.constantize
+    klass = klass.to_s.classify.constantize rescue klass.to_s.constantize
     plugin = self
 
     # generate a unique method name
@@ -172,7 +172,13 @@ class Plugin::Instance
     end
 
     initializers.each do |callback|
-      callback.call(self)
+      begin
+        callback.call(self)
+      rescue ActiveRecord::StatementInvalid => e
+        # When running db:migrate for the first time on a new database, plugin initializers might
+        # try to use models. Tolerate it.
+        raise e unless e.message.try(:include?, "PG::UndefinedTable")
+      end
     end
   end
 
@@ -212,13 +218,8 @@ class Plugin::Instance
     js = javascripts.join("\n")
 
     auth_providers.each do |auth|
-      overrides = ""
-      overrides = ", titleOverride: '#{auth.title}'" if auth.title
-      overrides << ", messageOverride: '#{auth.message}'" if auth.message
-      overrides << ", frameWidth: '#{auth.frame_width}'" if auth.frame_width
-      overrides << ", frameHeight: '#{auth.frame_height}'" if auth.frame_height
 
-      js << "Discourse.LoginMethod.register(Discourse.LoginMethod.create({name: '#{auth.name}'#{overrides}}));\n"
+      js << "Discourse.LoginMethod.register(Discourse.LoginMethod.create(#{auth.to_json}));\n"
 
       if auth.glyph
         css << ".btn-social.#{auth.name}:before{ content: '#{auth.glyph}'; }\n"
@@ -277,6 +278,7 @@ class Plugin::Instance
     Rails.configuration.assets.paths << auto_generated_path
     Rails.configuration.assets.paths << File.dirname(path) + "/assets"
     Rails.configuration.assets.paths << File.dirname(path) + "/admin/assets"
+    Rails.configuration.assets.paths << File.dirname(path) + "/test/javascripts"
 
     # Automatically include rake tasks
     Rake.add_rakelib(File.dirname(path) + "/lib/tasks")
@@ -298,7 +300,8 @@ class Plugin::Instance
 
   def auth_provider(opts)
     provider = Plugin::AuthProvider.new
-    [:glyph, :background_color, :title, :message, :frame_width, :frame_height, :authenticator].each do |sym|
+
+    Plugin::AuthProvider.auth_attributes.each do |sym|
       provider.send "#{sym}=", opts.delete(sym)
     end
     auth_providers << provider

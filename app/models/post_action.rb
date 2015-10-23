@@ -66,7 +66,7 @@ class PostAction < ActiveRecord::Base
   end
 
   def self.counts_for(collection, user)
-    return {} if collection.blank?
+    return {} if collection.blank? || !user
 
     collection_ids = collection.map(&:id)
     user_id = user.try(:id) || 0
@@ -126,9 +126,9 @@ SQL
 
   def self.count_per_day_for_type(post_action_type, opts=nil)
     opts ||= {}
-    opts[:since_days_ago] ||= 30
     result = unscoped.where(post_action_type_id: post_action_type)
-    result = result.where('post_actions.created_at >= ?', opts[:since_days_ago].days.ago)
+    result = result.where('post_actions.created_at >= ?', opts[:start_date] || (opts[:since_days_ago] || 30).days.ago)
+    result = result.where('post_actions.created_at <= ?', opts[:end_date]) if opts[:end_date]
     result = result.joins(post: :topic).where('topics.category_id = ?', opts[:category_id]) if opts[:category_id]
     result.group('date(post_actions.created_at)')
           .order('date(post_actions.created_at)')
@@ -238,7 +238,7 @@ SQL
                                 end
     end
 
-    PostCreator.new(user, opts).create.id
+    PostCreator.new(user, opts).create.try(:id)
   end
 
   def self.act(user, post, post_action_type_id, opts = {})
@@ -551,7 +551,8 @@ end
 #
 # Indexes
 #
-#  idx_unique_actions             (user_id,post_action_type_id,post_id,targets_topic) UNIQUE
-#  idx_unique_flags               (user_id,post_id,targets_topic) UNIQUE
-#  index_post_actions_on_post_id  (post_id)
+#  idx_unique_actions                                     (user_id,post_action_type_id,post_id,targets_topic) UNIQUE
+#  idx_unique_flags                                       (user_id,post_id,targets_topic) UNIQUE
+#  index_post_actions_on_post_id                          (post_id)
+#  index_post_actions_on_user_id_and_post_action_type_id  (user_id,post_action_type_id)
 #

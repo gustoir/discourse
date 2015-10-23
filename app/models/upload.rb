@@ -29,7 +29,15 @@ class Upload < ActiveRecord::Base
 
   def create_thumbnail!(width, height)
     return unless SiteSetting.create_thumbnails?
-    thumbnail = OptimizedImage.create_for(self, width, height, allow_animation: SiteSetting.allow_animated_thumbnails)
+
+    thumbnail = OptimizedImage.create_for(
+      self,
+      width,
+      height,
+      filename: self.original_filename,
+      allow_animation: SiteSetting.allow_animated_thumbnails
+    )
+
     if thumbnail
       optimized_images << thumbnail
       self.width = width
@@ -50,7 +58,7 @@ class Upload < ActiveRecord::Base
   end
 
   # list of image types that will be cropped
-  CROPPED_IMAGE_TYPES ||= ["avatar", "profile_background", "card_background"]
+  CROPPED_IMAGE_TYPES ||= %w{avatar profile_background card_background}
 
   # options
   #   - content_type
@@ -87,19 +95,24 @@ class Upload < ActiveRecord::Base
           when "avatar"
             allow_animation = SiteSetting.allow_animated_avatars
             width = height = Discourse.avatar_sizes.max
+            OptimizedImage.resize(file.path, file.path, width, height, filename: filename, allow_animation: allow_animation)
           when "profile_background"
             max_width = 850 * max_pixel_ratio
             width, height = ImageSizer.resize(w, h, max_width: max_width, max_height: max_width)
+            OptimizedImage.downsize(file.path, file.path, "#{width}x#{height}", filename: filename, allow_animation: allow_animation)
           when "card_background"
             max_width = 590 * max_pixel_ratio
             width, height = ImageSizer.resize(w, h, max_width: max_width, max_height: max_width)
+            OptimizedImage.downsize(file.path, file.path, "#{width}x#{height}", filename: filename, allow_animation: allow_animation)
           end
-
-          OptimizedImage.resize(file.path, file.path, width, height, allow_animation: allow_animation)
         end
 
         # optimize image
         ImageOptim.new.optimize_image!(file.path) rescue nil
+
+        # correct size so it displays the optimized image size which is the only
+        # one that is stored
+        filesize = File.size(file.path)
       end
 
       # compute the sha of the file

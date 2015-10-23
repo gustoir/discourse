@@ -61,6 +61,7 @@ class Post < ActiveRecord::Base
   scope :private_posts, -> { joins(:topic).where('topics.archetype = ?', Archetype.private_message) }
   scope :with_topic_subtype, ->(subtype) { joins(:topic).where('topics.subtype = ?', subtype) }
   scope :visible, -> { joins(:topic).where('topics.visible = true').where(hidden: false) }
+  scope :secured, lambda { |guardian| where('posts.post_type in (?)', Topic.visible_post_types(guardian && guardian.user))}
 
   delegate :username, to: :user
 
@@ -74,7 +75,7 @@ class Post < ActiveRecord::Base
   end
 
   def self.types
-    @types ||= Enum.new(:regular, :moderator_action, :small_action)
+    @types ||= Enum.new(:regular, :moderator_action, :small_action, :whisper)
   end
 
   def self.cook_methods
@@ -90,21 +91,32 @@ class Post < ActiveRecord::Base
   end
 
   def limit_posts_per_day
-    if user.first_day_user? && post_number && post_number > 1
+    if user && user.first_day_user? && post_number && post_number > 1
       RateLimiter.new(user, "first-day-replies-per-day", SiteSetting.max_replies_in_first_day, 1.day.to_i)
     end
   end
 
   def publish_change_to_clients!(type)
-    # special failsafe for posts missing topics
-    # consistency checks should fix, but message
+    # special failsafe for posts missing topics consistency checks should fix, but message
     # is safe to skip
-    MessageBus.publish("/topic/#{topic_id}", {
+    return unless topic
+
+    channel = "/topic/#{topic_id}"
+    msg = {
       id: id,
       post_number: post_number,
       updated_at: Time.now,
+      user_id: user_id,
+      last_editor_id: last_editor_id,
       type: type
-    }, group_ids: topic.secure_group_ids) if topic
+    }
+
+    if Topic.visible_post_types.include?(post_type)
+      MessageBus.publish(channel, msg, group_ids: topic.secure_group_ids)
+    else
+      user_ids = User.where('admin or moderator or id = ?', user_id).pluck(:id)
+      MessageBus.publish(channel, msg, user_ids: user_ids)
+    end
   end
 
   def trash!(trashed_by=nil)
@@ -497,7 +509,9 @@ class Post < ActiveRecord::Base
     }
     args[:image_sizes] = image_sizes if image_sizes.present?
     args[:invalidate_oneboxes] = true if invalidate_oneboxes.present?
+    args[:cooking_options] = self.cooking_options
     Jobs.enqueue(:process_post, args)
+    DiscourseEvent.trigger(:after_trigger_post_process, self)
   end
 
   def self.public_posts_count_per_day(start_date, end_date, category_id=nil)
@@ -510,7 +524,7 @@ class Post < ActiveRecord::Base
     private_posts.with_topic_subtype(topic_subtype).where('posts.created_at > ?', since_days_ago.days.ago).group('date(posts.created_at)').order('date(posts.created_at)').count
   end
 
-  def reply_history(max_replies=100)
+  def reply_history(max_replies=100, guardian=nil)
     post_ids = Post.exec_sql("WITH RECURSIVE breadcrumb(id, reply_to_post_number) AS (
                               SELECT p.id, p.reply_to_post_number FROM posts AS p
                                 WHERE p.id = :post_id
@@ -526,7 +540,7 @@ class Post < ActiveRecord::Base
     # [1,2,3][-10,-1] => nil
     post_ids = (post_ids[(0-max_replies)..-1] || post_ids)
 
-    Post.where(id: post_ids).includes(:user, :topic).order(:id).to_a
+    Post.secured(guardian).where(id: post_ids).includes(:user, :topic).order(:id).to_a
   end
 
   def revert_to(number)
@@ -575,7 +589,9 @@ class Post < ActiveRecord::Base
     return if post.nil?
     post_reply = post.post_replies.new(reply_id: id)
     if post_reply.save
-      Post.where(id: post.id).update_all ['reply_count = reply_count + 1']
+      if Topic.visible_post_types.include?(self.post_type)
+        Post.where(id: post.id).update_all ['reply_count = reply_count + 1']
+      end
     end
   end
 
@@ -634,6 +650,7 @@ end
 #  via_email               :boolean          default(FALSE), not null
 #  raw_email               :text
 #  public_version          :integer          default(1), not null
+#  action_code             :string(255)
 #
 # Indexes
 #

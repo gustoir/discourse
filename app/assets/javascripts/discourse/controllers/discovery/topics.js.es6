@@ -2,6 +2,7 @@ import DiscoveryController from 'discourse/controllers/discovery';
 import { queryParams } from 'discourse/controllers/discovery-sortable';
 import BulkTopicSelection from 'discourse/mixins/bulk-topic-selection';
 import { endWith } from 'discourse/lib/computed';
+import showModal from 'discourse/lib/show-modal';
 
 const controllerOpts = {
   needs: ['discovery'],
@@ -10,7 +11,7 @@ const controllerOpts = {
   canStar: Em.computed.alias('controllers.discovery/topics.currentUser.id'),
   showTopicPostBadges: Em.computed.not('controllers.discovery/topics.new'),
 
-  redirectedReason: Em.computed.alias('currentUser.redirected_to_top_reason'),
+  redirectedReason: Em.computed.alias('currentUser.redirected_to_top.reason'),
 
   order: 'default',
   ascending: false,
@@ -25,12 +26,13 @@ const controllerOpts = {
       } else {
         this.setProperties({ order: sortBy, ascending: false });
       }
+
       this.get('model').refreshSort(sortBy, this.get('ascending'));
     },
 
     // Show newly inserted topics
-    showInserted: function() {
-      const tracker = Discourse.TopicTrackingState.current();
+    showInserted() {
+      const tracker = this.topicTrackingState;
 
       // Move inserted into topics
       this.get('content').loadBefore(tracker.get('newIncoming'));
@@ -38,11 +40,10 @@ const controllerOpts = {
       return false;
     },
 
-    refresh: function() {
-      const filter = this.get('model.filter'),
-          self = this;
+    refresh() {
+      const filter = this.get('model.filter');
 
-      this.setProperties({ order: 'default', ascending: false });
+      this.setProperties({ order: "default", ascending: false });
 
       // Don't refresh if we're still loading
       if (this.get('controllers.discovery.loading')) { return; }
@@ -52,35 +53,29 @@ const controllerOpts = {
       // Lesson learned: Don't call `loading` yourself.
       this.set('controllers.discovery.loading', true);
 
-      this.store.findFiltered('topicList', {filter}).then(function(list) {
-        Discourse.TopicList.hideUniformCategory(list, self.get('category'));
+      this.store.findFiltered('topicList', {filter}).then(list => {
+        Discourse.TopicList.hideUniformCategory(list, this.get('category'));
 
-        self.setProperties({ model: list });
-        self.resetSelected();
+        this.setProperties({ model: list });
+        this.resetSelected();
 
-        const tracking = Discourse.TopicTrackingState.current();
-        if (tracking) {
-          tracking.sync(list, filter);
+        if (this.topicTrackingState) {
+          this.topicTrackingState.sync(list, filter);
         }
 
-        self.send('loadingComplete');
+        this.send('loadingComplete');
       });
     },
 
+    resetNew() {
+      this.topicTrackingState.resetNew();
+      Discourse.Topic.resetNew().then(() => this.send('refresh'));
+    },
 
-    resetNew: function() {
-      const self = this;
-
-      Discourse.TopicTrackingState.current().resetNew();
-      Discourse.Topic.resetNew().then(function() {
-        self.send('refresh');
-      });
+    dismissReadPosts() {
+      showModal('dismiss-read', { title: 'topics.bulk.dismiss' });
     }
   },
-
-  topicTrackingState: function() {
-    return Discourse.TopicTrackingState.current();
-  }.property(),
 
   isFilterPage: function(filter, filterType) {
     if (!filter) { return false; }

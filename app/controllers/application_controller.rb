@@ -76,17 +76,7 @@ class ApplicationController < ActionController::Base
 
   # If they hit the rate limiter
   rescue_from RateLimiter::LimitExceeded do |e|
-
-    time_left = ""
-    if e.available_in < 1.minute.to_i
-      time_left = I18n.t("rate_limiter.seconds", count: e.available_in)
-    elsif e.available_in < 1.hour.to_i
-      time_left = I18n.t("rate_limiter.minutes", count: (e.available_in / 1.minute.to_i))
-    else
-      time_left = I18n.t("rate_limiter.hours", count: (e.available_in / 1.hour.to_i))
-    end
-
-    render_json_error I18n.t("rate_limiter.too_many_requests", time_left: time_left), type: :rate_limit, status: 429
+    render_json_error e.description, type: :rate_limit, status: 429
   end
 
   rescue_from PG::ReadOnlySqlTransaction do |e|
@@ -309,7 +299,8 @@ class ApplicationController < ActionController::Base
 
     def preload_current_user_data
       store_preloaded("currentUser", MultiJson.dump(CurrentUserSerializer.new(current_user, scope: guardian, root: false)))
-      serializer = ActiveModel::ArraySerializer.new(TopicTrackingState.report(current_user.id), each_serializer: TopicTrackingStateSerializer)
+      report = TopicTrackingState.report(current_user.id)
+      serializer = ActiveModel::ArraySerializer.new(report, each_serializer: TopicTrackingStateSerializer)
       store_preloaded("topicTrackingStates", MultiJson.dump(serializer))
     end
 
@@ -413,17 +404,22 @@ class ApplicationController < ActionController::Base
       raise Discourse::InvalidAccess.new unless current_user && current_user.staff?
     end
 
+    def destination_url
+      request.original_url unless request.original_url =~ /uploads/
+    end
+
     def redirect_to_login_if_required
       return if current_user || (request.format.json? && api_key_valid?)
-
-      # save original URL in a cookie
-      cookies[:destination_url] = request.original_url unless request.original_url =~ /uploads/
 
       # redirect user to the SSO page if we need to log in AND SSO is enabled
       if SiteSetting.login_required?
         if SiteSetting.enable_sso?
+          # save original URL in a session so we can redirect after login
+          session[:destination_url] = destination_url
           redirect_to path('/session/sso')
         else
+          # save original URL in a cookie (javascript redirects after login in this case)
+          cookies[:destination_url] = destination_url
           redirect_to :login
         end
       end

@@ -338,29 +338,57 @@ describe User do
   end
 
   describe 'username format' do
-    it "should be #{SiteSetting.min_username_length} chars or longer" do
-      @user = Fabricate.build(:user)
-      @user.username = 'ss'
-      expect(@user.save).to eq(false)
+    def assert_bad(username)
+      user = Fabricate.build(:user)
+      user.username = username
+      expect(user.valid?).to eq(false)
     end
 
-    it "should never end with a ." do
-      @user = Fabricate.build(:user)
-      @user.username = 'sam.'
-      expect(@user.save).to eq(false)
+    def assert_good(username)
+      user = Fabricate.build(:user)
+      user.username = username
+      expect(user.valid?).to eq(true)
     end
 
-    it "should never contain spaces" do
-      @user = Fabricate.build(:user)
-      @user.username = 'sam s'
-      expect(@user.save).to eq(false)
+    it "should be SiteSetting.min_username_length chars or longer" do
+      SiteSetting.min_username_length = 5
+      assert_bad("abcd")
+      assert_good("abcde")
     end
 
-    ['Bad One', 'Giraf%fe', 'Hello!', '@twitter', 'me@example.com', 'no.dots', 'purple.', '.bilbo', '_nope', 'sa$sy'].each do |bad_nickname|
-      it "should not allow username '#{bad_nickname}'" do
-        @user = Fabricate.build(:user)
-        @user.username = bad_nickname
-        expect(@user.save).to eq(false)
+    %w{ first.last
+        first first-last
+        _name first_last
+        mc.hammer_nose
+        UPPERCASE
+        sgif
+    }.each do |username|
+      it "allows #{username}" do
+        assert_good(username)
+      end
+    end
+
+    %w{
+      traildot.
+      has\ space
+      double__underscore
+      with%symbol
+      Exclamation!
+      @twitter
+      my@email.com
+      .tester
+      sa$sy
+      sam.json
+      sam.xml
+      sam.html
+      sam.htm
+      sam.js
+      sam.woff
+      sam.Png
+      sam.gif
+    }.each do |username|
+      it "disallows #{username}" do
+        assert_bad(username)
       end
     end
   end
@@ -677,7 +705,19 @@ describe User do
 
       # It doesn't raise an exception if called again
       user.flag_linked_posts_as_spam
+    end
 
+    it "does not flags post as spam if the previous flag for that post was disagreed" do
+      user.flag_linked_posts_as_spam
+
+      post.reload
+      expect(post.spam_count).to eq(1)
+
+      PostAction.clear_flags!(post, admin)
+      user.flag_linked_posts_as_spam
+
+      post.reload
+      expect(post.spam_count).to eq(0)
     end
 
   end
@@ -868,7 +908,11 @@ describe User do
     let(:user) { build(:user, username: 'Sam') }
 
     it "returns a 45-pixel-wide avatar" do
+      SiteSetting.external_system_avatars_enabled = false
       expect(user.small_avatar_url).to eq("//test.localhost/letter_avatar/sam/45/#{LetterAvatar.version}.png")
+
+      SiteSetting.external_system_avatars_enabled = true
+      expect(user.small_avatar_url).to eq("https://avatars.discourse.org/v2/letter/s/5f9b8f/45.png")
     end
 
   end
@@ -962,23 +1006,23 @@ describe User do
     let!(:user) { Fabricate(:user) }
 
     it "should be redirected to top when there is a reason to" do
-      user.expects(:redirected_to_top_reason).returns("42")
+      user.expects(:redirected_to_top).returns({ reason: "42" })
       expect(user.should_be_redirected_to_top).to eq(true)
     end
 
     it "should not be redirected to top when there is no reason to" do
-      user.expects(:redirected_to_top_reason).returns(nil)
+      user.expects(:redirected_to_top).returns(nil)
       expect(user.should_be_redirected_to_top).to eq(false)
     end
 
   end
 
-  describe ".redirected_to_top_reason" do
+  describe ".redirected_to_top" do
     let!(:user) { Fabricate(:user) }
 
     it "should have no reason when `SiteSetting.redirect_users_to_top_page` is disabled" do
       SiteSetting.expects(:redirect_users_to_top_page).returns(false)
-      expect(user.redirected_to_top_reason).to eq(nil)
+      expect(user.redirected_to_top).to eq(nil)
     end
 
     context "when `SiteSetting.redirect_users_to_top_page` is enabled" do
@@ -986,19 +1030,20 @@ describe User do
 
       it "should have no reason when top is not in the `SiteSetting.top_menu`" do
         SiteSetting.expects(:top_menu).returns("latest")
-        expect(user.redirected_to_top_reason).to eq(nil)
+        expect(user.redirected_to_top).to eq(nil)
       end
 
       context "and when top is in the `SiteSetting.top_menu`" do
         before { SiteSetting.expects(:top_menu).returns("latest|top") }
 
-        it "should have no reason when there aren't enough topics" do
-          SiteSetting.expects(:has_enough_topics_to_redirect_to_top).returns(false)
-          expect(user.redirected_to_top_reason).to eq(nil)
+        it "should have no reason when there are not enough topics" do
+          SiteSetting.expects(:min_redirected_to_top_period).returns(nil)
+          expect(user.redirected_to_top).to eq(nil)
         end
 
-        context "and when there are enough topics" do
-          before { SiteSetting.expects(:has_enough_topics_to_redirect_to_top).returns(true) }
+        context "and there are enough topics" do
+
+          before { SiteSetting.expects(:min_redirected_to_top_period).returns(:monthly) }
 
           describe "a new user" do
             before do
@@ -1010,14 +1055,17 @@ describe User do
               user.expects(:last_redirected_to_top_at).returns(nil)
               user.expects(:update_last_redirected_to_top!).once
 
-              expect(user.redirected_to_top_reason).to eq(I18n.t('redirected_to_top_reasons.new_user'))
+              expect(user.redirected_to_top).to eq({
+                reason: I18n.t('redirected_to_top_reasons.new_user'),
+                period: :monthly
+              })
             end
 
             it "should not have a reason for next visits" do
               user.expects(:last_redirected_to_top_at).returns(10.minutes.ago)
               user.expects(:update_last_redirected_to_top!).never
 
-              expect(user.redirected_to_top_reason).to eq(nil)
+              expect(user.redirected_to_top).to eq(nil)
             end
           end
 
@@ -1028,8 +1076,12 @@ describe User do
               user.last_seen_at = 2.months.ago
               user.expects(:update_last_redirected_to_top!).once
 
-              expect(user.redirected_to_top_reason).to eq(I18n.t('redirected_to_top_reasons.not_seen_in_a_month'))
+              expect(user.redirected_to_top).to eq({
+                reason: I18n.t('redirected_to_top_reasons.not_seen_in_a_month'),
+                period: :monthly
+              })
             end
+
           end
 
         end
@@ -1042,6 +1094,8 @@ describe User do
 
   describe "automatic avatar creation" do
     it "sets a system avatar for new users" do
+      SiteSetting.external_system_avatars_enabled = false
+
       u = User.create!(username: "bob", email: "bob@bob.com")
       u.reload
       expect(u.uploaded_avatar_id).to eq(nil)

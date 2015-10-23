@@ -5,18 +5,13 @@ function calcDayDiff(p1, p2) {
   if (!p1) { return; }
 
   const date = p1.get('created_at');
-  if (date) {
-    if (p2) {
-      const numDiff = p1.get('post_number') - p2.get('post_number');
-      if (numDiff === 1) {
-        const lastDate = p2.get('created_at');
-        if (lastDate) {
-          const delta = new Date(date).getTime() - new Date(lastDate).getTime();
-          const days = Math.round(delta / (1000 * 60 * 60 * 24));
+  if (date && p2) {
+    const lastDate = p2.get('created_at');
+    if (lastDate) {
+      const delta = new Date(date).getTime() - new Date(lastDate).getTime();
+      const days = Math.round(delta / (1000 * 60 * 60 * 24));
 
-          p1.set('daysSincePrevious', days);
-        }
-      }
+      p1.set('daysSincePrevious', days);
     }
   }
 }
@@ -281,14 +276,13 @@ const PostStream = RestModel.extend({
   // Fill in a gap of posts after a particular post
   fillGapAfter(post, gap) {
     const postId = post.get('id'),
-        stream = this.get('stream'),
-        idx = stream.indexOf(postId),
-        self = this;
+          stream = this.get('stream'),
+          idx = stream.indexOf(postId);
 
     if (idx !== -1) {
       stream.pushObjects(gap);
-      return this.appendMore().then(function() {
-        self.get('stream').enumerableContentDidChange();
+      return this.appendMore().then(() => {
+        this.get('stream').enumerableContentDidChange();
       });
     }
     return Ember.RSVP.resolve();
@@ -296,24 +290,18 @@ const PostStream = RestModel.extend({
 
   // Appends the next window of posts to the stream. Call it when scrolling downwards.
   appendMore() {
-    const self = this;
-
     // Make sure we can append more posts
-    if (!self.get('canAppendMore')) { return Ember.RSVP.resolve(); }
+    if (!this.get('canAppendMore')) { return Ember.RSVP.resolve(); }
 
-    const postIds = self.get('nextWindow');
+    const postIds = this.get('nextWindow');
     if (Ember.isEmpty(postIds)) { return Ember.RSVP.resolve(); }
 
-    self.set('loadingBelow', true);
+    this.set('loadingBelow', true);
 
-    const stopLoading = function() {
-      self.set('loadingBelow', false);
-    };
+    const stopLoading = () => this.set('loadingBelow', false);
 
-    return self.findPostsByIds(postIds).then(function(posts) {
-      posts.forEach(function(p) {
-        self.appendPost(p);
-      });
+    return this.findPostsByIds(postIds).then((posts) => {
+      posts.forEach(p => this.appendPost(p));
       stopLoading();
     }, stopLoading);
   },
@@ -453,6 +441,14 @@ const PostStream = RestModel.extend({
     return this.get('postIdentityMap').get(id);
   },
 
+  loadPost(postId){
+    const url = "/posts/" + postId;
+    const store = this.store;
+
+    return Discourse.ajax(url).then((p) =>
+        this.storePost(store.createRecord('post', p)));
+  },
+
   /**
     Finds and adds a post to the stream by id. Typically this would happen if we receive a message
     from the message bus indicating there's a new post. We'll only insert it if we currently
@@ -468,7 +464,12 @@ const PostStream = RestModel.extend({
 
     if (this.get('stream').indexOf(postId) === -1) {
       this.get('stream').addObject(postId);
-      if (loadedAllPosts) { this.appendMore(); }
+      if (loadedAllPosts) {
+        this.set('loadingLastPost', true);
+        this.appendMore().finally(
+            ()=>this.set('loadingLastPost', true)
+        );
+      }
     }
   },
 
@@ -685,6 +686,12 @@ const PostStream = RestModel.extend({
       const postIdentityMap = this.get('postIdentityMap'),
             existing = postIdentityMap.get(post.get('id'));
 
+      // Update the `highest_post_number` if this post is higher.
+      const postNumber = post.get('post_number');
+      if (postNumber && postNumber > (this.get('topic.highest_post_number') || 0)) {
+        this.set('topic.highest_post_number', postNumber);
+      }
+
       if (existing) {
         // If the post is in the identity map, update it and return the old reference.
         existing.updateFromPost(post);
@@ -693,12 +700,6 @@ const PostStream = RestModel.extend({
 
       post.set('topic', this.get('topic'));
       postIdentityMap.set(post.get('id'), post);
-
-      // Update the `highest_post_number` if this post is higher.
-      const postNumber = post.get('post_number');
-      if (postNumber && postNumber > (this.get('topic.highest_post_number') || 0)) {
-        this.set('topic.highest_post_number', postNumber);
-      }
     }
     return post;
   },

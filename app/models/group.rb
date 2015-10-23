@@ -15,6 +15,13 @@ class Group < ActiveRecord::Base
   after_save :update_primary_group
   after_save :update_title
 
+  after_save :expire_cache
+  after_destroy :expire_cache
+
+  def expire_cache
+    ApplicationSerializer.expire_cache_fragment!("group_names")
+  end
+
   validate :name_format_validator
   validates_uniqueness_of :name, case_sensitive: false
 
@@ -372,6 +379,9 @@ end
 #  visible                            :boolean          default(TRUE), not null
 #  automatic_membership_email_domains :text
 #  automatic_membership_retroactive   :boolean          default(FALSE)
+#  primary_group                      :boolean          default(FALSE), not null
+#  title                              :string(255)
+#  grant_trust_level                  :integer
 #
 # Indexes
 #

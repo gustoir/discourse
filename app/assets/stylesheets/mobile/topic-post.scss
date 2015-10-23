@@ -16,7 +16,7 @@
 
 .topic-post {
   border-top: 1px solid dark-light-diff($primary, $secondary, 90%, -60%);
-  padding: 6px 0 3px 0;
+  padding: 6px 0;
 }
 
 span.badge-posts {
@@ -46,7 +46,7 @@ button {
   padding: 8px 10px;
   vertical-align: top;
   background: transparent;
-  color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%));
+  color: dark-light-choose(scale-color($primary, $lightness: 75%), scale-color($secondary, $lightness: 25%));
   float: left;
   &.hidden {
     display: none;
@@ -80,7 +80,7 @@ button {
 /* shift post reply button to the right and make it black */
 .post-controls button.create {
   float: right;
-  color: $primary;
+  color: dark-light-choose(scale-color($primary, $lightness: 20%), scale-color($secondary, $lightness: 80%));
 }
 
 
@@ -130,8 +130,7 @@ button {
 }
 
 .post-actions {
-  display: inline-block;
-  width: 100%;
+  /* overriding display: here was causing hidden element to take up space */
 }
 
 .post-action {
@@ -159,10 +158,7 @@ a.star {
 }
 
 .topic-post .boxed .contents {
-  float: none;
-  padding-top: 5px;
   clear: both;
-  position: relative;
 }
 
 .topic-map {
@@ -396,7 +392,6 @@ iframe {
 }
 
 #selected-posts {
-  float: left;
   width: 97%;
   padding-left: 3%;
   background-color: srgb-scale($tertiary, $secondary, 15%);
@@ -438,14 +433,6 @@ button.select-post {
   background-color: dark-light-diff(rgba($danger,.7), $secondary, 50%, -60%);
 }
 
-#show-topic-admin {
-  color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%));
-  right: 0;
-  border-right: 0;
-  padding-right: 4px;
-  padding-left: 5px;
-}
-
 .deleted-user-avatar {
   font-size: 2.571em;
 }
@@ -469,19 +456,15 @@ span.highlighted {
 
 .topic-avatar {
   float: left;
-  position: relative;
+  padding-top: 5px;
   z-index:999; /* must render on top of topic-body + topic-meta-data, otherwise not tappable */
 }
 
 .topic-meta-data {
-  white-space: nowrap;
-  position: absolute;
-  width: 100%;
-  left: 0px;
+  margin-left: 50px;
   .names {
     margin: 5px 0 0 5px;
     line-height: 17px;
-    padding-left: 60px;
     span {
       display: block;
     }
@@ -509,6 +492,20 @@ span.highlighted {
   display: none;
 }
 
+.signup-cta {
+  margin-left: auto;
+  margin-right: auto;
+  width: calc(100% - 50px);
+  a {
+    float: right;
+    text-decoration: underline;
+    margin-top: 7px;
+  }
+  button {
+    margin-right: 7px;
+  }
+}
+
 .small-action .small-action-desc {
   p {
     padding-top: 0;
@@ -526,3 +523,9 @@ span.highlighted {
 .small-action.time-gap .topic-avatar {
   margin-top: -5px;
 }
+
+.gap.jagged-border {
+  margin-left: -10px;
+  margin-right: -10px;
+}
+

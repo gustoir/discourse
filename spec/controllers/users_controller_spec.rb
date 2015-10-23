@@ -3,7 +3,7 @@ require 'spec_helper'
 describe UsersController do
 
   describe '.show' do
-    let!(:user) { log_in }
+    let(:user) { log_in }
 
     it 'returns success' do
       xhr :get, :show, username: user.username, format: :json
@@ -29,6 +29,30 @@ describe UsersController do
       Guardian.any_instance.expects(:can_see?).with(user).returns(false)
       xhr :get, :show, username: user.username
       expect(response).to be_forbidden
+    end
+
+    describe "user profile views" do
+      let(:other_user) { Fabricate(:user) }
+
+      it "should track a user profile view for a signed in user" do
+        UserProfileView.expects(:add).with(other_user.user_profile.id, request.remote_ip, user.id)
+        xhr :get, :show, username: other_user.username
+      end
+
+      it "should not track a user profile view for a user viewing his own profile" do
+        UserProfileView.expects(:add).never
+        xhr :get, :show, username: user.username
+      end
+
+      it "should track a user profile view for an anon user" do
+        UserProfileView.expects(:add).with(other_user.user_profile.id, request.remote_ip, nil)
+        xhr :get, :show, username: other_user.username
+      end
+
+      it "skips tracking" do
+        UserProfileView.expects(:add).never
+        xhr :get, :show, { username: user.username, skip_track_visit: true }
+      end
     end
 
     context "fetching a user by external_id" do
@@ -1301,38 +1325,42 @@ describe UsersController do
   describe '.pick_avatar' do
 
     it 'raises an error when not logged in' do
-      expect { xhr :put, :pick_avatar, username: 'asdf', avatar_id: 1}.to raise_error(Discourse::NotLoggedIn)
+      expect {
+        xhr :put, :pick_avatar, username: 'asdf', avatar_id: 1, type: "custom"
+      }.to raise_error(Discourse::NotLoggedIn)
     end
 
     context 'while logged in' do
 
       let!(:user) { log_in }
+      let(:upload) { Fabricate(:upload) }
 
-      it 'raises an error when you don\'t have permission to toggle the avatar' do
+      it "raises an error when you don't have permission to toggle the avatar" do
         another_user = Fabricate(:user)
-        xhr :put, :pick_avatar, username: another_user.username, upload_id: 1
+        xhr :put, :pick_avatar, username: another_user.username, upload_id: upload.id, type: "custom"
         expect(response).to be_forbidden
       end
 
-      it 'it successful' do
-        xhr :put, :pick_avatar, username: user.username, upload_id: 111
-        expect(user.reload.uploaded_avatar_id).to eq(111)
-        expect(user.user_avatar.reload.custom_upload_id).to eq(111)
-        expect(response).to be_success
-
+      it 'can successfully pick the system avatar' do
         xhr :put, :pick_avatar, username: user.username
-        expect(user.reload.uploaded_avatar_id).to eq(nil)
-        expect(user.user_avatar.reload.custom_upload_id).to eq(111)
         expect(response).to be_success
+        expect(user.reload.uploaded_avatar_id).to eq(nil)
       end
 
-      it 'returns success' do
-        xhr :put, :pick_avatar, username: user.username, upload_id: 111
-        expect(user.reload.uploaded_avatar_id).to eq(111)
+      it 'can successfully pick a gravatar' do
+        xhr :put, :pick_avatar, username: user.username, upload_id: upload.id, type: "gravatar"
         expect(response).to be_success
-        json = ::JSON.parse(response.body)
-        expect(json['success']).to eq("OK")
+        expect(user.reload.uploaded_avatar_id).to eq(upload.id)
+        expect(user.user_avatar.reload.gravatar_upload_id).to eq(upload.id)
       end
+
+      it 'can successfully pick a custom avatar' do
+        xhr :put, :pick_avatar, username: user.username, upload_id: upload.id, type: "custom"
+        expect(response).to be_success
+        expect(user.reload.uploaded_avatar_id).to eq(upload.id)
+        expect(user.user_avatar.reload.custom_upload_id).to eq(upload.id)
+      end
+
     end
 
   end
@@ -1402,10 +1430,10 @@ describe UsersController do
 
   describe '.my_redirect' do
 
-    it "returns 404 if the user is not logged in" do
+    it "redirects if the user is not logged in" do
       get :my_redirect, path: "wat"
       expect(response).not_to be_success
-      expect(response).not_to be_redirect
+      expect(response).to be_redirect
     end
 
     context "when the user is logged in" do

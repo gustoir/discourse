@@ -64,6 +64,7 @@ describe CategoriesController do
           expect(category.slug).to eq("hello-cat")
           expect(category.color).to eq("ff0")
           expect(category.auto_close_hours).to eq(72)
+          expect(UserHistory.count).to eq(1)
         end
       end
     end
@@ -90,9 +91,46 @@ describe CategoriesController do
       it "deletes the record" do
         Guardian.any_instance.expects(:can_delete_category?).returns(true)
         expect { xhr :delete, :destroy, id: @category.slug}.to change(Category, :count).by(-1)
+        expect(UserHistory.count).to eq(1)
       end
     end
 
+  end
+
+  describe "reorder" do
+    it "reorders the categories" do
+      admin = log_in(:admin)
+
+      c1 = Fabricate(:category)
+      c2 = Fabricate(:category)
+      c3 = Fabricate(:category)
+      c4 = Fabricate(:category)
+      if c3.id < c2.id
+        tmp = c3; c2 = c3; c3 = tmp;
+      end
+      c1.position = 8
+      c2.position = 6
+      c3.position = 7
+      c4.position = 5
+
+      payload = {}
+      payload[c1.id] = 4
+      payload[c2.id] = 6
+      payload[c3.id] = 6
+      payload[c4.id] = 5
+
+      xhr :post, :reorder, mapping: MultiJson.dump(payload)
+
+      SiteSetting.fixed_category_positions = true
+      list = CategoryList.new(Guardian.new(admin))
+      expect(list.categories).to eq([
+                                      Category.find(SiteSetting.uncategorized_category_id),
+                                      c1,
+                                      c4,
+                                      c2,
+                                      c3
+                                    ])
+    end
   end
 
   describe "update" do
@@ -178,6 +216,17 @@ describe CategoriesController do
           expect(@category.color).to eq("ff0")
           expect(@category.auto_close_hours).to eq(72)
           expect(@category.custom_fields).to eq({"dancing" => "frogs"})
+        end
+
+        it 'logs the changes correctly' do
+          xhr :put , :update, id: @category.id, name: 'new name',
+            color: @category.color, text_color: @category.text_color,
+            slug: @category.slug,
+            permissions: {
+              "everyone" => CategoryGroup.permission_types[:create_post]
+            }
+
+          expect(UserHistory.count).to eq(2)
         end
       end
     end

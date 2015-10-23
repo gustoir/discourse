@@ -103,6 +103,7 @@ class Search
     @limit = Search.per_facet
 
     term = process_advanced_search!(term)
+
     if term.present?
       @term = Search.prepare_data(term.to_s)
       @original_term = PG::Connection.escape_string(@term)
@@ -184,6 +185,15 @@ class Search
     posts.where("posts.post_number = 1")
   end
 
+  advanced_filter(/badge:(.*)/) do |posts,match|
+    badge_id = Badge.where('name ilike ? OR id = ?', match, match.to_i).pluck(:id).first
+    if badge_id
+      posts.where('posts.user_id IN (SELECT ub.user_id FROM user_badges ub WHERE ub.badge_id = ?)', badge_id)
+    else
+      posts.where("1 = 0")
+    end
+  end
+
   advanced_filter(/in:(likes|bookmarks)/) do |posts, match|
     if @guardian.user
       post_action_type = PostActionType.types[:like] if match == "likes"
@@ -223,6 +233,15 @@ class Search
     end
   end
 
+  advanced_filter(/group:(.+)/) do |posts,match|
+    group_id = Group.where('name ilike ? OR (id = ? AND id > 0)', match, match.to_i).pluck(:id).first
+    if group_id
+      posts.where("posts.user_id IN (select gu.user_id from group_users gu where gu.group_id = ?)", group_id)
+    else
+      posts.where("1 = 0")
+    end
+  end
+
   advanced_filter(/user:(.+)/) do |posts,match|
     user_id = User.where('username_lower = ? OR id = ?', match.downcase, match.to_i).pluck(:id).first
     if user_id
@@ -247,12 +266,14 @@ class Search
 
     def process_advanced_search!(term)
 
-      term.to_s.split(/\s+/).map do |word|
+      term.to_s.scan(/(([^" \t\n\x0B\f\r]+)?(("[^"]+")?))/).to_a.map do |(word,_)|
+        next if word.blank?
 
         found = false
 
         Search.advanced_filters.each do |matcher, block|
-          if word =~ matcher
+          cleaned = word.gsub(/["']/,"")
+          if cleaned =~ matcher
             (@filters ||= []) << [block, $1]
             found = true
           end
@@ -272,6 +293,9 @@ class Search
           nil
         elsif word == 'order:views'
           @order = :views
+          nil
+        elsif word == 'order:likes'
+          @order = :likes
           nil
         elsif word == 'in:private'
           @search_pms = true
@@ -369,7 +393,7 @@ class Search
 
     def posts_query(limit, opts=nil)
       opts ||= {}
-      posts = Post
+      posts = Post.where(post_type: Topic.visible_post_types(@guardian.user))
                   .joins(:post_search_data, :topic)
                   .joins("LEFT JOIN categories ON categories.id = topics.category_id")
                   .where("topics.deleted_at" => nil)
@@ -428,7 +452,7 @@ class Search
 
       end
 
-      if @order == :latest || @term.blank?
+      if @order == :latest || (@term.blank? && !@order)
         if opts[:aggregate_search]
           posts = posts.order("MAX(posts.created_at) DESC")
         else
@@ -439,6 +463,12 @@ class Search
           posts = posts.order("MAX(topics.views) DESC")
         else
           posts = posts.order("topics.views DESC")
+        end
+      elsif @order == :likes
+        if opts[:aggregate_search]
+          posts = posts.order("MAX(posts.like_count) DESC")
+        else
+          posts = posts.order("posts.like_count DESC")
         end
       else
         posts = posts.order("TS_RANK_CD(TO_TSVECTOR(#{query_locale}, topics.title), #{ts_query}) DESC")
@@ -492,11 +522,21 @@ class Search
 
     def aggregate_search(opts = {})
 
-      post_sql = posts_query(@limit, aggregate_search: true,
+      min_or_max = @order == :latest ? "max" : "min"
+
+      post_sql =
+        if @order == :likes
+          # likes are a pain to aggregate so skip
+          posts_query(@limit, private_messages: opts[:private_messages])
+            .select('topics.id', "post_number")
+            .to_sql
+        else
+          posts_query(@limit, aggregate_search: true,
                                      private_messages: opts[:private_messages])
-        .select('topics.id', 'min(post_number) post_number')
-        .group('topics.id')
-        .to_sql
+            .select('topics.id', "#{min_or_max}(post_number) post_number")
+            .group('topics.id')
+            .to_sql
+        end
 
       # double wrapping so we get correct row numbers
       post_sql = "SELECT *, row_number() over() row_number FROM (#{post_sql}) xxx"

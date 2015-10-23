@@ -163,7 +163,7 @@
                 }
             }
 
-            uiManager = new UIManager(idPostfix, panels, undoManager, previewManager, commandManager, options.helpButton, getString);
+            uiManager = new UIManager(idPostfix, panels, undoManager, previewManager, commandManager, options.helpButton, getString, options);
             uiManager.setUndoRedoButtonStates();
 
             var forceRefresh = that.refreshPreview = function () { previewManager.refresh(true); };
@@ -306,7 +306,8 @@
     // end of Chunks
 
     function firstByClass(doc, containerElement, className) {
-      var elements = doc.getElementsByClassName(className);
+      var container = containerElement || doc;
+      var elements = container.getElementsByClassName(className);
       if (elements && elements.length) {
         return elements[0];
       }
@@ -1219,12 +1220,12 @@
         }, 0);
     };
 
-    function UIManager(postfix, panels, undoManager, previewManager, commandManager, helpOptions, getString) {
+    function UIManager(postfix, panels, undoManager, previewManager, commandManager, helpOptions, getString, options) {
 
         var inputBox = panels.input,
             buttons = {}; // buttons.undo, buttons.link, etc. The actual DOM elements.
 
-        makeSpritedButtonRow();
+        makeSpritedButtonRow(options);
 
         var keyEvent = "keydown";
 
@@ -1396,7 +1397,8 @@
             return function () { method.apply(commandManager, arguments); }
         }
 
-        function makeSpritedButtonRow() {
+        function makeSpritedButtonRow(options) {
+            options = options || {};
 
             var buttonBar = panels.buttonBar;
             var buttonRow = document.createElement("div");
@@ -1459,17 +1461,21 @@
             buttons.heading = makeButton("wmd-heading-button", getString("heading"), bindCommand("doHeading"));
             buttons.hr = makeButton("wmd-hr-button", getString("hr"), bindCommand("doHorizontalRule"));
 
-            // If we have any buttons to append, do it!
-            if (typeof PagedownCustom != "undefined") {
-                var appendButtons = PagedownCustom.appendButtons
-                if (appendButtons && (appendButtons.length > 0)) {
-                    for (var i=0; i< appendButtons.length; i++) {
-                        var b = appendButtons[i];
+            function createExtraButtons(buttons) {
+                if (buttons && (buttons.length > 0)) {
+                    for (var i=0; i< buttons.length; i++) {
+                        var b = buttons[i];
                         makeButton(b.id, b.description, b.execute)
                     }
                 }
             }
 
+            // If we have any buttons to append, do it!
+            if (typeof PagedownCustom != "undefined") {
+              createExtraButtons(PagedownCustom.appendButtons);
+            }
+
+            createExtraButtons(options.appendButtons);
 
             //makeSpacer(3);
             //buttons.undo = makeButton("wmd-undo-button", getString("undo"), null);

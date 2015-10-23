@@ -79,7 +79,7 @@ class Category < ActiveRecord::Base
 
   # permission is just used by serialization
   # we may consider wrapping this in another spot
-  attr_accessor :displayable_topics, :permission, :subcategory_ids, :notification_level
+  attr_accessor :displayable_topics, :permission, :subcategory_ids, :notification_level, :has_children
 
   def self.last_updated_at
     order('updated_at desc').limit(1).pluck(:updated_at).first.to_i
@@ -193,13 +193,17 @@ SQL
   end
 
   def topic_url
-    topic_only_relative_url.try(:relative_url)
+    if has_attribute?("topic_slug")
+      Topic.relative_url(topic_id, read_attribute(:topic_slug))
+    else
+      topic_only_relative_url.try(:relative_url)
+    end
   end
 
   def description_text
     return nil unless description
 
-    @@cache ||= LruRedux::ThreadSafeCache.new(100)
+    @@cache ||= LruRedux::ThreadSafeCache.new(1000)
     @@cache.getset(self.description) do
       Nokogiri::HTML(self.description).text
     end
@@ -281,6 +285,14 @@ SQL
 
   def permissions=(permissions)
     set_permissions(permissions)
+  end
+
+  def permissions_params
+    hash = {}
+    category_groups.includes(:group).each do |category_group|
+      hash[category_group.group_name] = category_group.permission_type
+    end
+    hash
   end
 
   def apply_permissions
@@ -370,7 +382,8 @@ SQL
   end
 
   def has_children?
-    id && Category.where(parent_category_id: id).exists?
+    @has_children ||= (id && Category.where(parent_category_id: id).exists?) ? :true : :false
+    @has_children == :true
   end
 
   def uncategorized?
@@ -455,6 +468,8 @@ end
 #  allow_badges                  :boolean          default(TRUE), not null
 #  name_lower                    :string(50)       not null
 #  auto_close_based_on_last_post :boolean          default(FALSE)
+#  topic_template                :text
+#  suppress_from_homepage        :boolean          default(FALSE)
 #
 # Indexes
 #

@@ -12,12 +12,9 @@ function filterQueryParams(params, defaultParams) {
   return findOpts;
 }
 
-function findTopicList(store, filter, filterParams, extras) {
-  const tracking = Discourse.TopicTrackingState.current();
-
+function findTopicList(store, tracking, filter, filterParams, extras) {
   extras = extras || {};
   return new Ember.RSVP.Promise(function(resolve) {
-
     const session = Discourse.Session.current();
 
     if (extras.cached) {
@@ -40,7 +37,6 @@ function findTopicList(store, filter, filterParams, extras) {
       session.setProperties({topicList: null, topicListScrollPosition: null});
     }
 
-
     // Clean up any string parameters that might slip through
     filterParams = filterParams || {};
     Ember.keys(filterParams).forEach(function(k) {
@@ -50,17 +46,7 @@ function findTopicList(store, filter, filterParams, extras) {
       }
     });
 
-    const findParams = {};
-    Discourse.SiteSettings.top_menu.split('|').forEach(function (i) {
-      if (i.indexOf(filter) === 0) {
-        const exclude = i.split("-");
-        if (exclude && exclude.length === 2) {
-          findParams.exclude_category = exclude[1];
-        }
-      }
-    });
-    return resolve(store.findFiltered('topicList', { filter, params:_.extend(findParams, filterParams || {})}));
-
+    return resolve(store.findFiltered('topicList', { filter, params: filterParams || {} }));
   }).then(function(list) {
     list.set('listParams', filterParams);
     if (tracking) {
@@ -85,10 +71,10 @@ export default function(filter, extras) {
       // attempt to stop early cause we need this to be called before .sync
       ScreenTrack.current().stop();
 
-      const findOpts = filterQueryParams(transition.queryParams),
+      const findOpts = filterQueryParams(data),
             findExtras = { cached: this.isPoppedState(transition) };
 
-      return findTopicList(this.store, filter, findOpts, findExtras);
+      return findTopicList(this.store, this.topicTrackingState, filter, findOpts, findExtras);
     },
 
     titleToken() {
@@ -98,18 +84,11 @@ export default function(filter, extras) {
       return I18n.t('filters.with_topics', {filter: filterText});
     },
 
-    setupController(controller, model, trans) {
-      if (trans) {
-        controller.setProperties(Em.getProperties(trans, _.keys(queryParams).map(function(v){
-          return 'queryParams.' + v;
-        })));
-      }
-
-      const period = model.get('for_period') || (filter.indexOf('/') > 0 ? filter.split('/')[1] : '');
+    setupController(controller, model) {
       const topicOpts = {
         model,
         category: null,
-        period,
+        period: model.get('for_period') || (filter.indexOf('/') > 0 ? filter.split('/')[1] : ''),
         selected: [],
         expandGloballyPinned: true
       };
@@ -127,6 +106,12 @@ export default function(filter, extras) {
 
       this.openTopicDraft(model);
       this.controllerFor('navigation/default').set('canCreateTopic', model.get('can_create_topic'));
+    },
+
+    resetController(controller, isExiting) {
+      if (isExiting) {
+        controller.setProperties({ order: "default", ascending: false });
+      }
     },
 
     renderTemplate() {

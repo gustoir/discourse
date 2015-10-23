@@ -1,15 +1,16 @@
 #
-# Helps us find topics. Returns a TopicList object containing the topics
-# found.
+# Helps us find topics.
+# Returns a TopicList object containing the topics found.
 #
+
 require_dependency 'topic_list'
 require_dependency 'suggested_topics_builder'
 require_dependency 'topic_query_sql'
 
 class TopicQuery
   # Could be rewritten to %i if Ruby 1.9 is no longer supported
-  VALID_OPTIONS = %w(except_topic_ids
-                     exclude_category
+  VALID_OPTIONS = %i(except_topic_ids
+                     exclude_category_ids
                      limit
                      page
                      per_page
@@ -27,8 +28,7 @@ class TopicQuery
                      search
                      slow_platform
                      filter
-                     q
-                     ).map(&:to_sym)
+                     q)
 
   # Maps `order` to a columns in `topics`
   SORTABLE_MAPPING = {
@@ -44,8 +44,9 @@ class TopicQuery
 
   def initialize(user=nil, options={})
     options.assert_valid_keys(VALID_OPTIONS)
-    @options = options
+    @options = options.dup
     @user = user
+    @guardian = Guardian.new(@user)
   end
 
   def joined_topic_user(list=nil)
@@ -185,7 +186,7 @@ class TopicQuery
     topics = yield(topics) if block_given?
 
     options = options.merge(@options)
-    if (options[:order] || "activity") == "activity" && !options[:unordered]
+    if ["activity","default"].include?(options[:order] || "activity") && !options[:unordered]
       topics = prioritize_pinned_topics(topics, options)
     end
 
@@ -301,14 +302,17 @@ class TopicQuery
         if options[:no_subcategories]
           result = result.where('categories.id = ?', category_id)
         else
-          result = result.where('categories.id = ? or (categories.parent_category_id = ? AND categories.topic_id <> topics.id)', category_id, category_id)
+          result = result.where('categories.id = :category_id OR (categories.parent_category_id = :category_id AND categories.topic_id <> topics.id)', category_id: category_id)
         end
         result = result.references(:categories)
       end
 
       result = apply_ordering(result, options)
       result = result.listable_topics.includes(:category)
-      result = result.where('categories.name is null or categories.name <> ?', options[:exclude_category]).references(:categories) if options[:exclude_category]
+
+      if options[:exclude_category_ids] && options[:exclude_category_ids].is_a?(Array) && options[:exclude_category_ids].size > 0
+        result = result.where("categories.id NOT IN (?)", options[:exclude_category_ids]).references(:categories)
+      end
 
       # Don't include the category topics if excluded
       if options[:no_definitions]
@@ -356,7 +360,7 @@ class TopicQuery
         when 'unlisted'
           result = result.where('NOT topics.visible')
         when 'deleted'
-          guardian = Guardian.new(@user)
+          guardian = @guardian
           if guardian.is_staff?
             result = result.where('topics.deleted_at IS NOT NULL')
             require_deleted_clause = false
@@ -388,24 +392,27 @@ class TopicQuery
       result = result.where('topics.posts_count <= ?', options[:max_posts]) if options[:max_posts].present?
       result = result.where('topics.posts_count >= ?', options[:min_posts]) if options[:min_posts].present?
 
-      Guardian.new(@user).filter_allowed_categories(result)
+      @guardian.filter_allowed_categories(result)
     end
 
     def remove_muted_categories(list, user, opts=nil)
       category_id = get_category_id(opts[:exclude]) if opts
+
       if user
-        list = list.where("NOT EXISTS(
-                         SELECT 1 FROM category_users cu
-                         WHERE cu.user_id = ? AND
-                               cu.category_id = topics.category_id AND
-                               cu.notification_level = ? AND
-                               cu.category_id <> ?
-                         )",
-                          user.id,
-                          CategoryUser.notification_levels[:muted],
-                          category_id || -1
-                         )
-                      .references('cu')
+        list = list.references("cu")
+                   .where("
+          NOT EXISTS (
+            SELECT 1
+              FROM category_users cu
+             WHERE cu.user_id = :user_id
+               AND cu.category_id = topics.category_id
+               AND cu.notification_level = :muted
+               AND cu.category_id <> :category_id
+               AND (tu.notification_level IS NULL OR tu.notification_level < :tracking)
+          )", user_id: user.id,
+              muted: CategoryUser.notification_levels[:muted],
+              tracking: TopicUser.notification_levels[:tracking],
+              category_id: category_id || -1)
       end
 
       list

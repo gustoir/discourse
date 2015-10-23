@@ -14,7 +14,7 @@ window.Discourse = Ember.Application.createWithMixins(Discourse.Ajax, {
     if (!url) return url;
 
     // if it's a non relative URL, return it.
-    if (!/^\/[^\/]/.test(url)) return url;
+    if (url !== '/' && !/^\/[^\/]/.test(url)) return url;
 
     var u = Discourse.BaseUri === undefined ? "/" : Discourse.BaseUri;
 
@@ -57,7 +57,11 @@ window.Discourse = Ember.Application.createWithMixins(Discourse.Ajax, {
 
   faviconChanged: function() {
     if(Discourse.User.currentProp('dynamic_favicon')) {
-      new Favcount(Discourse.SiteSettings.favicon_url).set(
+      var url = Discourse.SiteSettings.favicon_url;
+      if (/^http/.test(url)) {
+        url = Discourse.getURL("/favicon/proxied?" + encodeURIComponent(url));
+      }
+      new Favcount(url).set(
         this.get('notifyCount')
       );
     }
@@ -74,25 +78,19 @@ window.Discourse = Ember.Application.createWithMixins(Discourse.Ajax, {
     this.set('notifyCount', count);
   },
 
-  /**
-    Log the current user out of Discourse
-
-    @method logout
-  **/
-  logout: function() {
-    Discourse.User.logout().then(function() {
-      // Reloading will refresh unbound properties
-      Discourse.KeyValueStore.abandonLocal();
-
-      var redirect = Discourse.SiteSettings.logout_redirect;
-      if(redirect.length === 0){
-        window.location.pathname = Discourse.getURL('/');
-      } else {
-        window.location.href = redirect;
-      }
-
-    });
+  notifyBackgroundCountIncrement: function() {
+    if (!this.get('hasFocus')) {
+      this.set('backgroundNotify', true);
+      this.set('notifyCount', (this.get('notifyCount') || 0) + 1);
+    }
   },
+
+  resetBackgroundNotifyCount: function() {
+    if (this.get('hasFocus') && this.get('backgroundNotify')) {
+      this.set('notifyCount', 0);
+    }
+    this.set('backgroundNotify', false);
+  }.observes('hasFocus'),
 
   authenticationComplete: function(options) {
     // TODO, how to dispatch this to the controller without the container?
@@ -168,10 +166,10 @@ function proxyDep(propName, moduleFunc, msg) {
   });
 }
 
-proxyDep('computed', function() { return require('discourse/lib/computed') });
-proxyDep('Formatter', function() { return require('discourse/lib/formatter') });
-proxyDep('PageTracker', function() { return require('discourse/lib/page-tracker').default });
-proxyDep('URL', function() { return require('discourse/lib/url').default });
-proxyDep('Quote', function() { return require('discourse/lib/quote').default });
-proxyDep('debounce', function() { return require('discourse/lib/debounce').default });
-proxyDep('View', function() { return Ember.View }, "Use `Ember.View` instead");
+proxyDep('computed', function() { return require('discourse/lib/computed'); });
+proxyDep('Formatter', function() { return require('discourse/lib/formatter'); });
+proxyDep('PageTracker', function() { return require('discourse/lib/page-tracker').default; });
+proxyDep('URL', function() { return require('discourse/lib/url').default; });
+proxyDep('Quote', function() { return require('discourse/lib/quote').default; });
+proxyDep('debounce', function() { return require('discourse/lib/debounce').default; });
+proxyDep('View', function() { return Ember.View; }, "Use `Ember.View` instead");

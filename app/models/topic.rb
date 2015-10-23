@@ -5,6 +5,7 @@ require_dependency 'rate_limiter'
 require_dependency 'text_sentinel'
 require_dependency 'text_cleaner'
 require_dependency 'archetype'
+require_dependency 'html_prettify'
 
 class Topic < ActiveRecord::Base
   include ActionView::Helpers::SanitizeHelper
@@ -164,6 +165,9 @@ class Topic < ActiveRecord::Base
       cancel_auto_close_job
       ensure_topic_has_a_category
     end
+    if title_changed?
+      write_attribute :fancy_title, Topic.fancy_title(title)
+    end
   end
 
   after_save do
@@ -218,6 +222,13 @@ class Topic < ActiveRecord::Base
     end
   end
 
+  def self.visible_post_types(viewed_by=nil)
+    types = Post.types
+    result = [types[:regular], types[:moderator_action], types[:small_action]]
+    result << types[:whisper] if viewed_by.try(:staff?)
+    result
+  end
+
   def self.top_viewed(max = 10)
     Topic.listable_topics.visible.secured.order('views desc').limit(max)
   end
@@ -251,8 +262,11 @@ class Topic < ActiveRecord::Base
 
   # Additional rate limits on topics: per day and private messages per day
   def limit_topics_per_day
-    apply_per_day_rate_limit_for("topics", :max_topics_per_day)
-    limit_first_day_topics_per_day if user.first_day_user?
+    if user && user.first_day_user?
+      limit_first_day_topics_per_day
+    else
+      apply_per_day_rate_limit_for("topics", :max_topics_per_day)
+    end
   end
 
   def limit_private_messages_per_day
@@ -260,17 +274,28 @@ class Topic < ActiveRecord::Base
     apply_per_day_rate_limit_for("pms", :max_private_messages_per_day)
   end
 
+  def self.fancy_title(title)
+    escaped = ERB::Util.html_escape(title)
+    return unless escaped
+    HtmlPrettify.render(escaped)
+  end
+
   def fancy_title
-    sanitized_title = ERB::Util.html_escape(title)
+    return ERB::Util.html_escape(title) unless SiteSetting.title_fancy_entities?
 
-    return unless sanitized_title
-    return sanitized_title unless SiteSetting.title_fancy_entities?
+    unless fancy_title = read_attribute(:fancy_title)
 
-    # We don't always have to require this, if fancy is disabled
-    # see: http://meta.discourse.org/t/pattern-for-defer-loading-gems-and-profiling-with-perftools-rb/4629
-    require 'redcarpet' unless defined? Redcarpet
+      fancy_title = Topic.fancy_title(title)
+      write_attribute(:fancy_title, fancy_title)
 
-    Redcarpet::Render::SmartyPants.render(sanitized_title)
+      unless new_record?
+        # make sure data is set in table, this also allows us to change algorithm
+        # by simply nulling this column
+        exec_sql("UPDATE topics SET fancy_title = :fancy_title where id = :id", id: self.id, fancy_title: fancy_title)
+      end
+    end
+
+    fancy_title
   end
 
   def pending_posts_count
@@ -492,18 +517,16 @@ class Topic < ActiveRecord::Base
   def add_moderator_post(user, text, opts=nil)
     opts ||= {}
     new_post = nil
-    Topic.transaction do
-      creator = PostCreator.new(user,
-                                raw: text,
-                                post_type: opts[:post_type] || Post.types[:moderator_action],
-                                action_code: opts[:action_code],
-                                no_bump: opts[:bump].blank?,
-                                skip_notifications: opts[:skip_notifications],
-                                topic_id: self.id,
-                                skip_validations: true)
-      new_post = creator.create
-      increment!(:moderator_posts_count)
-    end
+    creator = PostCreator.new(user,
+                              raw: text,
+                              post_type: opts[:post_type] || Post.types[:moderator_action],
+                              action_code: opts[:action_code],
+                              no_bump: opts[:bump].blank?,
+                              skip_notifications: opts[:skip_notifications],
+                              topic_id: self.id,
+                              skip_validations: true)
+    new_post = creator.create
+    increment!(:moderator_posts_count) if new_post.persisted?
 
     if new_post.present?
       # If we are moving posts, we want to insert the moderator post where the previous posts were
@@ -691,6 +714,7 @@ class Topic < ActiveRecord::Base
   def title=(t)
     slug = Slug.for(t.to_s)
     write_attribute(:slug, slug)
+    write_attribute(:fancy_title, nil)
     write_attribute(:title,t)
   end
 
@@ -710,10 +734,14 @@ class Topic < ActiveRecord::Base
     self.class.url id, slug, post_number
   end
 
-  def relative_url(post_number=nil)
+  def self.relative_url(id, slug, post_number=nil)
     url = "#{Discourse.base_uri}/t/#{slug}/#{id}"
     url << "/#{post_number}" if post_number.to_i > 1
     url
+  end
+
+  def relative_url(post_number=nil)
+    Topic.relative_url(id, slug, post_number)
   end
 
   def unsubscribe_url
@@ -904,12 +932,13 @@ class Topic < ActiveRecord::Base
     builder.where("p.deleted_at IS NULL")
     builder.where("p.post_number > 1")
     builder.where("p.user_id != t.user_id")
+    builder.where("p.user_id in (:user_ids)", {user_ids: opts[:user_ids]}) if opts[:user_ids]
     builder.where("EXTRACT(EPOCH FROM p.created_at - t.created_at) > 0")
     builder.exec
   end
 
-  def self.time_to_first_response_per_day(start_date, end_date, category_id=nil)
-    time_to_first_response(TIME_TO_FIRST_RESPONSE_SQL, start_date: start_date, end_date: end_date, category_id: category_id)
+  def self.time_to_first_response_per_day(start_date, end_date, opts={})
+    time_to_first_response(TIME_TO_FIRST_RESPONSE_SQL, opts.merge({start_date: start_date, end_date: end_date}))
   end
 
   def self.time_to_first_response_total(opts=nil)
@@ -1035,11 +1064,15 @@ end
 #  pinned_globally               :boolean          default(FALSE), not null
 #  auto_close_based_on_last_post :boolean          default(FALSE)
 #  auto_close_hours              :float
+#  pinned_until                  :datetime
 #
 # Indexes
 #
-#  idx_topics_front_page              (deleted_at,visible,archetype,category_id,id)
-#  idx_topics_user_id_deleted_at      (user_id)
-#  index_topics_on_bumped_at          (bumped_at)
-#  index_topics_on_id_and_deleted_at  (id,deleted_at)
+#  idx_topics_front_page                   (deleted_at,visible,archetype,category_id,id)
+#  idx_topics_user_id_deleted_at           (user_id)
+#  index_topics_on_bumped_at               (bumped_at)
+#  index_topics_on_created_at_and_visible  (created_at,visible)
+#  index_topics_on_id_and_deleted_at       (id,deleted_at)
+#  index_topics_on_pinned_at               (pinned_at)
+#  index_topics_on_pinned_globally         (pinned_globally)
 #

@@ -73,6 +73,7 @@ class TopicTrackingState
           highest_post_number: post.post_number,
           created_at: post.created_at,
           topic_id: post.topic_id,
+          category_id: post.topic.category_id,
           notification_level: tu.notification_level
         }
       }
@@ -106,11 +107,12 @@ class TopicTrackingState
                   WHEN COALESCE(u.new_topic_duration_minutes, :default_duration) = :always THEN u.created_at
                   WHEN COALESCE(u.new_topic_duration_minutes, :default_duration) = :last_visit THEN COALESCE(u.previous_visit_at,u.created_at)
                   ELSE (:now::timestamp - INTERVAL '1 MINUTE' * COALESCE(u.new_topic_duration_minutes, :default_duration))
-               END, us.new_since)",
+               END, us.new_since, :min_date)",
                 now: DateTime.now,
                 last_visit: User::NewTopicDuration::LAST_VISIT,
                 always: User::NewTopicDuration::ALWAYS,
-                default_duration: SiteSetting.default_other_new_topic_duration_minutes
+                default_duration: SiteSetting.default_other_new_topic_duration_minutes,
+                min_date: Time.at(SiteSetting.min_new_topics_time).to_datetime
               ).where_values[0]
   end
 
@@ -125,19 +127,45 @@ class TopicTrackingState
     # This code needs to be VERY efficient as it is triggered via the message bus and may steal
     #  cycles from usual requests
     #
+    #
+    sql = report_raw_sql(topic_id: topic_id, skip_unread: true, skip_order: true)
+    sql << "\nUNION ALL\n\n"
+    sql << report_raw_sql(topic_id: topic_id, skip_new: true, skip_order: true)
 
-    unread = TopicQuery.unread_filter(Topic).where_values.join(" AND ")
-    new = TopicQuery.new_filter(Topic, "xxx").where_values.join(" AND ").gsub!("'xxx'", treat_as_new_topic_clause)
+    SqlBuilder.new(sql)
+      .map_exec(TopicTrackingState, user_id: user_id, topic_id: topic_id)
 
-    sql = <<SQL
-    WITH x AS (
-    SELECT u.id AS user_id,
+  end
+
+
+  def self.report_raw_sql(opts=nil)
+
+    unread =
+      if opts && opts[:skip_unread]
+        "1=0"
+      else
+        TopicQuery.unread_filter(Topic).where_values.join(" AND ")
+      end
+
+    new =
+      if opts && opts[:skip_new]
+        "1=0"
+      else
+        TopicQuery.new_filter(Topic, "xxx").where_values.join(" AND ").gsub!("'xxx'", treat_as_new_topic_clause)
+      end
+
+    select = (opts && opts[:select]) || "
+           u.id AS user_id,
            topics.id AS topic_id,
            topics.created_at,
            highest_post_number,
            last_read_post_number,
            c.id AS category_id,
-           tu.notification_level
+           tu.notification_level"
+
+
+    sql = <<SQL
+    SELECT #{select}
     FROM topics
     JOIN users u on u.id = :user_id
     JOIN user_stats AS us ON us.user_id = u.id
@@ -162,15 +190,15 @@ class TopicTrackingState
 
 SQL
 
-    if topic_id
+    if opts && opts[:topic_id]
       sql << " AND topics.id = :topic_id"
     end
 
-    sql << " ORDER BY topics.bumped_at DESC ) SELECT * FROM x LIMIT 500"
+    unless opts && opts[:skip_order]
+      sql << " ORDER BY topics.bumped_at DESC"
+    end
 
-    SqlBuilder.new(sql)
-      .map_exec(TopicTrackingState, user_id: user_id, topic_id: topic_id)
-
+    sql
   end
 
 end

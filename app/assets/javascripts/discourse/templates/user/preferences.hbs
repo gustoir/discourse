@@ -72,7 +72,7 @@
     <div class="control-group pref-password">
       <label class="control-label">{{i18n 'user.password.title'}}</label>
       <div class="controls">
-        <a href="#" {{action "changePassword"}} class='btn'>
+        <a href {{action "changePassword"}} class='btn'>
           {{fa-icon "envelope"}}
           {{#if model.no_password}}
             {{i18n 'user.change_password.set_password'}}
@@ -137,13 +137,14 @@
     <div class="control-group pref-bio">
       <label class="control-label">{{i18n 'user.bio'}}</label>
       <div class="controls bio-composer">
-        {{pagedown-editor value=model.bio_raw}}
+        {{d-editor value=model.bio_raw}}
       </div>
     </div>
 
     {{#each uf in userFields}}
       {{user-field field=uf.field value=uf.value}}
     {{/each}}
+    <div class='clearfix'></div>
 
     <div class="control-group pref-location">
       <label class="control-label">{{i18n 'user.location'}}</label>
@@ -216,7 +217,7 @@
         {{preference-checkbox labelKey="user.edit_history_public" checked=model.edit_history_public}}
       {{/unless}}
 
-      {{plugin-outlet "user_custom_preferences"}}
+      {{plugin-outlet "user-custom-preferences"}}
     </div>
 
     <div class="control-group category">
@@ -246,6 +247,9 @@
       </div>
       <div class="instructions">{{i18n 'user.muted_users_instructions'}}</div>
     </div>
+
+    {{plugin-outlet "user-custom-controls"}}
+
     <div class="control-group">
       <div class="controls">
         {{partial 'user/preferences/save-button'}}

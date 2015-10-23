@@ -77,8 +77,12 @@ class Notification < ActiveRecord::Base
   # Be wary of calling this frequently. O(n) JSON parsing can suck.
   def data_hash
     @data_hash ||= begin
+
       return nil if data.blank?
-      JSON.parse(data).with_indifferent_access
+      parsed = JSON.parse(data)
+      return nil if parsed.blank?
+
+      parsed.with_indifferent_access
     end
   end
 
@@ -160,6 +164,8 @@ end
 #
 # Indexes
 #
-#  index_notifications_on_post_action_id          (post_action_id)
-#  index_notifications_on_user_id_and_created_at  (user_id,created_at)
+#  idx_notifications_speedup_unread_count                       (user_id,notification_type)
+#  index_notifications_on_post_action_id                        (post_action_id)
+#  index_notifications_on_user_id_and_created_at                (user_id,created_at)
+#  index_notifications_on_user_id_and_topic_id_and_post_number  (user_id,topic_id,post_number)
 #

@@ -50,8 +50,8 @@
 }
 
 @-webkit-keyframes slidein {
-  from { transform: translateY(-20%); }
-    to { transform: translateY(0); }
+  from { -webkit-transform: translateY(-20%); }
+    to { -webkit-transform: translateY(0); }
 }
 
 .modal-outer-container {
@@ -103,10 +103,6 @@
 
 .modal.edit-category-modal {
   .modal-body {
-    .pagedown-editor {
-      width: 98%;
-    }
-
     textarea {
       height: 10em;
     }
@@ -129,6 +125,9 @@
   }
 
   .modal-body {
+    &.full-height-modal {
+      max-height: calc(100vh - 150px);
+    }
     textarea {
       width: 99%;
       height: 80px;

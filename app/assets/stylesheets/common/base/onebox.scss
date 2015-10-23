@@ -157,7 +157,6 @@ pre.onebox code ol.lines li:before {
   display:inline-block;
   width:35px;
   left: -40px;
-  background: dark-light-choose(#F7F7F7, #070707);
   color:#AFAFAF;
   text-align:right;
   padding-right:5px;
@@ -249,13 +248,15 @@ aside.onebox.twitterstatus .onebox-body {
   .thumbnail {
     float: left;
   }
-  p {
+  p, .tweet {
     float: left;
+    display: inline-block;
     white-space: pre-wrap;
-    margin-top: 5px;
-    width: 100%;
+    padding-top: 3px;
+    width: 85%;
   }
   .date {
     clear: left;
+    padding-top: 5px;
   }
 }

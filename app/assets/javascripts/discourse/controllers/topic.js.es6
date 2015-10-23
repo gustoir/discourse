@@ -8,24 +8,23 @@ import { popupAjaxError } from 'discourse/lib/ajax-error';
 import computed from 'ember-addons/ember-computed-decorators';
 
 export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
+  needs: ['header', 'modal', 'composer', 'quote-button', 'topic-progress', 'application'],
   multiSelect: false,
-  needs: ['header', 'modal', 'composer', 'quote-button', 'search', 'topic-progress', 'application'],
   allPostsSelected: false,
   editingTopic: false,
   selectedPosts: null,
   selectedReplies: null,
   queryParams: ['filter', 'username_filters', 'show_deleted'],
-  searchHighlight: null,
-  loadedAllPosts: false,
+  loadedAllPosts: Em.computed.or('model.postStream.loadedAllPosts', 'model.postStream.loadingLastPost'),
   enteredAt: null,
   firstPostExpanded: false,
   retrying: false,
+  adminMenuVisible: false,
+
+  showRecover: Em.computed.and('model.deleted', 'model.details.can_recover'),
+  isFeatured: Em.computed.or("model.pinned_at", "model.isBanner"),
 
   maxTitleLength: setting('max_topic_title_length'),
-
-  contextChanged: function() {
-    this.set('controllers.search.searchContext', this.get('model.searchContext'));
-  }.observes('topic'),
 
   _titleChanged: function() {
     const title = this.get('model.title');
@@ -36,36 +35,6 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
       this.send('refreshTitle');
     }
   }.observes('model.title', 'category'),
-
-  termChanged: function() {
-    const dropdown = this.get('controllers.header.visibleDropdown');
-    const term = this.get('controllers.search.term');
-
-    if(dropdown === 'search-dropdown' && term){
-      this.set('searchHighlight', term);
-    } else {
-      if(this.get('searchHighlight')){
-        this.set('searchHighlight', null);
-      }
-    }
-
-  }.observes('controllers.search.term', 'controllers.header.visibleDropdown'),
-
-  postStreamLoadedAllPostsChanged: function() {
-    // semantics of loaded all posts are slightly diff at topic level,
-    // it just means that we "once" loaded all posts, this means we don't
-    // keep re-rendering the suggested topics when new posts zoom in
-    let loaded = this.get('model.postStream.loadedAllPosts');
-
-    if (loaded) {
-      this.set('model.loadedTopicId', this.get('model.id'));
-    } else {
-      loaded = this.get('model.loadedTopicId') === this.get('model.id');
-    }
-
-    this.set('loadedAllPosts', loaded);
-
-  }.observes('model.postStream', 'model.postStream.loadedAllPosts'),
 
   @computed('model.postStream.summary')
   show_deleted: {
@@ -112,6 +81,14 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
   }.on('init'),
 
   actions: {
+    showTopicAdminMenu() {
+      this.set('adminMenuVisible', true);
+    },
+
+    hideTopicAdminMenu() {
+      this.set('adminMenuVisible', false);
+    },
+
     deleteTopic() {
       this.deleteTopic();
     },
@@ -138,24 +115,17 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
           draftSequence: topic.get('draft_sequence')
         };
 
+        if (quotedText) { opts.quote = quotedText; }
+
         if(post && post.get("post_number") !== 1){
           opts.post = post;
         } else {
           opts.topic = topic;
         }
 
-        composerController.open(opts).then(function() {
-          composerController.appendText(quotedText);
-        });
+        composerController.open(opts);
       }
       return false;
-    },
-
-    toggleLike(post) {
-      const likeAction = post.get('likeAction');
-      if (likeAction && likeAction.get('canToggle')) {
-        likeAction.toggle(post);
-      }
     },
 
     recoverPost(post) {
@@ -183,7 +153,7 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
       if (user.get('staff') && replyCount > 0) {
         bootbox.dialog(I18n.t("post.controls.delete_replies.confirm", {count: replyCount}), [
           {label: I18n.t("cancel"),
-           'class': 'btn-danger rightg'},
+           'class': 'btn-danger right'},
           {label: I18n.t("post.controls.delete_replies.no_value"),
             callback() {
               post.destroy(user);
@@ -214,12 +184,21 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
         return bootbox.alert(I18n.t('post.controls.edit_anonymous'));
       }
 
-      this.get('controllers.composer').open({
-        post: post,
-        action: Discourse.Composer.EDIT,
-        draftKey: post.get('topic.draft_key'),
-        draftSequence: post.get('topic.draft_sequence')
-      });
+      const composer = this.get('controllers.composer'),
+            composerModel = composer.get('model'),
+            opts = {
+              post: post,
+              action: Discourse.Composer.EDIT,
+              draftKey: post.get('topic.draft_key'),
+              draftSequence: post.get('topic.draft_sequence')
+            };
+
+      // Cancel and reopen the composer for the first post
+      if (composerModel && (post.get('firstPost') || composerModel.get('editingFirstPost'))) {
+        composer.cancelComposer().then(() => composer.open(opts));
+      } else {
+        composer.open(opts);
+      }
     },
 
     toggleBookmark(post) {
@@ -395,10 +374,11 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
 
     togglePinnedForUser() {
       if (this.get('model.pinned_at')) {
-        if (this.get('pinned')) {
-          this.get('content').clearPin();
+        const topic = this.get('content');
+        if (topic.get('pinned')) {
+          topic.clearPin();
         } else {
-          this.get('content').rePin();
+          topic.rePin();
         }
       }
     },
@@ -415,12 +395,12 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
         action: Discourse.Composer.CREATE_TOPIC,
         draftKey: Discourse.Composer.REPLY_AS_NEW_TOPIC_KEY,
         categoryId: this.get('category.id')
-      }).then(function() {
+      }).then(() => {
         return Em.isEmpty(quotedText) ? Discourse.Post.loadQuote(post.get('id')) : quotedText;
-      }).then(function(q) {
-        const postUrl = "" + location.protocol + "//" + location.host + post.get('url'),
-              postLink = "[" + Handlebars.escapeExpression(self.get('model.title')) + "](" + postUrl + ")";
-        composerController.appendText(I18n.t("post.continue_discussion", { postLink: postLink }) + "\n\n" + q);
+      }).then(q => {
+        const postUrl = `${location.protocol}//${location.host}${post.get('url')}`,
+              postLink = `[${Handlebars.escapeExpression(self.get('model.title'))}](${postUrl})`;
+        composerController.appendText(`${I18n.t("post.continue_discussion", { postLink })}\n\n${q}`);
       });
     },
 
@@ -447,20 +427,14 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
     },
 
     toggleWiki(post) {
-      // the request to the server is made in an observer in the post class
-      post.toggleProperty('wiki');
+      post.updatePostField('wiki', !post.get('wiki'));
     },
 
     togglePostType(post) {
-      // the request to the server is made in an observer in the post class
-      const regular = this.site.get('post_types.regular'),
-            moderator = this.site.get('post_types.moderator_action');
+      const regular = this.site.get('post_types.regular');
+      const moderator = this.site.get('post_types.moderator_action');
 
-      if (post.get("post_type") === moderator) {
-        post.set("post_type", regular);
-      } else {
-        post.set("post_type", moderator);
-      }
+      post.updatePostField('post_type', post.get('post_type') === moderator ? regular : moderator);
     },
 
     rebakePost(post) {
@@ -469,6 +443,11 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
 
     unhidePost(post) {
       post.unhide();
+    },
+
+    changePostOwner(post) {
+      this.get('selectedPosts').addObject(post);
+      this.send('changeOwner');
     }
   },
 
@@ -605,6 +584,9 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
         }
         case "created": {
           postStream.triggerNewPostInStream(data.id);
+          if (self.get('currentUser.id') !== data.user_id) {
+            Discourse.notifyBackgroundCountIncrement();
+          }
           return;
         }
         default: {
@@ -662,7 +644,7 @@ export default Ember.Controller.extend(SelectedPostsCount, BufferedContent, {
 
       const max = _.max(postNumbers);
       if(max > this.get('model.last_read_post_number')){
-        this.set('model.sast_read_post_number', max);
+        this.set('model.last_read_post_number', max);
       }
     }
   },

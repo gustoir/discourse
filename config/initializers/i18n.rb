@@ -22,14 +22,5 @@ class FallbackLocaleList < Hash
   end
 end
 
-class NoFallbackLocaleList < FallbackLocaleList
-  def [](locale)
-    [locale]
-  end
-end
-
-if Rails.env.production?
-  I18n.fallbacks = FallbackLocaleList.new
-else
-  I18n.fallbacks = NoFallbackLocaleList.new
-end
+I18n.fallbacks = FallbackLocaleList.new
+I18n.config.missing_interpolation_argument_handler = proc { throw(:exception) }

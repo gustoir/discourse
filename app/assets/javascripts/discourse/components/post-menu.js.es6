@@ -165,15 +165,12 @@ const PostMenuComponent = Ember.Component.extend(StringBuffer, {
   },
 
   clickLikeCount() {
-    const likeAction = this.get('post.likeAction');
-    if (likeAction) {
-      const users = likeAction.get('users');
-      if (users && users.length) {
-        users.clear();
-      } else {
-        likeAction.loadUsers(this.get('post'));
-      }
-    }
+    this.sendActionTarget('toggleWhoLiked');
+  },
+
+  sendActionTarget(action, arg) {
+    const target = this.get(`${action}Target`);
+    return target ? target.send(this.get(action), arg) : this.sendAction(action, arg);
   },
 
   clickReplies() {
@@ -268,13 +265,13 @@ const PostMenuComponent = Ember.Component.extend(StringBuffer, {
           self = this;
 
     if (acted) {
-      this.sendAction('toggleLike', post);
+      this.sendActionTarget('toggleLike');
       $likeButton.removeClass('has-like').addClass('like');
     } else {
       const scale = [1.0, 1.5];
       animateHeart($heart, scale[0], scale[1], function() {
         animateHeart($heart, scale[1], scale[0], function() {
-          self.sendAction('toggleLike', post);
+          self.sendActionTarget('toggleLike');
           $likeButton.removeClass('like').addClass('has-like');
         });
       });
@@ -367,15 +364,18 @@ const PostMenuComponent = Ember.Component.extend(StringBuffer, {
           rebakePostIcon = iconHTML('cog'),
           rebakePostText = I18n.t('post.controls.rebake'),
           unhidePostIcon = iconHTML('eye'),
-          unhidePostText = I18n.t('post.controls.unhide');
+          unhidePostText = I18n.t('post.controls.unhide'),
+          changePostOwnerIcon = iconHTML('user'),
+          changePostOwnerText = I18n.t('post.controls.change_owner');
 
-    const html = '<div class="post-admin-menu">' +
+    const html = '<div class="post-admin-menu popup-menu">' +
                  '<h3>' + I18n.t('admin_title') + '</h3>' +
                  '<ul>' +
-                   '<li class="btn btn-admin" data-action="toggleWiki">' + wikiIcon + wikiText + '</li>' +
-                   (Discourse.User.currentProp('staff') ? '<li class="btn btn-admin" data-action="togglePostType">' + postTypeIcon + postTypeText + '</li>' : '') +
-                   '<li class="btn btn-admin" data-action="rebakePost">' + rebakePostIcon + rebakePostText + '</li>' +
-                   (post.hidden ? '<li class="btn btn-admin" data-action="unhidePost">' + unhidePostIcon + unhidePostText + '</li>' : '') +
+                   '<li class="btn" data-action="toggleWiki">' + wikiIcon + wikiText + '</li>' +
+                   (Discourse.User.currentProp('staff') ? '<li class="btn" data-action="togglePostType">' + postTypeIcon + postTypeText + '</li>' : '') +
+                   '<li class="btn" data-action="rebakePost">' + rebakePostIcon + rebakePostText + '</li>' +
+                   (post.hidden ? '<li class="btn" data-action="unhidePost">' + unhidePostIcon + unhidePostText + '</li>' : '') +
+                   (Discourse.User.currentProp('admin') ? '<li class="btn" data-action="changePostOwner">' + changePostOwnerIcon + changePostOwnerText + '</li>' : '') +
                  '</ul>' +
                '</div>';
 
@@ -405,6 +405,10 @@ const PostMenuComponent = Ember.Component.extend(StringBuffer, {
 
   clickUnhidePost() {
     this.sendAction("unhidePost", this.get("post"));
+  },
+
+  clickChangePostOwner() {
+    this.sendAction("changePostOwner", this.get("post"));
   },
 
   buttonForShowMoreActions() {

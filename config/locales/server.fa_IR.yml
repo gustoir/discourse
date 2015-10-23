@@ -298,7 +298,6 @@ fa_IR:
       title: "رهبر"
     change_failed_explanation: "شما تلاش برای تنزل رتبه دادید %{user_name} به   '%{new_trust_level}'. در هر صورت سطح اعتمادشان در حال حاضر '%{current_trust_level}' است. %{user_name} می ماند در '%{current_trust_level}' - اگر شما امید با تنزل رتبه شان را دارید اول سطح اعتمادشان را نگاه کنید"
   rate_limiter:
-    slow_down: "شما این عمل را بیش از حد انجام داده اید، بعدا دوباره تلاش کنید"
     too_many_requests: "ما روزانه  محدودیت زمانی داریم برای اینکه این اقدام چند بار انجام شود. لطفا صبر کنید  %{time_left} قبل ازاینکه دوباره تلاش کنید. "
     hours:
       other: "%{count} ساعت"
@@ -370,7 +369,6 @@ fa_IR:
     please_continue: "برو به %{site_name}"
     error: "در تغییر ایمیلتان خطایی روی داد. شاید آن نشانی از پیش در حال استفاده است؟"
   activation:
-    action: "حساب کاربریتان را فعال کنید"
     already_done: "متاسفیم٬‌ این پیوند تاییدیه حساب کاربری دیگر معتبر نیست. شاید حساب کاربری شما در حال حاضر فعال است."
     please_continue: "حساب کاربری جدید شما تایید شد; شما به صفحه اصلی هدایت می شوید. "
     continue_button: "برو به %{site_name}"
@@ -602,7 +600,6 @@ fa_IR:
     s3_config_warning: 'سرور تنظیم شده برای بارگزاری فایل به  s3 ولی حداقل یکی از تنظیمات پیش رو تنظیم نشده است:  s3_access_key_id, s3_secret_access_key or s3_upload_bucket.  برو به <a href="/admin/site_settings"> تنظیمات سایت </a>  و بروز رسانی و تنظیمات. <a href="http://meta.discourse.org/t/how-to-set-up-image-uploads-to-s3/7229" target="_blank"> این را ببین برای بارگزاری های  عکس به  S3؟"  برای کسب اطلاعات بیشتر </a>.'
     s3_backup_config_warning: 'سرور تنظیم شده برای بارگزاری نسخه پشتیبان  به  s3 ولی حداقل یکی از تنظیمات پیش رو تنظیم نشده است:  : s3_access_key_id, s3_secret_access_key or s3_backup_bucket. برو به <a href="/admin/site_settings"> تنظیمات سایت </a> و بروز رسانی و تنظیمات  <a href="http://meta.discourse.org/t/how-to-set-up-image-uploads-to-s3/7229" target="_blank">  این را ببین برای تنظیم ارسال عکس ها به S3؟ "  برای کسب اطلاعات بیشتر </a>.'
     image_magick_warning: 'سرور تنظیم شده برای ساخت تامبنیل های عکس های بزرگ. ولی  ImageMagick نصب نشده است. ImageMagick را نصب کن با استفاده از بسته مدیریت یا <a href="http://www.imagemagick.org/script/binary-releases.php" target="_blank"> آخرین نسخه را دانلود کن. '
-    failing_emails_warning: 'تعدادی %{num_failed_jobs}  ایمیل کار هست که نا موفق شد. فایل  config/discourse.conf  را چک کن و مطمئن شو که تنظیمات سرور ایمیل درست است.  <a href="/sidekiq/retries" target="_blank"> کارهای ناموفق را در Sidekiq ببین </a>.'
     default_logo_warning: "یک لوگوی گرافیکی برای سایت خود انتخاب نمایید. تگ های logo_url, logo_small_url, و favicon_url را بروز رسانی کنید. <a href='/admin/site_settings'>تنظیمات سایت</a>"
     contact_email_missing: "ایمیل  وب سایت را وارد کن که سریعا قابل دسترسی باشد  برای مواقعی که مشکلی در وب سایت وجود دارد. به روز کن در <a href='/admin/site_settings'> تنظیمات سایت</a>."
     contact_email_invalid: "ایمیل تماس با وب سایت اشتباه است. به روز کنید در <a href='/admin/site_settings'> تنظیمات سایت </a>."
@@ -699,15 +696,12 @@ fa_IR:
     summary_likes_required: "حداقل پسندها در این جستار قبل از اینکه \" خلاصه این جستار\" فعال شود"
     summary_percent_filter: "وقتی کاربر بر روی ' خلاصه این جستار ' کلیک کرد٬‌ % بهترین نوشته ها را نشان بده"
     summary_max_results: "حداکثر نوشته های برگردانده شد با \" خلاصه این جستار\""
-    enable_private_messages: "به کاربران سطح اعتماد 1 برای ساختن پیام ها و ارسال پاسخ با پیام ها اجازه بده"
     enable_long_polling: "پیام اتوبوس استفاده شده برای آگاه سازی می تواند برای رای گیری طولانی استفاده شود. "
     long_polling_base_url: " URL پایه استفاده شده برای رای گیری طولانی ( وقتی CDN خدمت محتوای پویا می دهد٬ مطمئن شوید از تنظیم بودن منشا این کشش) برای نمونه : http://origin.site.com"
     long_polling_interval: "مدت زمانی که سرور باید صبر کند قبل پاسخ دادن  به مشتری ها وقتی در آنجا داده ای برای ارسال نیست ( فقط کاربران وارد شده )"
     polling_interval: "وقتی رای گیری طولانی نیست٬ هر چند مدت باید وارد سیستم شود برای نظرسنجی مشتری ها در هر میلی ثانیه."
     anon_polling_interval: "هر چند مدت باید مشتری های ناشناس نظرسنجی بشوند در هر میلی ثانیه"
     background_polling_interval: "هر چند وقت یکبار مشتری ها باید نظرسنجی بشوند در هر ثانیه ( وقتی پنجره  در پس زمینه است)"
-    auto_track_topics_after: "پیش فرض سراسری میلی ثانیه قبل از اینکه نوشته بطور خودکار پی گیری شود٬‌ کاربران می توانند نادیده بگیرند (0 برای همیشه٬‌ -1 برای هرگز)"
-    new_topic_duration_minutes: "پیش فرض  سراسری تعداد دقایقی که یک نوشته جدید محصوب می شود٬‌ کاربران می توانند نادیده بگیرند (-1 برای همیشه٬ -2  برای آخرین بازدید)"
     flags_required_to_hide_post: "تعداد پرچم هایی که ممکن است موجوب مخفی شدن خودکاز نوشته شود و پیام خصوصی به کاربر ارسال شود (0 برای هرگز)"
     cooldown_minutes_after_hiding_posts: "تعداد دقایقی که کاربر باید صبر کند قبل از ویرایش مخفی  یک نوشته از طریق پرچم گزاری انجمن"
     max_topics_in_first_day: "حداکثر تعداد جستارهای  یک کاربر که در روز اولشان در سایت می توانند ایجاد کنند. "
@@ -762,8 +756,6 @@ fa_IR:
     invite_passthrough_hours: "برای چه مدت کاربر می تواند از کلید فراخوان بخشوده شده برای ورود به سیستم استفاده کند٬‌ در ساعت"
     invite_only: "ثبت نام عمومی از کار افتاده است٬ تمام کاربران جدید باید از توسط کاربران عضو دعوت شده شوند."
     login_required: "نیاز به تصدیق است برای خواندن محتوا در سایت٬ دسترسی  ناشناس رد شود."
-    min_username_length: "حداقل طول  نام کاربری در کاراکتر. اخطار: هر کاربر موجودی با اسمی کوتاه تر از این٬ دسترسی به سایت نخواهد داشت."
-    max_username_length: "حداکثر طول  نام کاربری در کاراکتر. اخطار: هر کاربر موجودی با اسمی طولانی تر از این٬ دسترسی به سایت نخواهد داشت."
     reserved_usernames: "نام های کاربری غیرمجاز جهت عضویت."
     min_password_length: "حداقل طول رمز عبور"
     block_common_passwords: "رمز عبوری که جزو 10,000 رمز عبور رایج است را قبول نکنید. "
@@ -892,7 +884,6 @@ fa_IR:
     newuser_spam_host_threshold: "چندبار کاربر جدید می تواند پیوندی را در یک فضا پست کند قبل از اینکه هرزنامه شناخته شوند. "
     white_listed_spam_host_domains: "لیست دامنه ها محروم از هرزنامه ی تست میزبان.  هرگز از ساخت پست جدید با پیوند هایی از این دامنه ها محدود نمی شوند. "
     staff_like_weight: "چقدر عوامل بیشتر تا به مدیران پسند داده بشود."
-    topic_view_duration_hours: "بازدید از یک جستار جدید زا بشمار با IP/User هر  N ساعت"
     levenshtein_distance_spammer_emails: "هنگامی که تطبیق ایمیل هرزنامه باشد٬ تعداد کاراکترهای متفاوت  که هنوز هم  به یک تطبق مبهم اجازه خواهد داد."
     max_new_accounts_per_registration_ip: "اگر در حال حاضر (n) حساب های کاربری با سطح اعتماد 0 از این  IP هست ( و هیچ یک از کارمندان عضو یا با سطح اعتماد 2 یا بالاتر) ثبت نام را از این ‌IP متوقف کن. "
     min_ban_entries_for_roll_up: "وقتی بر روی  کلید جمع کردن کلید کنید٬ یک ممنوعیت زیرشبکه ورودی جدید ساخته می شود اگر در آنجا حداقل (N) ورودی باشد. "
@@ -961,13 +952,11 @@ fa_IR:
     warn_reviving_old_topic_age: "وقتی کسی شروع می کند با پاسخ دادن به جستاری که آخرین پاسخ برمی گردد به  خیلی قبل یک هشدار نمایش داده می شود. نمایش با تنظیمات تا 0. "
     autohighlight_all_code: "اعمال زور برای  برجسته کردن کد به تمام بلاک های کد تنظیم نشده حتی وقتی به صراحت زبان را مشخص نمی کنند. "
     highlighted_languages: "شامل  نحوه قوانین برجسته شده. ( اخطار: شامل زبان های متفاوت ممکن است در نحوه اجرا تاثیر گذار باشد) ببین:  https://highlightjs.org/static/demo/ برای دمو"
-    embeddable_hosts: "سایت‌هایی که می‌توانند کامنت‌ها را از این فروم دیسکورس نمایش دهند. فقط hostname را بدون http:// وارد کنید."
     feed_polling_enabled: "فقط جاسازی: چه جاسازی RSS/ATOM feed به عنوان نوشته"
     feed_polling_url: "فقط جاسازی: URL of RSS/ATOM feed to embed."
     embed_by_username: "نام کاربری دیسکورس کاربری که نوشته های جاسازی شده را ساخته."
     embed_username_key_from_feed: "کلیدی برای کشیدن نام کاربری دیسکورس از فید."
     embed_truncate: "کوتاه کردن نوشته های جاسازی شده "
-    embed_category: "دسته بندی موضوعات جاسازی شده."
     embed_post_limit: "حداکثر تعداد پست هایی که می توانید جا سازی کنید. "
     embed_whitelist_selector: "CSS انتخاب کننده برای المان های که اجازه دارند جاسازی شوند."
     embed_blacklist_selector: "CSS انتخاب کننده برای المان های که از جاسازی پاک شده اند. "
@@ -1095,7 +1084,6 @@ fa_IR:
       characters: "باید شامل٬‌اعداد٬ حروف و زیر خط باشد"
       unique: "باید خاص باشد"
       blank: "باید حاضر باشد"
-      must_begin_with_alphanumeric: "حتما باید با حرف یا عدد شروع شود"
     email:
       not_allowed: "این قابل قبول نیست با این ایمیل ارائه شده. لطفا از یک ایمیل دیگر استفاده کنید. "
       blocked: "مجاز نیست."
@@ -1493,88 +1481,6 @@ fa_IR:
     title: "شرایط استفاده از خدمات"
   privacy_topic:
     title: "سیاست حفظ حریم خصوصی"
-    body: |
-      <a name="collect"></a>
-
-      ## [What information do we collect?](#collect)
-
-      We collect information from you when you register on our site and gather data when you participate in the forum by reading, writing, and evaluating the content shared here.
-
-      When registering on our site, you may be asked to enter your name and e-mail address. You may, however, visit our site without registering. Your e-mail address will be verified by an email containing a unique link. If that link is visited, we know that you control the e-mail address.
-
-      When registered and posting, we record the IP address that the post originated from. We also may retain server logs which include the IP address of every request to our server.
-
-      <a name="use"></a>
-
-      ## [What do we use your information for?](#use)
-
-      Any of the information we collect from you may be used in one of the following ways:
-
-      *   To personalize your experience &mdash; your information helps us to better respond to your individual needs.
-      *   To improve our site &mdash; we continually strive to improve our site offerings based on the information and feedback we receive from you.
-      *   To improve customer service &mdash; your information helps us to more effectively respond to your customer service requests and support needs.
-      *   To send periodic emails &mdash; The email address you provide may be used to send you information, notifications that you request about changes to topics or in response to your user name, respond to inquiries, and/or other requests or questions.
-
-      <a name="protect"></a>
-
-      ## [How do we protect your information?](#protect)
-
-      We implement a variety of security measures to maintain the safety of your personal information when you enter, submit, or access your personal information.
-
-      <a name="data-retention"></a>
-
-      ## [What is your data retention policy?](#data-retention)
-
-      We will make a good faith effort to:
-
-      *   Retain server logs containing the IP address of all requests to this server no more than 90 days.
-      *   Retain the IP addresses associated with registered users and their posts no more than 5 years.
-
-      <a name="cookies"></a>
-
-      ## [Do we use cookies?](#cookies)
-
-      Yes. Cookies are small files that a site or its service provider transfers to your computer's hard drive through your Web browser (if you allow). These cookies enable the site to recognize your browser and, if you have a registered account, associate it with your registered account.
-
-      We use cookies to understand and save your preferences for future visits and compile aggregate data about site traffic and site interaction so that we can offer better site experiences and tools in the future. We may contract with third-party service providers to assist us in better understanding our site visitors. These service providers are not permitted to use the information collected on our behalf except to help us conduct and improve our business.
-
-      <a name="disclose"></a>
-
-      ## [Do we disclose any information to outside parties?](#disclose)
-
-      We do not sell, trade, or otherwise transfer to outside parties your personally identifiable information. This does not include trusted third parties who assist us in operating our site, conducting our business, or servicing you, so long as those parties agree to keep this information confidential. We may also release your information when we believe release is appropriate to comply with the law, enforce our site policies, or protect ours or others rights, property, or safety. However, non-personally identifiable visitor information may be provided to other parties for marketing, advertising, or other uses.
-
-      <a name="third-party"></a>
-
-      ## [Third party links](#third-party)
-
-      Occasionally, at our discretion, we may include or offer third party products or services on our site. These third party sites have separate and independent privacy policies. We therefore have no responsibility or liability for the content and activities of these linked sites. Nonetheless, we seek to protect the integrity of our site and welcome any feedback about these sites.
-
-      <a name="coppa"></a>
-
-      ## [Children's Online Privacy Protection Act Compliance](#coppa)
-
-      Our site, products and services are all directed to people who are at least 13 years old or older. If this server is in the USA, and you are under the age of 13, per the requirements of COPPA ([Children's Online Privacy Protection Act](http://en.wikipedia.org/wiki/Children)), do not use this site.
-
-      <a name="online"></a>
-
-      ## [Online Privacy Policy Only](#online)
-
-      This online privacy policy applies only to information collected through our site and not to information collected offline.
-
-      <a name="consent"></a>
-
-      ## [Your Consent](#consent)
-
-      By using our site, you consent to our web site privacy policy.
-
-      <a name="changes"></a>
-
-      ## [Changes to our Privacy Policy](#changes)
-
-      If we decide to change our privacy policy, we will post those changes on this page.
-
-      This document is CC-BY-SA. It was last updated May 31, 2013.
   admin_login:
     success: "ایمیل ارسال شد "
     error: "خطا!"
