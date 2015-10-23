@@ -834,7 +834,7 @@ fa_IR:
       read_more_in_category: "می خواهید بیشتر بخوانید؟ به موضوعات دیگر را مرور کنید {{catLink}} یا {{latestLink}}."
       read_more: "می خواهید بیشتر بخوانید? {{catLink}} یا {{latestLink}}."
       read_more_MF: "There { UNREAD, plural, =0 {} one { is <a href='/unread'>1 unread</a> } other { are <a href='/unread'># unread</a> } } { NEW, plural, =0 {} one { {BOTH, select, true{and } false {is } other{}} <a href='/new'>1 new</a> topic} other { {BOTH, select, true{and } false {are } other{}} <a href='/new'># new</a> topics} } remaining, or {CATEGORY, select, true {browse other topics in {catLink}} false {{latestLink}} other {}}"
-      browse_all_categories: جستوجوی همهٔ دسته‌ها
+      browse_all_categories: جستجوی همهٔ دسته‌ها
       view_latest_topics: مشاهده آخرین موضوع
       suggest_create_topic: چرا یک موضوع نسازید؟
       jump_reply_up: رفتن به جدید ترین پاسخ
@@ -1387,6 +1387,8 @@ fa_IR:
           title: "تمام وقت"
         yearly:
           title: "سالیانه "
+        quarterly:
+          title: "فصلی "
         monthly:
           title: "ماهیانه "
         weekly:
