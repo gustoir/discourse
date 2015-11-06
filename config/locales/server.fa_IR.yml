@@ -1390,7 +1390,7 @@ fa_IR:
       new_activity: "فعالیت جدید در موضوعات و نوشته‌های شما:"
       top_topics: "نوشته‌های محبوب"
       other_new_topics: "موضوعات محبوب"
-      unsubscribe: "این دایجست اراسال شده از %{site_link} وقتی ما شما را برای مدت طولانی ندیده باشیم. برای لغو اشتراک %{unsubscribe_link}."
+      unsubscribe: "این دایجست ارسال شده از %{site_link} وقتی ما شما را برای مدت طولانی ندیده باشیم. برای لغو اشتراک %{unsubscribe_link}."
       click_here: "اینجا کلیک کنید"
       from: "%{site_name} خلاصه"
       read_more: "بیش‌تر بخوانید"
