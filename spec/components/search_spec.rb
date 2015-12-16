@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-require 'spec_helper'
+require 'rails_helper'
 require_dependency 'search'
 
 describe Search do
@@ -105,6 +105,15 @@ describe Search do
   context 'inactive users' do
     let!(:inactive_user) { Fabricate(:inactive_user, active: false) }
     let(:result) { Search.execute('bruce') }
+
+    it 'does not return a result' do
+      expect(result.users.length).to eq(0)
+    end
+  end
+
+  context 'staged users' do
+    let(:staged) { Fabricate(:staged) }
+    let(:result) { Search.execute(staged.username) }
 
     it 'does not return a result' do
       expect(result.users.length).to eq(0)
@@ -383,6 +392,18 @@ describe Search do
       expect(Search.execute('社區指南').posts.first.id).to eq(post.id)
       expect(Search.execute('指南').posts.first.id).to eq(post.id)
     end
+
+    it 'finds chinese topic based on title if tokenization is forced' do
+      skip("skipped until pg app installs the db correctly") if RbConfig::CONFIG["arch"] =~ /darwin/
+
+      SiteSetting.search_tokenize_chinese_japanese_korean = true
+
+      topic = Fabricate(:topic, title: 'My Title Discourse社區指南')
+      post = Fabricate(:post, topic: topic)
+
+      expect(Search.execute('社區指南').posts.first.id).to eq(post.id)
+      expect(Search.execute('指南').posts.first.id).to eq(post.id)
+    end
   end
 
   describe 'Advanced search' do
@@ -403,6 +424,7 @@ describe Search do
 
       expect(Search.execute('user:nobody').posts.length).to eq(0)
       expect(Search.execute("user:#{_post.user.username}").posts.length).to eq(1)
+      expect(Search.execute("user:#{_post.user_id}").posts.length).to eq(1)
     end
 
     it 'supports group' do

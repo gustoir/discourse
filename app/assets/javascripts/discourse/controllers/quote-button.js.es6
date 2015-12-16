@@ -1,6 +1,6 @@
 import loadScript from 'discourse/lib/load-script';
 import Quote from 'discourse/lib/quote';
-import property from 'ember-addons/ember-computed-decorators';
+import computed from 'ember-addons/ember-computed-decorators';
 
 export default Ember.Controller.extend({
   needs: ['topic', 'composer'],
@@ -9,7 +9,7 @@ export default Ember.Controller.extend({
     loadScript('defer/html-sanitizer-bundle');
   }.on('init'),
 
-  @property('buffer', 'postId')
+  @computed('buffer', 'postId')
   post(buffer, postId) {
     if (!postId || Ember.isEmpty(buffer)) { return null; }
 
@@ -95,6 +95,7 @@ export default Ember.Controller.extend({
   },
 
   quoteText() {
+    const Composer = require('discourse/models/composer').default;
     const postId = this.get('postId');
     const post = this.get('post');
 
@@ -115,7 +116,7 @@ export default Ember.Controller.extend({
 
     const composerController = this.get('controllers.composer');
     const composerOpts = {
-      action: Discourse.Composer.REPLY,
+      action: Composer.REPLY,
       draftKey: post.get('topic.draft_key')
     };
 
@@ -135,7 +136,7 @@ export default Ember.Controller.extend({
     const quotedText = Quote.build(post, buffer);
     composerOpts.quote = quotedText;
     if (composerController.get('content.viewOpen') || composerController.get('content.viewDraft')) {
-      composerController.appendBlockAtCursor(quotedText.trim());
+      this.appEvents.trigger('composer:insert-text', quotedText.trim());
     } else {
       composerController.open(composerOpts);
     }

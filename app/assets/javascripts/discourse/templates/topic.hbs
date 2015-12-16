@@ -15,9 +15,10 @@
           {{#if editingTopic}}
             {{#if model.isPrivateMessage}}
               <span class="private-message-glyph">{{fa-icon "envelope"}}</span>
-              {{autofocus-text-field id="edit-title" value=buffered.title maxLength=maxTitleLength}}
-            {{else}}
-              {{autofocus-text-field id="edit-title" value=buffered.title maxLength=maxTitleLength}}
+            {{/if}}
+
+            {{text-field id="edit-title" value=buffered.title maxlength=siteSettings.max_topic_title_length autofocus="true"}}
+            {{#if showCategoryChooser}}
               <br>
               {{category-chooser valueAttribute="id" value=buffered.category_id source=buffered.category_id}}
             {{/if}}
@@ -67,9 +68,8 @@
 
           {{#unless model.postStream.loadingFilter}}
             {{cloaked-collection itemViewClass="post"
-                                 idProperty="post_number"
                                  defaultHeight="200"
-                                 content=model.postStream.posts
+                                 content=postsToRender
                                  slackRatio="15"
                                  loadingHTML=""
                                  preservesContext="true"
@@ -77,8 +77,6 @@
                                  offsetFixedTop="header"
                                  offsetFixedBottom="#reply-control"}}
           {{/unless}}
-
-          {{conditional-loading-spinner condition=model.postStream.loadingBelow}}
         </div>
         <div id="topic-bottom"></div>
 

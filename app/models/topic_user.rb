@@ -48,6 +48,13 @@ class TopicUser < ActiveRecord::Base
       end
     end
 
+    def auto_watch(user_id, topic_id)
+      topic_user = TopicUser.find_or_initialize_by(user_id: user_id, topic_id: topic_id)
+      topic_user.notification_level = notification_levels[:watching]
+      topic_user.notifications_reason_id = notification_reasons[:auto_watch]
+      topic_user.save
+    end
+
     # Find the information specific to a user in a forum topic
     def lookup_for(user, topics)
       # If the user isn't logged in, there's no last read posts
@@ -96,7 +103,7 @@ class TopicUser < ActiveRecord::Base
 
         if rows == 0
           now = DateTime.now
-          auto_track_after = User.select(:auto_track_topics_after_msecs).find_by(id: user_id).auto_track_topics_after_msecs
+          auto_track_after = User.select(:auto_track_topics_after_msecs).find_by(id: user_id).try(:auto_track_topics_after_msecs)
           auto_track_after ||= SiteSetting.default_other_auto_track_topics_after_msecs
 
           if auto_track_after >= 0 && auto_track_after <= (attrs[:total_msecs_viewed].to_i || 0)

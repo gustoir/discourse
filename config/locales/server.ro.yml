@@ -90,26 +90,6 @@ ro:
       one: "1 răspuns"
       few: "răspunsuri"
       other: "%{count} răspunsuri"
-  too_many_mentions:
-    zero: "Ne pare rău, nu poți menționa alți utilizatori"
-    one: "Ne pare rău, poți menționa doar un utilizator într-o postare."
-    other: "Ne pare rău, poți menționa doar %{count} de utilizatori într-o postare."
-  too_many_mentions_newuser:
-    zero: "Ne pare rău, utilizatorii noi nu pot face mențiuni catre alți utilizatori."
-    one: "Ne pare rău, utilizatorii noi pot menționa doar un alt utilizator într-o postare."
-    other: "Ne pare rău, utilizatorii noi pot menționa doar %{count} de utilizatori într-o postare."
-  too_many_images:
-    zero: "Ne pare rău, utilizatorii noi nu pot urca imagini în postări."
-    one: "Ne pare rău, utilizatorii noi pot urca doar o imagine într-o postare."
-    other: "Ne pare rău, utilizatorii noi pot urca doar %{count} de imagini într-o postare."
-  too_many_attachments:
-    zero: "Ne pare rău, utilizatorii noi nu pot pune atașamente în postări."
-    one: "Ne pare rău, utilizatorii noi pot pune doar un atașament într-o postare."
-    other: "Ne pare rău, utilizatorii noi pot pune doar %{count} de atașamente într-o postare."
-  too_many_links:
-    zero: "Ne pare rău, utilizatorii noi nu pot adăuga adrese în postări."
-    one: "Ne pare rău, utilizatorii noi pot adăuga doar o adresă într-o postare'."
-    other: "Ne pare rău, utilizatorii noi pot adăuga doar %{count} de adrese într-o postare."
   spamming_host: "Ne pare rău, nu puteți adăuga o adresă acestei gazde."
   user_is_suspended: "Utilizatorii suspendați nu au dreptul de a posta."
   just_posted_that: "este prea similar cu ceea ce ați postat recent"
@@ -191,9 +171,6 @@ ro:
       user_profile:
         bio_raw: "Despre Mine"
     errors:
-      messages:
-        is_invalid: "invalid; încercați să fiți unpic mai explicit"
-        has_already_been_used: "deja este folosit"
       models:
         topic:
           attributes:
@@ -260,12 +237,6 @@ ro:
       title: "utilizator nou"
     basic:
       title: "utilizator de bază"
-    regular:
-      title: "utilizator normal"
-    leader:
-      title: "lider"
-    elder:
-      title: "bătrân"
     change_failed_explanation: "Ați încercat să retrogradați utilizatorul %{user_name} la nivelul '%{new_trust_level}'. Totuși nivelul este deja '%{current_trust_level}'. %{user_name} va rămâne la '%{current_trust_level}'"
   rate_limiter:
     too_many_requests: "Există o limită zilnică de executare a acelei acțiuni. Vă rugăm așteptați %{time_left} până încercați iar."
@@ -614,7 +585,7 @@ ro:
     download_remote_images_to_local: "Transformă imaginile de legătură în imagini locale downloadându-le; asta previne stricarea imaginilor."
     download_remote_images_threshold: "Spațiul mimin necesar pentru download-ul imaginilor de legătura local (în procente)"
     disabled_image_download_domains: "Imagini de legătură nu vor mai fi downloadate din aceste domenii. Listă delimitata-vertical."
-    ninja_edit_window: "Pentru (n) secunde după postare, editarea nu va crea o versune nouă în istoricul postării."
+    editing_grace_period: "Pentru (n) secunde după postare, editarea nu va crea o versune nouă în istoricul postării."
     post_edit_time_limit: "Autorul poate edita sau șterge postarea până la (n) minute după postare. Setați 0 pentru totdeauna."
     edit_history_visible_to_public: "Permite oricui să vadă versiunea precedentă a unei postări editate. Când e dezactivat, doar membrii personalului pot vedea."
     delete_removed_posts_after: "Postările înlăturate de către autor vor fi automat șterse după (n) de ore."

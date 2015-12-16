@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'rails_helper'
 
 describe UsersController do
 
@@ -746,6 +746,17 @@ describe UsersController do
       end
     end
 
+    context "when taking over a staged account" do
+      let!(:staged) { Fabricate(:staged, email: "staged@account.com") }
+
+      it "succeeds" do
+        xhr :post, :create, email: staged.email, username: "zogstrip", password: "P4ssw0rd"
+        result = ::JSON.parse(response.body)
+        expect(result["success"]).to eq(true)
+        expect(User.find_by(email: staged.email).staged).to eq(false)
+      end
+    end
+
   end
 
   context '.username' do
@@ -1363,6 +1374,18 @@ describe UsersController do
         expect(response).to be_forbidden
       end
 
+      it "raises an error when sso_overrides_avatar is disabled" do
+        SiteSetting.stubs(:sso_overrides_avatar).returns(true)
+        xhr :put, :pick_avatar, username: user.username, upload_id: upload.id, type: "custom"
+        expect(response).to_not be_success
+      end
+
+      it "raises an error when selecting the custom/uploaded avatar and allow_uploaded_avatars is disabled" do
+        SiteSetting.stubs(:allow_uploaded_avatars).returns(false)
+        xhr :put, :pick_avatar, username: user.username, upload_id: upload.id, type: "custom"
+        expect(response).to_not be_success
+      end
+
       it 'can successfully pick the system avatar' do
         xhr :put, :pick_avatar, username: user.username
         expect(response).to be_success
@@ -1512,6 +1535,34 @@ describe UsersController do
         expect(json["associated_accounts"]).to be_present
       end
 
+    end
+
+  end
+
+  describe ".is_local_username" do
+
+    let(:user) { Fabricate(:user) }
+
+    it "finds the user" do
+      xhr :get, :is_local_username, username: user.username
+      expect(response).to be_success
+      json = JSON.parse(response.body)
+      expect(json["valid"][0]).to eq(user.username)
+    end
+
+    it "supports multiples usernames" do
+      xhr :get, :is_local_username, usernames: [user.username, "system"]
+      expect(response).to be_success
+      json = JSON.parse(response.body)
+      expect(json["valid"].size).to eq(2)
+    end
+
+    it "never includes staged accounts" do
+      staged = Fabricate(:user, staged: true)
+      xhr :get, :is_local_username, usernames: [staged.username]
+      expect(response).to be_success
+      json = JSON.parse(response.body)
+      expect(json["valid"].size).to eq(0)
     end
 
   end

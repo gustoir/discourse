@@ -10,6 +10,14 @@ pl_PL:
     short_date_no_year: "D MMM"
     short_date: "D MMM RRRR"
     long_date: "D MMMM YYYY H:mm"
+  datetime_formats: &datetime_formats
+    formats:
+      short: "%d.%m.%Y"
+      short_no_year: "%-d %B"
+      date_only: "%-d %b %Y"
+  date:
+    month_names: [null, Styczeń, Luty, Marzec, Kwiecień, Maj, Czerwiec, Lipiec, Sierpień, Wrzesień, Październik, Listopad, Grudzień]
+    <<: *datetime_formats
   title: "Discourse"
   topics: "Tematy"
   posts: "wpisy"
@@ -105,26 +113,6 @@ pl_PL:
       one: "1 odpowiedź"
       few: "%{count} odpowiedzi"
       other: "%{count} odpowiedzi"
-  too_many_mentions:
-    zero: "Przepraszamy, nie możesz odwoływać się do innych użytkowników."
-    one: "Przepraszamy, możesz odwołać się tylko do jednego użytkownika we wpisie."
-    other: "Przepraszamy, możesz odwołać się tylko do %{count} użytkowników we wpisie."
-  too_many_mentions_newuser:
-    zero: "Przepraszamy, nowi użytkownicy nie mogą odwoływać się do innych użytkowników."
-    one: "Przepraszamy, nowi użytkownicy mogą odwołać się tylko do jednego użytkownika we wpisie."
-    other: "Przepraszamy, nowi użytkownicy mogą odwołać się tylko do %{count} użytkowników we wpisie."
-  too_many_images:
-    zero: "Przepraszamy, nowi użytkownicy nie mogą dodawać zdjęć do wpisów."
-    one: "Przepraszamy, nowi użytkownicy mogą umieścić tylko jedno zdjęcie we wpisie."
-    other: "Przepraszamy, nowi użytkownicy mogą umieścić tylko %{count} zdjęć we wpisie."
-  too_many_attachments:
-    zero: "Nowi użytkownicy nie mogą dodawać załączników do postów."
-    one: "Nowi użytkownicy mogą dodać tylko jeden załącznik do posta."
-    other: "Nowi użytkownicy mogą dodać %{count} załączników do wpisu."
-  too_many_links:
-    zero: "Przepraszamy, nowi użytkownicy nie mogą umieszczać linków we wpisach."
-    one: "Przepraszamy, nowi użytkownicy mogą dodać tylko jeden link we wpisie."
-    other: "Przepraszamy, nowi użytkownicy mogą dodać tylko %{count} linków we wpisie."
   spamming_host: "Przepraszamy, nie możesz umieścić linka do tej strony."
   user_is_suspended: "Zawieszeni użytkownicy nie mogą wysyłać wiadomości."
   topic_not_found: "Coś poszło nie tak. Być może temat został zamknięty lub usunięty w międzyczasie?"
@@ -216,9 +204,6 @@ pl_PL:
       user_profile:
         bio_raw: "O mnie"
     errors:
-      messages:
-        is_invalid: "jest niewystarczająca – spróbuj ją rozwinąć"
-        has_already_been_used: "jest już użyty"
       models:
         topic:
           attributes:
@@ -293,12 +278,6 @@ pl_PL:
       title: "nowy"
     basic:
       title: "początkujący"
-    regular:
-      title: "zwykły"
-    leader:
-      title: "regularny"
-    elder:
-      title: "starszyzna"
     change_failed_explanation: "Twoja próba obniżenia poziomu %{user_name} do '%{new_trust_level}' była nieudana. Ten użytkownik posiada już poziom '%{current_trust_level}'. %{user_name} pozostanie na poziomie '%{current_trust_level}' - jeśli chcesz to zmienić, najpierw zablokuj poziom zaufania temu użytkownikowi."
   rate_limiter:
     slow_down: "Powtórzyłeś to działanie zbyt wiele razy, spróbuj ponownie później."
@@ -456,7 +435,6 @@ pl_PL:
       description: 'Ten wpis zawiera treści które umiarkowana osoba może uznać za wulgarne, obraźliwe lub naruszające <a href="/guidelines">wytyczne społeczności</a>.'
       long_form: 'oflagowano jako niewłaściwe'
     notify_user:
-      title: 'Powiadom @{{username}}'
       description: 'Ten wpis zawiera coś o czym chciałbym porozmawiać z tą osobą bezpośrednio i prywatnie. Bez oflagowania.'
       long_form: 'użytkownik został powiadomiony'
       email_title: 'Twój wpis w "%{title}"'
@@ -738,7 +716,7 @@ pl_PL:
     download_remote_images_to_local: "Pobieraj zdalne grafiki i twórz ich lokalne kopie aby zapobiegać uszkodzonym/brakującym obrazkom na stronach."
     download_remote_images_threshold: "Minimalna ilość wolnego miejsca na dysku wymagana przez funkcję pobierania zdalnych grafik (w procentach)"
     disabled_image_download_domains: "Zdalne grafiki z tych domen nie będą pobierane."
-    ninja_edit_window: "Przez tyle sekund po utworzeniu nowego wpisu jego kolejne edycje nie będą tworzyć nowych wersji w historii wpisu."
+    editing_grace_period: "Przez tyle sekund po utworzeniu nowego wpisu jego kolejne edycje nie będą tworzyć nowych wersji w historii wpisu."
     post_edit_time_limit: "Autor może edytować lub usunąć swój wpis przez tyle minut po jego utworzeniu. Ustawienie 0 oznacza 'zawsze'."
     edit_history_visible_to_public: "Pozwól wszystkim przeglądać poprzednie wersje edytowanych wpisów. Gdy wyłączone, jedynie obsługa/staff może."
     delete_removed_posts_after: "Wpisy usunięte przez autora będą automatycznie zlikwidowane po (n) godzinach. Jeżeli liczba godzin będzie wynosić 0, to zostaną usunięte natychmiast. "
@@ -1047,8 +1025,38 @@ pl_PL:
     subject_template: "[%{site_name}] Test dostarczania poczty"
   new_version_mailer:
     subject_template: "[%{site_name}] Aktualizacja do nowej wersji Discourse jest dostępna."
+    text_body_template: |
+      Nowa  wersja [Discourse](http://www.discourse.org) jest dostępna.
+
+      Obecnie zainstalowana: %{installed_version}
+      Nowa wersja: **%{new_version}**
+
+      Prawdopodobnie chcesz:
+
+      - Zobaczyć [listę zmian na GitHub](https://github.com/discourse/discourse/commits/master).
+
+      - Zaktualizować z poziomu przeglądarki pod adresem [%{base_url}/admin/upgrade](%{base_url}/admin/upgrade).
+
+      - Odwiedzić [meta.discourse.org](http://meta.discourse.org) i zapoznać się z wiadomościami i dyskusjami na temat Discourse.
   new_version_mailer_with_notes:
     subject_template: "[%{site_name}] dostępna aktualizacja"
+    text_body_template: |
+      Nowa  wersja [Discourse](http://www.discourse.org) jest dostępna.
+
+      Obecnie zainstalowana: %{installed_version}
+      Nowa wersja: **%{new_version}**
+
+      Prawdopodobnie chcesz:
+
+      - Zobaczyć [listę zmian na GitHub](https://github.com/discourse/discourse/commits/master).
+
+      - Zaktualizować z poziomu przeglądarki pod adresem [%{base_url}/admin/upgrade](%{base_url}/admin/upgrade).
+
+      - Odwiedzić [meta.discourse.org](http://meta.discourse.org) i zapoznać się z wiadomościami i dyskusjami na temat Discourse.
+
+      ### Zmiany zmian
+
+      %{notes}
   flags_reminder:
     flags_were_submitted:
       one: "Flagi dodane godzinę temu."
@@ -1385,6 +1393,8 @@ pl_PL:
   performance_report:
     initial_post_raw: 'Ten temat zawiera codzienne raporty wydajności dla twojej witryny. '
     initial_topic_title: 'Testy wydajności witryny. '
+  time:
+    <<: *datetime_formats
   activemodel:
     errors:
       <<: *errors

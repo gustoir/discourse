@@ -34,10 +34,18 @@ module PrettyText
       UrlHelper.schemaless UrlHelper.absolute avatar_template
     end
 
-    def is_username_valid(username)
+    def mention_lookup(username)
       return false unless username
-      username = username.downcase
-      User.exec_sql('SELECT 1 FROM users WHERE username_lower = ?', username).values.length == 1
+      if Group.exec_sql('SELECT 1 FROM groups WHERE name = ?', username).values.length == 1
+        "group"
+      else
+        username = username.downcase
+        if User.exec_sql('SELECT 1 FROM users WHERE username_lower = ?', username).values.length == 1
+          "user"
+        else
+          nil
+        end
+      end
     end
 
     def get_topic_info(topic_id)
@@ -90,9 +98,9 @@ module PrettyText
     ctx_load(ctx,
       "vendor/assets/javascripts/better_markdown.js",
       "app/assets/javascripts/defer/html-sanitizer-bundle.js",
+      "app/assets/javascripts/discourse/lib/utilities.js",
       "app/assets/javascripts/discourse/dialects/dialect.js",
       "app/assets/javascripts/discourse/lib/censored-words.js",
-      "app/assets/javascripts/discourse/lib/utilities.js",
       "app/assets/javascripts/discourse/lib/markdown.js",
     )
 
@@ -141,7 +149,7 @@ module PrettyText
   def self.decorate_context(context)
     context.eval("Discourse.CDN = '#{Rails.configuration.action_controller.asset_host}';")
     context.eval("Discourse.BaseUrl = '#{RailsMultisite::ConnectionManagement.current_hostname}'.replace(/:[\d]*$/,'');")
-    context.eval("Discourse.BaseUri = '#{Discourse::base_uri("/")}';")
+    context.eval("Discourse.BaseUri = '#{Discourse::base_uri}';")
     context.eval("Discourse.SiteSettings = #{SiteSetting.client_settings_json};")
 
     context.eval("Discourse.getURL = function(url) {
@@ -179,7 +187,7 @@ module PrettyText
       decorate_context(context)
 
       context_opts = opts || {}
-      context_opts[:sanitize] ||= true
+      context_opts[:sanitize] = true unless context_opts[:sanitize] == false
       context['opts'] = context_opts
       context['raw'] = text
 
@@ -190,13 +198,15 @@ module PrettyText
       end
 
       # reset emojis (v8 context is shared amongst multisites)
-      context.eval("Discourse.Dialect.resetEmoji();")
+      context.eval("Discourse.Dialect.resetEmojis();")
       # custom emojis
       Emoji.custom.each do |emoji|
         context.eval("Discourse.Dialect.registerEmoji('#{emoji.name}', '#{emoji.url}');")
       end
+      # plugin emojis
+      context.eval("Discourse.Emoji.applyCustomEmojis();")
 
-      context.eval('opts["mentionLookup"] = function(u){return helpers.is_username_valid(u);}')
+      context.eval('opts["mentionLookup"] = function(u){return helpers.mention_lookup(u);}')
       context.eval('opts["lookupAvatar"] = function(p){return Discourse.Utilities.avatarImg({size: "tiny", avatarTemplate: helpers.avatar_template(p)});}')
       context.eval('opts["getTopicInfo"] = function(i){return helpers.get_topic_info(i)};')
       baked = context.eval('Discourse.Markdown.markdownConverter(opts).makeHtml(raw)')

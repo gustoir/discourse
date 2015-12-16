@@ -1,4 +1,4 @@
-require 'spec_helper'
+require 'rails_helper'
 require 'post_creator'
 require 'topic_subtype'
 
@@ -544,7 +544,7 @@ describe PostCreator do
                                target_group_names: group.name)
     end
 
-    it 'acts correctly' do
+    it 'can post to a group correctly' do
       expect(post.topic.archetype).to eq(Archetype.private_message)
       expect(post.topic.topic_allowed_users.count).to eq(1)
       expect(post.topic.topic_allowed_groups.count).to eq(1)
@@ -682,6 +682,21 @@ describe PostCreator do
       expect(@posts_created).to eq(1)
       expect(@topics_created).to eq(0)
     end
+  end
+
+  context "staged users" do
+    let(:staged) { Fabricate(:staged) }
+
+    it "automatically watches all messages it participates in" do
+      post = PostCreator.create(staged,
+        title: "this is the title of a topic created by a staged user",
+        raw: "this is the content of a topic created by a staged user ;)"
+      )
+      topic_user = TopicUser.find_by(user_id: staged.id, topic_id: post.topic_id)
+      expect(topic_user.notification_level).to eq(TopicUser.notification_levels[:watching])
+      expect(topic_user.notifications_reason_id).to eq(TopicUser.notification_reasons[:auto_watch])
+    end
+
   end
 
 end

@@ -1,6 +1,6 @@
 # encoding: utf-8
 
-require 'spec_helper'
+require 'rails_helper'
 require_dependency 'post_destroyer'
 
 describe Topic do
@@ -464,7 +464,7 @@ describe Topic do
 
       it "doesn't bump the topic on an edit to the last post that doesn't result in a new version" do
         expect {
-          SiteSetting.expects(:ninja_edit_window).returns(5.minutes)
+          SiteSetting.expects(:editing_grace_period).returns(5.minutes)
           @last_post.revise(@last_post.user, { raw: 'updated contents' }, revised_at: @last_post.created_at + 10.seconds)
           @topic.reload
         }.not_to change(@topic, :bumped_at)
@@ -1538,7 +1538,7 @@ describe Topic do
 
   context 'invite by group manager' do
     let(:group_manager) { Fabricate(:user) }
-    let(:group) { Fabricate(:group).tap { |g| g.add(group_manager); g.appoint_manager(group_manager) } }
+    let(:group) { Fabricate(:group).tap { |g| g.add_owner(group_manager) } }
     let(:private_category)  { Fabricate(:private_category, group: group) }
     let(:group_private_topic) { Fabricate(:topic, category: private_category, user: group_manager) }
 
@@ -1564,8 +1564,5 @@ describe Topic do
       end
     end
 
-    context 'to a previously-invited user' do
-
-    end
   end
 end
