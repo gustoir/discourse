@@ -1300,6 +1300,10 @@ fa_IR:
       with_topics: "%{filter} موضوعات"
       with_category: "%{filter} %{category} موضوعات"
       latest:
+        title: "تازه ترین ها"
+        title_with_count:
+          one: "تازه ترین"
+          other: "تازه ترین ها ({{count}})"
         help: "موضوعات با نوشته های تازه"
       hot:
         title: "داغ"
