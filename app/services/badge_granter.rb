@@ -32,7 +32,7 @@ class BadgeGranter
         user_badge = UserBadge.create!(badge: @badge,
                                        user: @user,
                                        granted_by: @granted_by,
-                                       granted_at: Time.now,
+                                       granted_at: @opts[:created_at] || Time.now,
                                        post_id: @post_id,
                                        seq: seq)
 
@@ -44,7 +44,11 @@ class BadgeGranter
           I18n.with_locale(@user.effective_locale) do
             notification = @user.notifications.create(
               notification_type: Notification.types[:granted_badge],
-              data: { badge_id: @badge.id, badge_name: @badge.display_name, badge_slug: @badge.slug }.to_json)
+              data: { badge_id: @badge.id,
+                      badge_name: @badge.display_name,
+                      badge_slug: @badge.slug,
+                      username: @user.username}.to_json
+            )
             user_badge.update_attributes notification_id: notification.id
           end
         end
@@ -97,6 +101,12 @@ class BadgeGranter
       payload = {
         type: "PostAction",
         post_ids: [action.post_id, action.related_post_id].compact!
+      }
+    when Badge::Trigger::PostProcessed
+      user = opt[:user]
+      payload = {
+        type: "PostProcessed",
+        user_ids: [user.id]
       }
     end
 
@@ -255,7 +265,8 @@ class BadgeGranter
                         multiple_grant: true # cheat here, cause we only run on backfill and are deleting
                   ) if badge.auto_revoke && full_backfill
 
-    sql = "INSERT INTO user_badges(badge_id, user_id, granted_at, granted_by_id, post_id)
+    sql = " WITH w as (
+            INSERT INTO user_badges(badge_id, user_id, granted_at, granted_by_id, post_id)
             SELECT :id, q.user_id, q.granted_at, -1, #{post_id_field}
             FROM ( #{badge.query} ) q
             LEFT JOIN user_badges ub ON
@@ -263,6 +274,9 @@ class BadgeGranter
               #{post_clause}
             /*where*/
             RETURNING id, user_id, granted_at
+            )
+            select w.*, username FROM w
+            JOIN users u on u.id = w.user_id
             "
 
     builder = SqlBuilder.new(sql)
@@ -295,7 +309,12 @@ class BadgeGranter
       notification = Notification.create!(
                         user_id: row.user_id,
                         notification_type: Notification.types[:granted_badge],
-                        data: { badge_id: badge.id, badge_name: badge.name }.to_json )
+                        data: {
+                          badge_id: badge.id,
+                          badge_name: badge.name,
+                          badge_slug: badge.slug,
+                          username: row.username
+      }.to_json )
 
       Badge.exec_sql("UPDATE user_badges SET notification_id = :notification_id WHERE id = :id",
                       notification_id: notification.id,
@@ -304,7 +323,9 @@ class BadgeGranter
     end
 
     badge.reset_grant_count!
-
+  rescue => ex
+    Rails.logger.error("Failed to backfill '#{badge.type}' badge: #{opts}")
+    raise ex
   end
 
 

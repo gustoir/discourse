@@ -1,5 +1,5 @@
 import componentTest from 'helpers/component-test';
-import { onToolbarCreate } from 'discourse/components/d-editor';
+import { withPluginApi } from 'discourse/lib/plugin-api';
 
 moduleForComponent('d-editor', {integration: true});
 
@@ -61,6 +61,18 @@ function testCase(title, testFunc) {
     }
   });
 }
+
+testCase(`selecting the space before a word`, function(assert, textarea) {
+  textarea.selectionStart = 5;
+  textarea.selectionEnd = 7;
+
+  click(`button.bold`);
+  andThen(() => {
+    assert.equal(this.get('value'), `hello **w**orld.`);
+    assert.equal(textarea.selectionStart, 8);
+    assert.equal(textarea.selectionEnd, 9);
+  });
+});
 
 testCase(`selecting the space after a word`, function(assert, textarea) {
   textarea.selectionStart = 0;
@@ -130,7 +142,7 @@ testCase(`italic button with no selection`, function(assert, textarea) {
   click(`button.italic`);
   andThen(() => {
     const example = I18n.t(`composer.italic_text`);
-    assert.equal(this.get('value'), `hello world.*${example}*`);
+    assert.equal(this.get('value'), `hello world._${example}_`);
 
     assert.equal(textarea.selectionStart, 13);
     assert.equal(textarea.selectionEnd, 13 + example.length);
@@ -143,7 +155,7 @@ testCase(`italic button with a selection`, function(assert, textarea) {
 
   click(`button.italic`);
   andThen(() => {
-    assert.equal(this.get('value'), `hello *world*.`);
+    assert.equal(this.get('value'), `hello _world_.`);
     assert.equal(textarea.selectionStart, 7);
     assert.equal(textarea.selectionEnd, 12);
   });
@@ -166,7 +178,7 @@ testCase(`italic with a multiline selection`, function (assert, textarea) {
 
   click(`button.italic`);
   andThen(() => {
-    assert.equal(this.get('value'), `*hello*\n\n*world*\n\ntest.`);
+    assert.equal(this.get('value'), `_hello_\n\n_world_\n\ntest.`);
     assert.equal(textarea.selectionStart, 0);
     assert.equal(textarea.selectionEnd, 16);
   });
@@ -204,6 +216,16 @@ testCase('link modal (simple link)', function(assert, textarea) {
     assert.equal(this.get('value'), `hello world.[${desc}](http://eviltrout.com)`);
     assert.equal(textarea.selectionStart, 13);
     assert.equal(textarea.selectionEnd, 13 + desc.length);
+  });
+});
+
+testCase('link modal auto http addition', function(assert) {
+  click('button.link');
+  fillIn('.insert-link input', 'sam.com');
+  click('.insert-link button.btn-primary');
+  const desc = I18n.t('composer.link_description');
+  andThen(() => {
+    assert.equal(this.get('value'), `hello world.[${desc}](http://sam.com)`);
   });
 });
 
@@ -516,16 +538,38 @@ testCase(`rule with a selection`, function(assert, textarea) {
   });
 });
 
+testCase(`doesn't jump to bottom with long text`, function(assert, textarea) {
+
+  let longText = 'hello world.';
+  for (let i=0; i<8; i++) {
+    longText = longText + longText;
+  }
+  this.set('value', longText);
+
+  andThen(() => {
+    $(textarea).scrollTop(0);
+    textarea.selectionStart = 3;
+    textarea.selectionEnd = 3;
+  });
+
+  click('button.bold');
+  andThen(() => {
+    assert.equal($(textarea).scrollTop(), 0, 'it stays scrolled up');
+  });
+});
+
 componentTest('emoji', {
   template: '{{d-editor value=value}}',
   setup() {
     // Test adding a custom button
-    onToolbarCreate(toolbar => {
-      toolbar.addButton({
-        id: 'emoji',
-        group: 'extras',
-        icon: 'smile-o',
-        action: 'emoji'
+    withPluginApi('0.1', api => {
+      api.onToolbarCreate(toolbar => {
+        toolbar.addButton({
+          id: 'emoji',
+          group: 'extras',
+          icon: 'smile-o',
+          action: 'emoji'
+        });
       });
     });
     this.set('value', 'hello world.');

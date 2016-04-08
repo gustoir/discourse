@@ -6,7 +6,7 @@ export default ContainerView.extend({
 
   @on('init')
   createButtons() {
-    const mobileView = Discourse.Mobile.mobileView;
+    const mobileView = this.site.mobileView;
 
     if (!mobileView && this.currentUser.get('staff')) {
       const viewArgs = {action: 'showTopicAdminMenu', title: 'topic_admin_menu', icon: 'wrench', position: 'absolute'};
@@ -31,9 +31,14 @@ export default ContainerView.extend({
       }
 
     }
+    if (topic.get('isPrivateMessage')) {
+      this.attachViewClass('archive-button');
+    }
+
     if (this.get('topic.details.can_create_post')) {
       this.attachViewClass('reply-button');
     }
+
     this.trigger('additionalButtons', this);
   }
 });

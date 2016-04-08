@@ -5,62 +5,9 @@ const Badge = RestModel.extend({
 
   newBadge: Em.computed.none('id'),
 
-  /**
-    @private
-
-    The name key to use for fetching i18n translations.
-
-    @property i18nNameKey
-    @type {String}
-  **/
-  i18nNameKey: function() {
-    return this.get('name').toLowerCase().replace(/\s/g, '_');
-  }.property('name'),
-
-  /**
-    The display name of this badge. Attempts to use a translation and falls back to
-    the actual name.
-
-    @property displayName
-    @type {String}
-  **/
-  displayName: function() {
-    const i18nKey = "badges.badge." + this.get('i18nNameKey') + ".name";
-    return I18n.t(i18nKey, {defaultValue: this.get('name')});
-  }.property('name', 'i18nNameKey'),
-
-  /**
-    The i18n translated description for this badge. Returns the null if no
-    translation exists.
-
-    @property translatedDescription
-    @type {String}
-  **/
-  translatedDescription: function() {
-    const i18nKey = "badges.badge." + this.get('i18nNameKey') + ".description";
-    let translation = I18n.t(i18nKey);
-    if (translation.indexOf(i18nKey) !== -1) {
-      translation = null;
-    }
-    return translation;
-  }.property('i18nNameKey'),
-
-  displayDescription: function(){
-    // we support html in description but in most places do not need it
-    return this.get('displayDescriptionHtml').replace(/<[^>]*>/g, "");
-  }.property('displayDescriptionHtml'),
-
-  /**
-    Display-friendly description string. Returns either a translation or the
-    original description string.
-
-    @property displayDescription
-    @type {String}
-  **/
-  displayDescriptionHtml: function() {
-    const translated = this.get('translatedDescription');
-    return (translated === null ? this.get('description') : translated) || "";
-  }.property('description', 'translatedDescription'),
+  url: function() {
+    return Discourse.getURL(`/badges/${this.get('id')}/${this.get('slug')}`);
+  }.property(),
 
   /**
     Update this badge with the response returned by the server on save.
@@ -159,7 +106,7 @@ Badge.reopenClass({
     let badges = [];
     if ("badge" in json) {
       badges = [json.badge];
-    } else {
+    } else if (json.badges) {
       badges = json.badges;
     }
     badges = badges.map(function(badgeJson) {
@@ -207,4 +154,3 @@ Badge.reopenClass({
 });
 
 export default Badge;
-

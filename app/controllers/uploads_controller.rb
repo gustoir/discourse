@@ -9,9 +9,6 @@ class UploadsController < ApplicationController
     client_id = params[:client_id]
     synchronous = is_api? && params[:synchronous]
 
-    # HACK FOR IE9 to prevent the "download dialog"
-    response.headers["Content-Type"] = "text/plain" if request.user_agent =~ /MSIE 9/
-
     if type == "avatar"
       if SiteSetting.sso_overrides_avatar || !SiteSetting.allow_uploaded_avatars
         return render json: failed_json, status: 422
@@ -54,13 +51,17 @@ class UploadsController < ApplicationController
     render nothing: true, status: 404
   end
 
+  DOWNSIZE_RATIO ||= 0.8
+
   def create_upload(type, file, url)
     begin
+      maximum_upload_size = [SiteSetting.max_image_size_kb, SiteSetting.max_attachment_size_kb].max.kilobytes
+
       # ensure we have a file
       if file.nil?
         # API can provide a URL
         if url.present? && is_api?
-          tempfile = FileHelper.download(url, 10.megabytes, "discourse-upload-#{type}") rescue nil
+          tempfile = FileHelper.download(url, maximum_upload_size, "discourse-upload-#{type}") rescue nil
           filename = File.basename(URI.parse(url).path)
         end
       else
@@ -72,20 +73,22 @@ class UploadsController < ApplicationController
       return { errors: I18n.t("upload.file_missing") } if tempfile.nil?
 
       # allow users to upload (not that) large images that will be automatically reduced to allowed size
-      uploaded_size = File.size(tempfile.path)
-      if SiteSetting.max_image_size_kb > 0 && FileHelper.is_image?(filename) && uploaded_size > 0 && uploaded_size < 10.megabytes
-        attempt = 2
-        allow_animation = type == "avatar" ? SiteSetting.allow_animated_avatars : SiteSetting.allow_animated_thumbnails
-        while attempt > 0
-          downsized_size = File.size(tempfile.path)
-          break if downsized_size > uploaded_size
-          break if downsized_size < SiteSetting.max_image_size_kb.kilobytes
-          image_info = FastImage.new(tempfile.path) rescue nil
-          w, h = *(image_info.try(:size) || [0, 0])
-          break if w == 0 || h == 0
-          dimensions = "#{(w * 0.8).floor}x#{(h * 0.8).floor}"
-          OptimizedImage.downsize(tempfile.path, tempfile.path, dimensions, filename: filename, allow_animation: allow_animation)
-          attempt -= 1
+      max_image_size_kb = SiteSetting.max_image_size_kb.kilobytes
+      if max_image_size_kb > 0 && FileHelper.is_image?(filename)
+        uploaded_size = File.size(tempfile.path)
+        if 0 < uploaded_size && uploaded_size < maximum_upload_size && Upload.should_optimize?(tempfile.path)
+          attempt = 2
+          allow_animation = type == "avatar" ? SiteSetting.allow_animated_avatars : SiteSetting.allow_animated_thumbnails
+          while attempt > 0
+            downsized_size = File.size(tempfile.path)
+            break if downsized_size >= uploaded_size || downsized_size < max_image_size_kb
+            image_info = FastImage.new(tempfile.path) rescue nil
+            w, h = *(image_info.try(:size) || [0, 0])
+            break if w == 0 || h == 0
+            dimensions = "#{(w * DOWNSIZE_RATIO).floor}x#{(h * DOWNSIZE_RATIO).floor}"
+            OptimizedImage.downsize(tempfile.path, tempfile.path, dimensions, filename: filename, allow_animation: allow_animation)
+            attempt -= 1
+          end
         end
       end
 

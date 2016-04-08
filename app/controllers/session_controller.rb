@@ -20,7 +20,11 @@ class SessionController < ApplicationController
     end
 
     if SiteSetting.enable_sso?
-      redirect_to DiscourseSingleSignOn.generate_url(return_path)
+      sso = DiscourseSingleSignOn.generate_sso(return_path)
+      if SiteSetting.verbose_sso_logging
+        Rails.logger.warn("Verbose SSO log: Started SSO process\n\n#{sso.diagnostics}")
+      end
+      redirect_to sso.to_url
     else
       render nothing: true, status: 404
     end
@@ -69,10 +73,16 @@ class SessionController < ApplicationController
 
     sso = DiscourseSingleSignOn.parse(request.query_string)
     if !sso.nonce_valid?
+      if SiteSetting.verbose_sso_logging
+        Rails.logger.warn("Verbose SSO log: Nonce has already expired\n\n#{sso.diagnostics}")
+      end
       return render(text: I18n.t("sso.timeout_expired"), status: 419)
     end
 
     if ScreenedIpAddress.should_block?(request.remote_ip)
+      if SiteSetting.verbose_sso_logging
+        Rails.logger.warn("Verbose SSO log: IP address is blocked #{request.remote_ip}\n\n#{sso.diagnostics}")
+      end
       return render(text: I18n.t("sso.unknown_error"), status: 500)
     end
 
@@ -95,6 +105,9 @@ class SessionController < ApplicationController
           session["user_created_message"] = activation.message
           redirect_to users_account_created_path and return
         else
+          if SiteSetting.verbose_sso_logging
+            Rails.logger.warn("Verbose SSO log: User was logged on #{user.username}\n\n#{sso.diagnostics}")
+          end
           log_on_user user
         end
 
@@ -112,12 +125,16 @@ class SessionController < ApplicationController
       else
         render text: I18n.t("sso.not_found"), status: 500
       end
+    rescue ActiveRecord::RecordInvalid => e
+      render text: I18n.t("sso.unknown_error"), status: 500
     rescue => e
-      details = {}
-      SingleSignOn::ACCESSORS.each do |a|
-        details[a] = sso.send(a)
-      end
-      Rails.logger.error "Failed to create or lookup user: #{e}\n\n#{details.map{|k,v| "#{k}: #{v}"}.join("\n")}"
+      message = "Failed to create or lookup user: #{e}."
+      message << "\n\n" << "-" * 100 << "\n\n"
+      message << sso.diagnostics
+      message << "\n\n" << "-" * 100 << "\n\n"
+      message << e.backtrace.join("\n")
+
+      Rails.logger.error(message)
 
       render text: I18n.t("sso.unknown_error"), status: 500
     end
@@ -195,7 +212,7 @@ class SessionController < ApplicationController
     user_presence = user.present? && user.id != Discourse::SYSTEM_USER_ID && !user.staged
     if user_presence
       email_token = user.email_tokens.create(email: user.email)
-      Jobs.enqueue(:user_email, type: :forgot_password, user_id: user.id, email_token: email_token.token)
+      Jobs.enqueue(:critical_user_email, type: :forgot_password, user_id: user.id, email_token: email_token.token)
     end
 
     json = { result: "ok" }
@@ -261,8 +278,10 @@ class SessionController < ApplicationController
   def failed_to_login(user)
     message = user.suspend_reason ? "login.suspended_with_reason" : "login.suspended"
 
-    render json: { error: I18n.t(message, { date: I18n.l(user.suspended_till, format: :date_only),
-                                            reason: user.suspend_reason}) }
+    render json: {
+      error: I18n.t(message, { date: I18n.l(user.suspended_till, format: :date_only), reason: user.suspend_reason}),
+      reason: 'suspended'
+    }
   end
 
   def login(user)

@@ -1,10 +1,11 @@
 import userSearch from 'discourse/lib/user-search';
 import { default as computed, on } from 'ember-addons/ember-computed-decorators';
 import { linkSeenMentions, fetchUnseenMentions } from 'discourse/lib/link-mentions';
+import { linkSeenCategoryHashtags, fetchUnseenCategoryHashtags } from 'discourse/lib/link-category-hashtags';
 
 export default Ember.Component.extend({
   classNames: ['wmd-controls'],
-  classNameBindings: [':wmd-controls', 'showPreview', 'showPreview::hide-preview'],
+  classNameBindings: ['showToolbar:toolbar-visible', ':wmd-controls', 'showPreview', 'showPreview::hide-preview'],
 
   uploadProgress: 0,
   showPreview: true,
@@ -17,7 +18,7 @@ export default Ember.Component.extend({
 
   @on('init')
   _setupPreview() {
-    const val = (Discourse.Mobile.mobileView ? false : (this.keyValueStore.get('composer.showPreview') || 'true'));
+    const val = (this.site.mobileView ? false : (this.keyValueStore.get('composer.showPreview') || 'true'));
     this.set('showPreview', val === 'true');
   },
 
@@ -90,6 +91,8 @@ export default Ember.Component.extend({
 
   _syncEditorAndPreviewScroll() {
     const $input = this.$('.d-editor-input');
+    if (!$input) { return; }
+
     const $preview = this.$('.d-editor-preview');
 
     if ($input.scrollTop() === 0) {
@@ -111,10 +114,16 @@ export default Ember.Component.extend({
     $preview.scrollTop(desired + 50);
   },
 
-  _renderUnseen: function($preview, unseen) {
-    fetchUnseenMentions($preview, unseen, this.siteSettings).then(() => {
+  _renderUnseenMentions: function($preview, unseen) {
+    fetchUnseenMentions($preview, unseen).then(() => {
       linkSeenMentions($preview, this.siteSettings);
       this._warnMentionedGroups($preview);
+    });
+  },
+
+  _renderUnseenCategoryHashtags: function($preview, unseen) {
+    fetchUnseenCategoryHashtags(unseen).then(() => {
+      linkSeenCategoryHashtags($preview);
     });
   },
 
@@ -209,7 +218,7 @@ export default Ember.Component.extend({
       }
     });
 
-    if (Discourse.Mobile.mobileView) {
+    if (this.site.mobileView) {
       this.$(".mobile-file-upload").on("click.uploader", function () {
         // redirect the click on the hidden file input
         $("#mobile-uploader").click();
@@ -336,12 +345,34 @@ export default Ember.Component.extend({
     },
 
     showOptions() {
+      // long term we want some smart positioning algorithm in popup-menu
+      // the problem is that positioning in a fixed panel is a nightmare
+      // cause offsetParent can end up returning a fixed element and then
+      // using offset() is not going to work, so you end up needing special logic
+      // especially since we allow for negative .top, provided there is room on screen
       const myPos = this.$().position();
       const buttonPos = this.$('.options').position();
 
+      const popupHeight = $('#reply-control .popup-menu').height();
+      const popupWidth = $('#reply-control .popup-menu').width();
+
+      var top = myPos.top + buttonPos.top - 15;
+      var left = myPos.left + buttonPos.left - (popupWidth/2);
+
+      const composerPos = $('#reply-control').position();
+
+      if (composerPos.top + top - popupHeight < 0) {
+        top = top + popupHeight + this.$('.options').height() + 50;
+      }
+
+      var replyWidth = $('#reply-control').width();
+      if (left + popupWidth > replyWidth) {
+        left = replyWidth - popupWidth - 40;
+      }
+
       this.sendAction('showOptions', { position: "absolute",
-                                       left: myPos.left + buttonPos.left,
-                                       top: myPos.top + buttonPos.top });
+                                       left: left,
+                                       top: top });
     },
 
     showUploadModal(toolbarEvent) {
@@ -386,10 +417,16 @@ export default Ember.Component.extend({
       // Paint mentions
       const unseen = linkSeenMentions($preview, this.siteSettings);
       if (unseen.length) {
-        Ember.run.debounce(this, this._renderUnseen, $preview, unseen, 500);
+        Ember.run.debounce(this, this._renderUnseenMentions, $preview, unseen, 500);
       }
 
       this._warnMentionedGroups($preview);
+
+      // Paint category hashtags
+      const unseenHashtags = linkSeenCategoryHashtags($preview);
+      if (unseenHashtags.length) {
+        Ember.run.debounce(this, this._renderUnseenCategoryHashtags, $preview, unseenHashtags, 500);
+      }
 
       const post = this.get('composer.post');
       let refresh = false;

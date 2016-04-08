@@ -6,13 +6,8 @@ const UserBadge = Discourse.Model.extend({
       return "/t/-/" + this.get('topic_id') + "/" + this.get('post_number');
     }
   }.property(), // avoid the extra bindings for now
-  /**
-    Revoke this badge.
 
-    @method revoke
-    @returns {Promise} a promise that resolves when the badge has been revoked.
-  **/
-  revoke: function() {
+  revoke() {
     return Discourse.ajax("/user_badges/" + this.get('id'), {
       type: "DELETE"
     });
@@ -48,7 +43,7 @@ UserBadge.reopenClass({
     if ("user_badge" in json) {
       userBadges = [json.user_badge];
     } else {
-      userBadges = json.user_badges;
+      userBadges = (json.user_badge_info && json.user_badge_info.user_badges) || json.user_badges;
     }
 
     userBadges = userBadges.map(function(userBadgeJson) {
@@ -73,6 +68,10 @@ UserBadge.reopenClass({
     if ("user_badge" in json) {
       return userBadges[0];
     } else {
+      if (json.user_badge_info) {
+        userBadges.grant_count = json.user_badge_info.grant_count;
+        userBadges.username = json.user_badge_info.username;
+      }
       return userBadges;
     }
   },

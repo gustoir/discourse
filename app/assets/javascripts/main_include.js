@@ -7,7 +7,6 @@
 //= require ./ember-addons/macro-alias
 //= require ./ember-addons/ember-computed-decorators
 //= require ./discourse/lib/hash
-//= require ./discourse/lib/stale-result
 //= require ./discourse/lib/load-script
 //= require ./discourse/lib/notification-levels
 //= require ./discourse/lib/app-events
@@ -58,11 +57,9 @@
 //= require ./discourse/models/user-badge
 //= require ./discourse/controllers/discovery-sortable
 //= require ./discourse/controllers/navigation/default
-//= require ./discourse/views/grouped
 //= require ./discourse/views/container
 //= require ./discourse/views/modal-body
 //= require ./discourse/views/flag
-//= require ./discourse/views/cloaked
 //= require ./discourse/components/combo-box
 //= require ./discourse/components/edit-category-panel
 //= require ./discourse/views/button
@@ -92,6 +89,7 @@
 //= require ./discourse/components/conditional-loading-spinner
 //= require ./discourse/helpers/user-avatar
 //= require ./discourse/helpers/cold-age-class
+//= require ./discourse/helpers/capitalize
 //= require ./discourse/helpers/loading-spinner
 //= require ./discourse/helpers/category-link
 //= require ./discourse/lib/export-result
@@ -109,3 +107,4 @@
 //= require_tree ./discourse/pre-initializers
 //= require_tree ./discourse/initializers
 //= require_tree ./discourse/services
+//= require_tree ./discourse/widgets

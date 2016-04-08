@@ -76,7 +76,8 @@ class TopicCreator
                  when TopicUser.notification_levels[:tracking] then "track!"
                  when TopicUser.notification_levels[:regular]  then "regular!"
                  when TopicUser.notification_levels[:muted]    then "mute!"
-                 else "watch!"
+                 when TopicUser.notification_levels[:watching] then "watch!"
+                 else "track!"
                  end
         topic.notifier.send(action, gu.user_id)
       end
@@ -186,12 +187,13 @@ class TopicCreator
       check_can_send_permission!(topic, group)
       topic.topic_allowed_groups.build(group_id: group.id)
       len += 1
+      group.update_columns(has_messages: true) unless group.has_messages
     end
 
     rollback_with!(topic, :target_group_not_found) unless len == names.length
   end
 
   def check_can_send_permission!(topic, obj)
-    rollback_with!(topic, :cant_send_pm) unless @guardian.can_send_private_message?(obj)
+    rollback_with!(topic, :cant_send_pm) unless @opts[:skip_validations] || @guardian.can_send_private_message?(obj)
   end
 end

@@ -27,7 +27,7 @@ class Topic < ActiveRecord::Base
   attr_accessor :allowed_user_ids
 
   def self.max_sort_order
-    2**31 - 1
+    @max_sort_order ||= (2 ** 31) - 1
   end
 
   def featured_users
@@ -82,6 +82,9 @@ class Topic < ActiveRecord::Base
   has_many :ordered_posts, -> { order(post_number: :asc) }, class_name: "Post"
   has_many :topic_allowed_users
   has_many :topic_allowed_groups
+
+  has_many :group_archived_messages, dependent: :destroy
+  has_many :user_archived_messages, dependent: :destroy
 
   has_many :allowed_group_users, through: :allowed_groups, source: :users
   has_many :allowed_groups, through: :topic_allowed_groups, source: :group
@@ -205,7 +208,7 @@ class Topic < ActiveRecord::Base
   def cancel_auto_close_job
     if (auto_close_at_changed? && !auto_close_at_was.nil?) || (auto_close_user_id_changed? && auto_close_at)
       self.auto_close_started_at ||= Time.zone.now if auto_close_at
-      Jobs.cancel_scheduled_job(:close_topic, { topic_id: id })
+      Jobs.cancel_scheduled_job(:close_topic, topic_id: id)
     end
   end
 
@@ -311,10 +314,13 @@ class Topic < ActiveRecord::Base
               .joins("LEFT OUTER JOIN users ON users.id = topics.user_id")
               .where(closed: false, archived: false)
               .where("COALESCE(topic_users.notification_level, 1) <> ?", TopicUser.notification_levels[:muted])
-              .where("COALESCE(users.trust_level, 0) > 0")
               .created_since(since)
               .listable_topics
               .includes(:category)
+
+    unless user.user_option.try(:include_tl0_in_digests)
+      topics = topics.where("COALESCE(users.trust_level, 0) > 0")
+    end
 
     if !!opts[:top_order]
       topics = topics.joins("LEFT OUTER JOIN top_topics ON top_topics.topic_id = topics.id")
@@ -333,6 +339,10 @@ class Topic < ActiveRecord::Base
 
     # Remove muted categories
     muted_category_ids = CategoryUser.where(user_id: user.id, notification_level: CategoryUser.notification_levels[:muted]).pluck(:category_id)
+    if SiteSetting.digest_suppress_categories.present?
+      muted_category_ids += SiteSetting.digest_suppress_categories.split("|").map(&:to_i)
+      muted_category_ids = muted_category_ids.uniq
+    end
     if muted_category_ids.present?
       topics = topics.where("topics.category_id NOT IN (?)", muted_category_ids)
     end
@@ -430,6 +440,7 @@ class Topic < ActiveRecord::Base
 
   def update_status(status, enabled, user, opts={})
     TopicStatusUpdate.new(self, user).update!(status, enabled, opts)
+    DiscourseEvent.trigger(:topic_status_updated, self.id, status, enabled)
   end
 
   # Atomically creates the next post number
@@ -511,6 +522,12 @@ class Topic < ActiveRecord::Base
     true
   end
 
+  def add_small_action(user, action_code, who=nil)
+    custom_fields = {}
+    custom_fields["action_code_who"] = who if who.present?
+    add_moderator_post(user, nil, post_type: Post.types[:small_action], action_code: action_code, custom_fields: custom_fields)
+  end
+
   def add_moderator_post(user, text, opts=nil)
     opts ||= {}
     new_post = nil
@@ -521,7 +538,8 @@ class Topic < ActiveRecord::Base
                               no_bump: opts[:bump].blank?,
                               skip_notifications: opts[:skip_notifications],
                               topic_id: self.id,
-                              skip_validations: true)
+                              skip_validations: true,
+                              custom_fields: opts[:custom_fields])
     new_post = creator.create
     increment!(:moderator_posts_count) if new_post.persisted?
 
@@ -540,7 +558,6 @@ class Topic < ActiveRecord::Base
 
   def change_category_to_id(category_id)
     return false if private_message?
-    return false if category.try(:contains_messages)
 
     new_category_id = category_id.to_i
     # if the category name is blank, reset the attribute
@@ -554,11 +571,12 @@ class Topic < ActiveRecord::Base
     changed_to_category(cat)
   end
 
-  def remove_allowed_user(username)
+  def remove_allowed_user(removed_by, username)
     if user = User.find_by(username: username)
       topic_user = topic_allowed_users.find_by(user_id: user.id)
       if topic_user
         topic_user.destroy
+        add_small_action(removed_by, "removed_user", user.username)
         return true
       end
     end
@@ -571,7 +589,11 @@ class Topic < ActiveRecord::Base
     if private_message?
       # If the user exists, add them to the message.
       user = User.find_by_username_or_email(username_or_email)
+      raise StandardError.new I18n.t("topic_invite.user_exists") if user.present? && topic_allowed_users.where(user_id: user.id).exists?
+
       if user && topic_allowed_users.create!(user_id: user.id)
+        # Create a small action message
+        add_small_action(invited_by, "invited_user", user.username)
 
         # Notify the user they've been invited
         user.notifications.create(notification_type: Notification.types[:invited_to_private_message],
@@ -592,6 +614,8 @@ class Topic < ActiveRecord::Base
     else
       # invite existing member to a topic
       user = User.find_by_username(username_or_email)
+      raise StandardError.new I18n.t("topic_invite.user_exists") if user.present? && topic_allowed_users.where(user_id: user.id).exists?
+
       if user && topic_allowed_users.create!(user_id: user.id)
         # rate limit topic invite
         RateLimiter.new(invited_by, "topic-invitations-per-day", SiteSetting.max_topic_invitations_per_day, 1.day.to_i).performed!
@@ -901,6 +925,27 @@ class Topic < ActiveRecord::Base
     SiteSetting.embed_truncate? && has_topic_embed?
   end
 
+  def message_archived?(user)
+    return false unless user && user.id
+
+    sql = <<SQL
+SELECT 1 FROM topic_allowed_groups tg
+JOIN group_archived_messages gm
+      ON gm.topic_id = tg.topic_id AND
+         gm.group_id = tg.group_id
+  WHERE tg.group_id IN (SELECT g.group_id FROM group_users g WHERE g.user_id = :user_id)
+    AND tg.topic_id = :topic_id
+
+UNION ALL
+
+SELECT 1 FROM topic_allowed_users tu
+JOIN user_archived_messages um ON um.user_id = tu.user_id AND um.topic_id = tu.topic_id
+WHERE tu.user_id = :user_id AND tu.topic_id = :topic_id
+SQL
+
+    User.exec_sql(sql, user_id: user.id, topic_id: id).to_a.length > 0
+  end
+
   TIME_TO_FIRST_RESPONSE_SQL ||= <<-SQL
     SELECT AVG(t.hours)::float AS "hours", t.created_at AS "date"
     FROM (
@@ -1018,7 +1063,7 @@ end
 # Table name: topics
 #
 #  id                            :integer          not null, primary key
-#  title                         :string(255)      not null
+#  title                         :string           not null
 #  last_posted_at                :datetime
 #  created_at                    :datetime         not null
 #  updated_at                    :datetime         not null
@@ -1033,7 +1078,7 @@ end
 #  avg_time                      :integer
 #  deleted_at                    :datetime
 #  highest_post_number           :integer          default(0), not null
-#  image_url                     :string(255)
+#  image_url                     :string
 #  off_topic_count               :integer          default(0), not null
 #  like_count                    :integer          default(0), not null
 #  incoming_link_count           :integer          default(0), not null
@@ -1046,7 +1091,7 @@ end
 #  bumped_at                     :datetime         not null
 #  has_summary                   :boolean          default(FALSE), not null
 #  vote_count                    :integer          default(0), not null
-#  archetype                     :string(255)      default("regular"), not null
+#  archetype                     :string           default("regular"), not null
 #  featured_user4_id             :integer
 #  notify_moderators_count       :integer          default(0), not null
 #  spam_count                    :integer          default(0), not null
@@ -1056,8 +1101,8 @@ end
 #  score                         :float
 #  percent_rank                  :float            default(1.0), not null
 #  notify_user_count             :integer          default(0), not null
-#  subtype                       :string(255)
-#  slug                          :string(255)
+#  subtype                       :string
+#  slug                          :string
 #  auto_close_at                 :datetime
 #  auto_close_user_id            :integer
 #  auto_close_started_at         :datetime

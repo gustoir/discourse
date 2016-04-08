@@ -267,6 +267,12 @@ describe CookedPostProcessor do
         expect(cpp.get_size("http://foo.bar/image2.png")).to eq([100, 200])
       end
 
+      it "returns nil if FastImage can't get the original size" do
+        Discourse.store.class.any_instance.expects(:has_been_uploaded?).returns(true)
+        FastImage.expects(:size).returns(nil)
+        expect(cpp.get_size("http://foo.bar/image3.png")).to eq(nil)
+      end
+
     end
 
   end
@@ -344,7 +350,7 @@ describe CookedPostProcessor do
 
     it "uses schemaless url for uploads" do
       cpp.optimize_urls
-      expect(cpp.html).to match_html '<p><a href="//test.localhost/uploads/default/2/2345678901234567.jpg">Link</a><br><img src="//test.localhost/uploads/default/1/1234567890123456.jpg"><br><a href="http://www.google.com" rel="nofollow">Google</a><br><img src="http://foo.bar/image.png"></p>'
+      expect(cpp.html).to match_html '<p><a href="//test.localhost/uploads/default/2/2345678901234567.jpg">Link</a><br><img src="//test.localhost/uploads/default/1/1234567890123456.jpg"><br><a href="http://www.google.com" rel="nofollow">Google</a><br><img src="http://foo.bar/image.png"><br><a class="attachment" href="//test.localhost/uploads/default/original/1X/af2c2618032c679333bebf745e75f9088748d737.txt">text.txt</a> (20 Bytes)</p>'
     end
 
     context "when CDN is enabled" do
@@ -352,13 +358,20 @@ describe CookedPostProcessor do
       it "does use schemaless CDN url for http uploads" do
         Rails.configuration.action_controller.stubs(:asset_host).returns("http://my.cdn.com")
         cpp.optimize_urls
-        expect(cpp.html).to match_html '<p><a href="//my.cdn.com/uploads/default/2/2345678901234567.jpg">Link</a><br><img src="//my.cdn.com/uploads/default/1/1234567890123456.jpg"><br><a href="http://www.google.com" rel="nofollow">Google</a><br><img src="http://foo.bar/image.png"></p>'
+        expect(cpp.html).to match_html '<p><a href="//my.cdn.com/uploads/default/2/2345678901234567.jpg">Link</a><br><img src="//my.cdn.com/uploads/default/1/1234567890123456.jpg"><br><a href="http://www.google.com" rel="nofollow">Google</a><br><img src="http://foo.bar/image.png"><br><a class="attachment" href="//my.cdn.com/uploads/default/original/1X/af2c2618032c679333bebf745e75f9088748d737.txt">text.txt</a> (20 Bytes)</p>'
       end
 
       it "does not use schemaless CDN url for https uploads" do
         Rails.configuration.action_controller.stubs(:asset_host).returns("https://my.cdn.com")
         cpp.optimize_urls
-        expect(cpp.html).to match_html '<p><a href="https://my.cdn.com/uploads/default/2/2345678901234567.jpg">Link</a><br><img src="https://my.cdn.com/uploads/default/1/1234567890123456.jpg"><br><a href="http://www.google.com" rel="nofollow">Google</a><br><img src="http://foo.bar/image.png"></p>'
+        expect(cpp.html).to match_html '<p><a href="https://my.cdn.com/uploads/default/2/2345678901234567.jpg">Link</a><br><img src="https://my.cdn.com/uploads/default/1/1234567890123456.jpg"><br><a href="http://www.google.com" rel="nofollow">Google</a><br><img src="http://foo.bar/image.png"><br><a class="attachment" href="https://my.cdn.com/uploads/default/original/1X/af2c2618032c679333bebf745e75f9088748d737.txt">text.txt</a> (20 Bytes)</p>'
+      end
+
+      it "does not use CDN when login is required" do
+        SiteSetting.login_required = true
+        Rails.configuration.action_controller.stubs(:asset_host).returns("http://my.cdn.com")
+        cpp.optimize_urls
+        expect(cpp.html).to match_html '<p><a href="//my.cdn.com/uploads/default/2/2345678901234567.jpg">Link</a><br><img src="//my.cdn.com/uploads/default/1/1234567890123456.jpg"><br><a href="http://www.google.com" rel="nofollow">Google</a><br><img src="http://foo.bar/image.png"><br><a class="attachment" href="//test.localhost/uploads/default/original/1X/af2c2618032c679333bebf745e75f9088748d737.txt">text.txt</a> (20 Bytes)</p>'
       end
 
     end
@@ -463,6 +476,28 @@ describe CookedPostProcessor do
       expect(cpp.is_a_hyperlink?(img)).to eq(false)
     end
 
+  end
+
+  context "grant badges" do
+    context "emoji inside a quote" do
+      let(:post) { Fabricate(:post, raw: "time to eat some sweet [quote]:candy:[/quote] mmmm") }
+      let(:cpp) { CookedPostProcessor.new(post) }
+
+      it "doesn't award a badge when the emoji is in a quote" do
+        cpp.grant_badges
+        expect(post.user.user_badges.where(badge_id: Badge::FirstEmoji).exists?).to eq(false)
+      end
+    end
+
+    context "emoji in the text" do
+      let(:post) { Fabricate(:post, raw: "time to eat some sweet :candy: mmmm") }
+      let(:cpp) { CookedPostProcessor.new(post) }
+
+      it "awards a badge for using an emoji" do
+        cpp.grant_badges
+        expect(post.user.user_badges.where(badge_id: Badge::FirstEmoji).exists?).to eq(true)
+      end
+    end
   end
 
 end

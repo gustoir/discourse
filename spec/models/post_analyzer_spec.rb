@@ -205,5 +205,15 @@ describe PostAnalyzer do
       post_analyzer = PostAnalyzer.new("@Jake @Finn @Jake_Old", default_topic_id)
       expect(post_analyzer.raw_mentions).to eq(['jake', 'finn', 'jake_old'])
     end
+
+    it "handles hyphen in groupname" do
+      post_analyzer = PostAnalyzer.new("@org-board", default_topic_id)
+      expect(post_analyzer.raw_mentions).to eq(['org-board'])
+    end
+
+    it "ignores emails" do
+      post_analyzer = PostAnalyzer.new("1@test.com 1@best.com @best @not", default_topic_id)
+      expect(post_analyzer.raw_mentions).to eq(['best', 'not'])
+    end
   end
 end

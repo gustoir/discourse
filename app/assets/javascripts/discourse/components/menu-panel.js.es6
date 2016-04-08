@@ -6,6 +6,7 @@ const mutationSupport = !Ember.testing && !!window['MutationObserver'];
 
 export default Ember.Component.extend({
   classNameBindings: [':menu-panel', 'visible::hidden', 'viewMode'],
+  _lastVisible: false,
 
   showClose: Ember.computed.equal('viewMode', 'slide-in'),
 
@@ -89,7 +90,11 @@ export default Ember.Component.extend({
   _visibleChanged() {
     if (this.get('visible')) {
       // Allow us to hook into things being shown
-      Ember.run.scheduleOnce('afterRender', () => this.sendAction('onVisible'));
+      if (!this._lastVisible) {
+        Ember.run.scheduleOnce('afterRender', () => this.sendAction('onVisible'));
+        this._lastVisible = true;
+      }
+
       $('html').on('click.close-menu-panel', (e) => {
         const $target = $(e.target);
         if ($target.closest('.header-dropdown-toggle').length > 0) { return; }
@@ -103,7 +108,8 @@ export default Ember.Component.extend({
       if (!this.capabilities.isIOS) {
         $(window).on('scroll.discourse-menu-panel', () => this.performLayout());
       }
-    } else {
+    } else if (this._lastVisible) {
+      this._lastVisible = false;
       Ember.run.scheduleOnce('afterRender', () => this.sendAction('onHidden'));
       $('html').off('click.close-menu-panel');
       $(window).off('scroll.discourse-menu-panel');
@@ -114,17 +120,17 @@ export default Ember.Component.extend({
 
   @computed()
   showKeyboardShortcuts() {
-    return !Discourse.Mobile.mobileView && !this.capabilities.touch;
+    return !this.site.mobileView && !this.capabilities.touch;
   },
 
   @computed()
   showMobileToggle() {
-    return Discourse.Mobile.mobileView || (this.siteSettings.enable_mobile_theme && this.capabilities.touch);
+    return this.site.mobileView || (this.siteSettings.enable_mobile_theme && this.capabilities.touch);
   },
 
   @computed()
   mobileViewLinkTextKey() {
-    return Discourse.Mobile.mobileView ? "desktop_view" : "mobile_view";
+    return this.site.mobileView ? "desktop_view" : "mobile_view";
   },
 
   @computed()

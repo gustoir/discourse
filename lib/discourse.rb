@@ -82,7 +82,7 @@ module Discourse
     @anonymous_top_menu_items ||= Discourse.anonymous_filters + [:category, :categories, :top]
   end
 
-  PIXEL_RATIOS ||= [1, 2, 3]
+  PIXEL_RATIOS ||= [1, 1.5, 2, 3]
 
   def self.avatar_sizes
     # TODO: should cache these when we get a notification system for site settings
@@ -112,17 +112,22 @@ module Discourse
     end
   end
 
+  def self.last_read_only
+    @last_read_only ||= {}
+  end
+
   def self.recently_readonly?
-    return false unless @last_read_only
-    @last_read_only > 15.seconds.ago
+    read_only = last_read_only[$redis.namespace]
+    return false unless read_only
+    read_only > 15.seconds.ago
   end
 
   def self.received_readonly!
-    @last_read_only = Time.now
+    last_read_only[$redis.namespace] = Time.zone.now
   end
 
   def self.clear_readonly!
-    @last_read_only = nil
+    last_read_only[$redis.namespace] = nil
   end
 
   def self.disabled_plugin_names

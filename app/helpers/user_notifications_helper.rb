@@ -19,17 +19,17 @@ module UserNotificationsHelper
 
   def logo_url
     logo_url = SiteSetting.digest_logo_url
-    logo_url = SiteSetting.logo_url if logo_url.blank?
+    logo_url = SiteSetting.logo_url if logo_url.blank? || logo_url =~ /\.svg$/i
 
-    return nil if logo_url.blank?
+    return nil if logo_url.blank? || logo_url =~ /\.svg$/i
     if logo_url !~ /http(s)?\:\/\//
       logo_url = "#{Discourse.base_url}#{logo_url}"
     end
     logo_url
   end
 
-  def html_site_link
-    "<a href='#{Discourse.base_url}'>#{@site_name}</a>"
+  def html_site_link(color)
+    "<a href='#{Discourse.base_url}' style='color: ##{color}'>#{@site_name}</a>"
   end
 
   def first_paragraph_from(html)

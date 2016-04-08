@@ -67,24 +67,31 @@ class Post < ActiveRecord::Base
   delegate :username, to: :user
 
   def self.hidden_reasons
-    @hidden_reasons ||= Enum.new(
-      :flag_threshold_reached,
-      :flag_threshold_reached_again,
-      :new_user_spam_threshold_reached,
-      :flagged_by_tl3_user
-    )
+    @hidden_reasons ||= Enum.new(flag_threshold_reached: 1,
+                                 flag_threshold_reached_again: 2,
+                                 new_user_spam_threshold_reached: 3,
+                                 flagged_by_tl3_user: 4)
   end
 
   def self.types
-    @types ||= Enum.new(:regular, :moderator_action, :small_action, :whisper)
+    @types ||= Enum.new(regular: 1,
+                        moderator_action: 2,
+                        small_action: 3,
+                        whisper: 4)
   end
 
   def self.cook_methods
-    @cook_methods ||= Enum.new(:regular, :raw_html, :email)
+    @cook_methods ||= Enum.new(regular: 1,
+                               raw_html: 2,
+                               email: 3)
   end
 
   def self.find_by_detail(key, value)
     includes(:post_details).find_by(post_details: { key: key, value: value })
+  end
+
+  def whisper?
+    post_type == Post.types[:whisper]
   end
 
   def add_detail(key, value, extra = nil)
@@ -97,7 +104,7 @@ class Post < ActiveRecord::Base
     end
   end
 
-  def publish_change_to_clients!(type)
+  def publish_change_to_clients!(type, options = {})
     # special failsafe for posts missing topics consistency checks should fix, but message
     # is safe to skip
     return unless topic
@@ -110,7 +117,7 @@ class Post < ActiveRecord::Base
       user_id: user_id,
       last_editor_id: last_editor_id,
       type: type
-    }
+    }.merge(options)
 
     if Topic.visible_post_types.include?(post_type)
       MessageBus.publish(channel, msg, group_ids: topic.secure_group_ids)
@@ -195,9 +202,9 @@ class Post < ActiveRecord::Base
 
     if post_type == Post.types[:regular]
       if new_cooked != cooked && new_cooked.blank?
-        Rails.logger.warn("Plugin is blanking out post: #{self.url}\nraw: #{self.raw}")
+        Rails.logger.debug("Plugin is blanking out post: #{self.url}\nraw: #{self.raw}")
       elsif new_cooked.blank?
-        Rails.logger.warn("Blank post detected post: #{self.url}\nraw: #{self.raw}")
+        Rails.logger.debug("Blank post detected post: #{self.url}\nraw: #{self.raw}")
       end
     end
 
@@ -213,6 +220,10 @@ class Post < ActiveRecord::Base
 
   def acting_user=(pu)
     @acting_user = pu
+  end
+
+  def last_editor
+    self.last_editor_id ? (User.find_by_id(self.last_editor_id) || user) : user
   end
 
   def whitelisted_spam_hosts
@@ -345,11 +356,19 @@ class Post < ActiveRecord::Base
     post_actions.where(post_action_type_id: PostActionType.flag_types.values, deleted_at: nil).count != 0
   end
 
+  def has_active_flag?
+    post_actions.active.where(post_action_type_id: PostActionType.flag_types.values).count != 0
+  end
+
   def unhide!
-    self.update_attributes(hidden: false, hidden_at: nil, hidden_reason_id: nil)
+    self.update_attributes(hidden: false)
     self.topic.update_attributes(visible: true) if is_first_post?
     save(validate: false)
     publish_change_to_clients!(:acted)
+  end
+
+  def full_url
+    "#{Discourse.base_url}#{url}"
   end
 
   def url
@@ -424,11 +443,26 @@ class Post < ActiveRecord::Base
       new_user: new_user.username_lower
     )
 
-    revise(actor, { raw: self.raw, user_id: new_user.id, edit_reason: edit_reason })
+    revise(actor, {raw: self.raw, user_id: new_user.id, edit_reason: edit_reason}, bypass_bump: true)
+
+    if post_number == topic.highest_post_number
+      topic.update_columns(last_post_user_id: new_user.id)
+    end
+
   end
 
   before_create do
     PostCreator.before_create_tasks(self)
+  end
+
+  def self.estimate_posts_per_day
+    val = $redis.get("estimated_posts_per_day")
+    return val.to_i if val
+
+    posts_per_day = Topic.listable_topics.secured.joins(:posts).merge(Post.created_since(30.days.ago)).count / 30
+    $redis.setex("estimated_posts_per_day", 1.day.to_i, posts_per_day.to_s)
+    posts_per_day
+
   end
 
   # This calculates the geometric mean of the post timings and stores it along with
@@ -569,6 +603,10 @@ class Post < ActiveRecord::Base
     SQL
   end
 
+  def seen?(user)
+    PostTiming.where(topic_id: topic_id, post_number: post_number, user_id: user.id).exists?
+  end
+
   private
 
   def parse_quote_into_arguments(quote)
@@ -638,7 +676,7 @@ end
 #  notify_user_count       :integer          default(0), not null
 #  like_score              :integer          default(0), not null
 #  deleted_by_id           :integer
-#  edit_reason             :string(255)
+#  edit_reason             :string
 #  word_count              :integer
 #  version                 :integer          default(1), not null
 #  cook_method             :integer          default(1), not null
@@ -651,7 +689,7 @@ end
 #  via_email               :boolean          default(FALSE), not null
 #  raw_email               :text
 #  public_version          :integer          default(1), not null
-#  action_code             :string(255)
+#  action_code             :string
 #
 # Indexes
 #

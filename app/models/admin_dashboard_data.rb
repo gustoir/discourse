@@ -37,7 +37,7 @@ class AdminDashboardData
     @problem_syms.push(*syms) if syms
     @problem_blocks << blk if blk
   end
-  class << self; attr_reader :problem_syms, :problem_blocks; end
+  class << self; attr_reader :problem_syms, :problem_blocks, :problem_messages; end
 
   def problems
     problems = []
@@ -47,6 +47,9 @@ class AdminDashboardData
     AdminDashboardData.problem_blocks.each do |blk|
       problems << instance_exec(&blk)
     end
+    AdminDashboardData.problem_messages.each do |i18n_key|
+      problems << AdminDashboardData.problem_message_check(i18n_key)
+    end
     problems.compact
   end
 
@@ -54,6 +57,7 @@ class AdminDashboardData
   def self.reset_problem_checks
     @problem_syms = []
     @problem_blocks = []
+    @problem_messages = ['dashboard.bad_favicon_url']
 
     add_problem_check :rails_env_check, :ruby_version_check, :host_names_check,
                       :gc_checks, :ram_check, :google_oauth2_config_check,
@@ -62,7 +66,8 @@ class AdminDashboardData
                       :failing_emails_check, :default_logo_check, :contact_email_check,
                       :send_consumer_email_check, :title_check,
                       :site_description_check, :site_contact_username_check,
-                      :notification_email_check, :subfolder_ends_in_slash_check
+                      :notification_email_check, :subfolder_ends_in_slash_check,
+                      :pop3_polling_configuration, :email_polling_errored_recently
 
     add_problem_check do
       sidekiq_check || queue_size_check
@@ -80,6 +85,26 @@ class AdminDashboardData
 
   def self.fetch_problems
     AdminDashboardData.new.problems
+  end
+
+  def self.problem_message_check(i18n_key)
+    $redis.get(problem_message_key(i18n_key)) ? I18n.t(i18n_key) : nil
+  end
+
+  def self.add_problem_message(i18n_key, expire_seconds=nil)
+    if expire_seconds.to_i > 0
+      $redis.setex problem_message_key(i18n_key), expire_seconds.to_i, 1
+    else
+      $redis.set problem_message_key(i18n_key), 1
+    end
+  end
+
+  def self.clear_problem_message(i18n_key)
+    $redis.del problem_message_key(i18n_key)
+  end
+
+  def self.problem_message_key(i18n_key)
+    "admin-problem:#{i18n_key}"
   end
 
   def as_json(_options = nil)
@@ -203,6 +228,15 @@ class AdminDashboardData
 
   def subfolder_ends_in_slash_check
     I18n.t('dashboard.subfolder_ends_in_slash') if Discourse.base_uri =~ /\/$/
+  end
+
+  def pop3_polling_configuration
+    POP3PollingEnabledSettingValidator.new.error_message if SiteSetting.pop3_polling_enabled
+  end
+
+  def email_polling_errored_recently
+    errors = Jobs::PollMailbox.errors_in_past_24_hours
+    I18n.t('dashboard.email_polling_errored_recently', count: errors) if errors > 0
   end
 
 end

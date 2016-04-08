@@ -8,9 +8,10 @@ export default {
     });
 
     this.resource('adminEmail', { path: '/email'}, function() {
-      this.route('all');
       this.route('sent');
       this.route('skipped');
+      this.route('received');
+      this.route('rejected');
       this.route('previewDigest', { path: '/preview-digest' });
     });
 
@@ -61,7 +62,7 @@ export default {
     });
 
     this.resource('adminUsers', { path: '/users' }, function() {
-      this.resource('adminUser', { path: '/:username' }, function() {
+      this.resource('adminUser', { path: '/:user_id/:username' }, function() {
         this.route('badges');
         this.route('tl3Requirements', { path: '/tl3_requirements' });
       });

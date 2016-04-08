@@ -154,6 +154,7 @@ class PostRevisor
     POST_TRACKED_FIELDS.each do |field|
       return true if @fields.has_key?(field) && @fields[field] != @post.send(field)
     end
+    advance_draft_sequence
     false
   end
 
@@ -174,6 +175,7 @@ class PostRevisor
   end
 
   def ninja_edit?
+    return false if @post.has_active_flag?
     @revised_at - @last_version_at <= SiteSetting.editing_grace_period.to_i
   end
 
@@ -229,10 +231,10 @@ class PostRevisor
     end
 
     @post.last_editor_id = @editor.id
-    @post.word_count     = @fields[:raw].scan(/\w+/).size if @fields.has_key?(:raw)
+    @post.word_count     = @fields[:raw].scan(/[[:word:]]+/).size if @fields.has_key?(:raw)
     @post.self_edits    += 1 if self_edit?
 
-    clear_flags_and_unhide_post
+    remove_flags_and_unhide_post
 
     @post.extract_quoted_post_numbers
 
@@ -269,9 +271,11 @@ class PostRevisor
     @editor == @post.user
   end
 
-  def clear_flags_and_unhide_post
+  def remove_flags_and_unhide_post
     return unless editing_a_flagged_and_hidden_post?
-    PostAction.clear_flags!(@post, Discourse.system_user)
+    @post.post_actions.where(post_action_type_id: PostActionType.flag_types.values).each do |action|
+      action.remove_act!(Discourse.system_user)
+    end
     @post.unhide!
   end
 
@@ -429,7 +433,14 @@ class PostRevisor
   end
 
   def publish_changes
-    @post.publish_change_to_clients!(:revised)
+    options =
+      if !@topic_changes.diff.empty? && !@topic_changes.errored?
+        { reload_topic: true }
+      else
+        {}
+      end
+
+    @post.publish_change_to_clients!(:revised, options)
   end
 
   def grant_badge

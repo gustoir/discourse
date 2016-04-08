@@ -38,6 +38,12 @@ $mobile-breakpoint: 700px;
   .filters input { margin-bottom: 0; }
 }
 
+.admin-contents .admin-reports-filter {
+  input[type="date"] {
+    width: 140px;
+  }
+}
+
 td.flaggers td {
   border-bottom: none;
   border-top: none;
@@ -660,8 +666,7 @@ section.details {
     width: 100% !important;
     border-color: dark-light-choose(scale-color($primary, $lightness: 75%), scale-color($secondary, $lightness: 25%));
     .item {
-      width: 190px;
-      margin-right: 0 !important;
+      margin-right: 10px;
     }
   }
   .next, .previous {
@@ -1533,7 +1538,7 @@ button.ru {
 
 @media all
 and (max-width : 850px) {
-  .nav-stacked {
+  html:not(.mobile-view) .admin-content .nav-stacked {
     .glyph {width: auto; position: relative;}
     > li > a {padding: 13px}
   }
@@ -1607,10 +1612,9 @@ and (max-width : 500px) {
     border-bottom: 1px solid #dfdfdf;
   }
   .actions {
-    font-size: 1.214em;
     float: right;
-    a {
-      margin-left: 5px;
+    .btn {
+      padding: 3px 6px;
     }
   }
 }
@@ -1770,6 +1774,66 @@ table#user-badges {
   }
 }
 
+// Emails
+
+.email-list {
+  .filters input {
+    width: 100%;
+  }
+  .time {
+    width: 50px;
+  }
+  .username div {
+    max-width: 180px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .addresses p {
+    margin: 2px 0;
+    max-width: 200px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}
+
+.incoming-emails {
+  .control-group {
+    margin: 8px 0;
+  }
+  .controls {
+    margin-left: 110px;
+  }
+  p {
+    margin: 5px 10px;
+  }
+  .error-description {
+    color: #919191;
+    font-size: 90%;
+  }
+  hr {
+    margin: 0;
+  }
+  label {
+    font-weight: bold;
+    float: left;
+    width: 100px;
+    text-align: right;
+    margin: 0 10px;
+  }
+  ul {
+    list-style: none;
+    margin: 0 10px;
+  }
+  textarea {
+    width: 95%;
+    height: 150px;
+    font-family: monospace;
+    box-shadow: none;
+  }
+}
+
 // Mobile specific styles
 // Mobile view text-inputs need some padding
 .mobile-view .admin-contents {
@@ -1784,6 +1848,12 @@ table#user-badges {
 
 .mobile-view .full-width {
   margin: 0;
+}
+
+// Mobile specific style for Admin IP Lookup box
+.mobile-view .admin-contents .ip-lookup .location-box {
+  width: 300px;
+  left: 20px;
 }
 
 .cboxcontainer {

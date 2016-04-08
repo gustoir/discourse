@@ -95,7 +95,28 @@ class ImportScripts::Mbox < ImportScripts::Base
   end
 
   def clean_title(title)
-    title.gsub(/^Re: */i, '')
+    #Strip mailing list name from subject
+    title = title.gsub(/\[[^\]]+\]+/, '').strip
+
+    original_length = title.length
+
+    #Strip Reply prefix from title (Standard and localized)
+    title = title.gsub(/^Re: */i, '')
+    title = title.gsub(/^R: */i, '') #Italian
+    title = title.gsub(/^RIF: */i, '') #Italian
+
+    #Strip Forward prefix from title (Standard and localized)
+    title = title.gsub(/^Fwd: */i, '')
+    title = title.gsub(/^I: */i, '') #Italian
+
+    title.strip
+
+    #In case of mixed localized prefixes there could be many of them if the mail client didn't strip the localized ones
+    if original_length >  title.length
+      clean_title(title)
+    else
+      title
+    end
   end
 
   def clean_raw(raw)
@@ -125,11 +146,11 @@ class ImportScripts::Mbox < ImportScripts::Base
   end
 
   def parse_email(msg)
-    receiver = Email::Receiver.new(msg, skip_sanity_check: true)
+    receiver = Email::Receiver.new(msg)
     mail = Mail.read_from_string(msg)
     mail.body
 
-    selected = receiver.select_body(mail)
+    selected = receiver.select_body
     selected.force_encoding(selected.encoding).encode("UTF-8")
   end
 
@@ -147,16 +168,32 @@ class ImportScripts::Mbox < ImportScripts::Base
 
       create_posts(topics, total: topic_count, offset: offset) do |t|
         raw_email = File.read(t['file'])
-        receiver = Email::Receiver.new(raw_email, skip_sanity_check: true)
+        receiver = Email::Receiver.new(raw_email)
         mail = Mail.read_from_string(raw_email)
         mail.body
 
-        selected = receiver.select_body(mail)
+        selected = receiver.select_body
         next unless selected
 
         raw = selected.force_encoding(selected.encoding).encode("UTF-8")
 
-        title = mail.subject.gsub(/\[[^\]]+\]+/, '').strip
+        title = mail.subject
+
+        # import the attachments
+        mail.attachments.each do |attachment|
+          tmp = Tempfile.new("discourse-email-attachment")
+          begin
+            # read attachment
+            File.open(tmp.path, "w+b") { |f| f.write attachment.body.decoded }
+            # create the upload for the user
+            upload = Upload.create_for(user_id_from_imported_user_id(mail.from.first) || Discourse::SYSTEM_USER_ID, tmp, attachment.filename, tmp.size )
+            if upload && upload.errors.empty?
+              raw << "\n\n#{receiver.attachment_markdown(upload)}\n\n"
+            end
+          ensure
+            tmp.try(:close!) rescue nil
+          end
+        end
 
         { id: t['id'],
           title: clean_title(title),
@@ -190,12 +227,28 @@ class ImportScripts::Mbox < ImportScripts::Base
         next unless topic_id
 
         raw_email = File.read(p['file'])
-        receiver = Email::Receiver.new(raw_email, skip_sanity_check: true)
+        receiver = Email::Receiver.new(raw_email)
         mail = Mail.read_from_string(raw_email)
         mail.body
 
-        selected = receiver.select_body(mail)
+        selected = receiver.select_body
         raw = selected.force_encoding(selected.encoding).encode("UTF-8")
+
+        # import the attachments
+        mail.attachments.each do |attachment|
+          tmp = Tempfile.new("discourse-email-attachment")
+          begin
+            # read attachment
+            File.open(tmp.path, "w+b") { |f| f.write attachment.body.decoded }
+            # create the upload for the user
+            upload = Upload.create_for(user_id_from_imported_user_id(mail.from.first) || Discourse::SYSTEM_USER_ID, tmp, attachment.filename, tmp.size )
+            if upload && upload.errors.empty?
+              raw << "\n\n#{receiver.attachment_markdown(upload)}\n\n"
+            end
+          ensure
+            tmp.try(:close!) rescue nil
+          end
+        end
 
         { id: id,
           topic_id: topic_id,

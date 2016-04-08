@@ -8,7 +8,6 @@ describe PostRevisor do
   let(:post_args) { { user: newuser, topic: topic } }
 
   context 'TopicChanges' do
-    let(:topic) { Fabricate(:topic) }
     let(:tc) {
       topic.reload
       PostRevisor::TopicChanges.new(topic, topic.user)
@@ -278,14 +277,14 @@ describe PostRevisor do
 
     describe 'with a new body' do
       let(:changed_by) { Fabricate(:coding_horror) }
-      let!(:result) { subject.revise!(changed_by, { raw: "lets update the body" }) }
+      let!(:result) { subject.revise!(changed_by, { raw: "lets update the body. Здравствуйте" }) }
 
       it 'returns true' do
         expect(result).to eq(true)
       end
 
       it 'updates the body' do
-        expect(post.raw).to eq("lets update the body")
+        expect(post.raw).to eq("lets update the body. Здравствуйте")
       end
 
       it 'sets the invalidate oneboxes attribute' do
@@ -306,9 +305,9 @@ describe PostRevisor do
       end
 
       it "updates the word count" do
-        expect(post.word_count).to eq(4)
+        expect(post.word_count).to eq(5)
         post.topic.reload
-        expect(post.topic.word_count).to eq(4)
+        expect(post.topic.word_count).to eq(5)
       end
 
       context 'second poster posts again quickly' do
@@ -348,5 +347,20 @@ describe PostRevisor do
       expect(post.raw).to eq("    <-- whitespaces -->")
     end
 
+    context "#publish_changes" do
+      let!(:post) { Fabricate(:post, topic_id: topic.id) }
+
+      it "should publish topic changes to clients" do
+        revisor = described_class.new(topic.ordered_posts.first, topic)
+
+        messages = MessageBus.track_publish do
+          revisor.revise!(newuser, { title: 'this is a test topic' })
+        end
+
+        message = messages.find { |message| message.channel == "/topic/#{topic.id}" }
+        payload = message.data
+        expect(payload[:reload_topic]).to eq(true)
+      end
+    end
   end
 end

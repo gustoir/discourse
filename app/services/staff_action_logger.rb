@@ -134,6 +134,16 @@ class StaffActionLogger
     }))
   end
 
+  def log_site_text_change(subject, new_text=nil, old_text=nil, opts={})
+    raise Discourse::InvalidParameters.new(:subject) unless subject.present?
+    UserHistory.create( params(opts).merge({
+      action: UserHistory.actions[:change_site_text],
+      subject: subject,
+      previous_value: old_text,
+      new_value: new_text
+    }))
+  end
+
   def log_username_change(user, old_username, new_username, opts={})
     raise Discourse::InvalidParameters.new(:user) unless user
     UserHistory.create( params(opts).merge({
@@ -265,6 +275,61 @@ class StaffActionLogger
       details: details.join("\n"),
       category_id: category.id,
       context: category.url
+    }))
+  end
+
+  def log_block_user(user, opts={})
+    raise Discourse::InvalidParameters.new(:user) unless user
+    UserHistory.create( params(opts).merge({
+      action: UserHistory.actions[:block_user],
+      target_user_id: user.id
+    }))
+  end
+
+  def log_unblock_user(user, opts={})
+    raise Discourse::InvalidParameters.new(:user) unless user
+    UserHistory.create( params(opts).merge({
+      action: UserHistory.actions[:unblock_user],
+      target_user_id: user.id
+    }))
+  end
+
+  def log_grant_admin(user, opts={})
+    raise Discourse::InvalidParameters.new(:user) unless user
+    UserHistory.create( params(opts).merge({
+      action: UserHistory.actions[:grant_admin],
+      target_user_id: user.id
+    }))
+  end
+
+  def log_revoke_admin(user, opts={})
+    raise Discourse::InvalidParameters.new(:user) unless user
+    UserHistory.create( params(opts).merge({
+      action: UserHistory.actions[:revoke_admin],
+      target_user_id: user.id
+    }))
+  end
+
+  def log_grant_moderation(user, opts={})
+    raise Discourse::InvalidParameters.new(:user) unless user
+    UserHistory.create( params(opts).merge({
+      action: UserHistory.actions[:grant_moderation],
+      target_user_id: user.id
+    }))
+  end
+
+  def log_revoke_moderation(user, opts={})
+    raise Discourse::InvalidParameters.new(:user) unless user
+    UserHistory.create( params(opts).merge({
+      action: UserHistory.actions[:revoke_moderation],
+      target_user_id: user.id
+    }))
+  end
+
+  def log_backup_operation(opts={})
+    UserHistory.create(params(opts).merge({
+      action: UserHistory.actions[:backup_operation],
+      ip_address: @admin.ip_address.to_s
     }))
   end
 

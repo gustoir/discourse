@@ -503,6 +503,22 @@ describe Category do
     end
   end
 
+  describe "#url_with_id" do
+    let(:category) { Fabricate(:category, name: 'cats') }
+
+    it "includes the id in the URL" do
+      expect(category.url_with_id).to eq("/c/#{category.id}-cats")
+    end
+
+    context "child category" do
+      let(:child_category) { Fabricate(:category, parent_category_id: category.id, name: 'dogs') }
+
+      it "includes the id in the URL" do
+        expect(child_category.url_with_id).to eq("/c/cats/dogs/#{child_category.id}")
+      end
+    end
+  end
+
   describe "uncategorized" do
     let(:cat) { Category.where(id: SiteSetting.uncategorized_category_id).first }
 
@@ -564,6 +580,16 @@ describe Category do
       expect(Category.find_by_email('upper@example.com')).to eq(c2)
       expect(Category.find_by_email('mixed.case@example.com')).to eq(c3)
       expect(Category.find_by_email('MIXED.CASE@EXAMPLE.COM')).to eq(c3)
+    end
+  end
+
+  describe "find_by_slug" do
+    it "finds with category and sub category" do
+      category = Fabricate(:category, slug: 'awesome-category')
+      sub_category = Fabricate(:category, parent_category_id: category.id, slug: 'awesome-sub-category')
+
+      expect(Category.find_by_slug('awesome-category')).to eq(category)
+      expect(Category.find_by_slug('awesome-sub-category', 'awesome-category')).to eq(sub_category)
     end
   end
 

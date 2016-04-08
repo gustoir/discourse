@@ -6,8 +6,10 @@ class StaticController < ApplicationController
   skip_before_filter :check_xhr, :redirect_to_login_if_required
   skip_before_filter :verify_authenticity_token, only: [:cdn_asset, :enter, :favicon]
 
+  PAGES_WITH_EMAIL_PARAM = ['login', 'password_reset', 'signup']
+
   def show
-    return redirect_to(path '/') if current_user && params[:id] == 'login'
+    return redirect_to(path '/') if current_user && (params[:id] == 'login' || params[:id] == 'signup')
 
     map = {
       "faq" => {redirect: "faq_url", topic_id: "guidelines_topic_id"},
@@ -42,6 +44,10 @@ class StaticController < ApplicationController
     if I18n.exists?("static.#{@page}")
       render text: I18n.t("static.#{@page}"), layout: !request.xhr?, formats: [:html]
       return
+    end
+
+    if PAGES_WITH_EMAIL_PARAM.include?(@page) && params[:email]
+      cookies[:email] = { value: params[:email], expires: 1.day.from_now }
     end
 
     file = "static/#{@page}.#{I18n.locale}"
@@ -95,18 +101,21 @@ class StaticController < ApplicationController
 
     data = DistributedMemoizer.memoize('favicon' + SiteSetting.favicon_url, 60*30) do
       begin
-        file = FileHelper.download(SiteSetting.favicon_url, 50.kilobytes, "favicon.png")
+        file = FileHelper.download(SiteSetting.favicon_url, 50.kilobytes, "favicon.png", true)
         data = file.read
         file.unlink
         data
       rescue => e
-        Rails.logger.warn("Invalid favicon_url #{SiteSetting.favicon_url}: #{e}\n#{e.backtrace}")
+        AdminDashboardData.add_problem_message('dashboard.bad_favicon_url', 1800)
+        Rails.logger.debug("Invalid favicon_url #{SiteSetting.favicon_url}: #{e}\n#{e.backtrace}")
         ""
       end
     end
 
     if data.bytesize == 0
-      render text: UserAvatarsController::DOT, content_type: "image/gif"
+      @@default_favicon ||= File.read(Rails.root + "public/images/default-favicon.png")
+      response.headers["Content-Length"] = @@default_favicon.bytesize.to_s
+      render text: @@default_favicon, content_type: "image/png"
     else
       expires_in 1.year, public: true
       response.headers["Expires"] = 1.year.from_now.httpdate

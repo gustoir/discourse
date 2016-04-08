@@ -152,12 +152,15 @@ aside.quote {
 }
 
 .topic-body {
+  // this is necessary for ANYTHING that extends past the right edge of
+  // the post body, such as an image in a deeply nested list, image in
+  // a deeply nested blockquote, and so on.. you get the idea.
+  .contents .cooked {
+    overflow: hidden;
+  }
   &.highlighted {
     background-color: dark-light-diff($tertiary, $secondary, 85%, -65%);
   }
-}
-.wiki .topic-body {
-  background-color: dark-light-diff($wiki, $secondary, 95%, -50%);
 }
 
 // this ensures consistent top margin on topic posts even if the first line of a post
@@ -175,7 +178,7 @@ aside.quote {
   }
   &.wiki {
     cursor: pointer;
-    color: $wiki;
+    color: #408040;
   }
   &.via-email {
     color: dark-light-choose(scale-color($primary, $lightness: 70%), scale-color($secondary, $lightness: 30%));
@@ -289,7 +292,7 @@ table.md-table {
 
 .small-action {
   .topic-avatar {
-    padding: 5px 0;
+    padding: 5px 0 3px;
     border-top: none;
     float: left;
     i {
@@ -302,7 +305,7 @@ table.md-table {
 
   .small-action-desc {
     padding: 0.5em 0 0.5em 4em;
-    margin-top: 5px;
+    margin-top: 6px;
     text-transform: uppercase;
     font-weight: bold;
     font-size: 0.9em;
@@ -339,6 +342,9 @@ table.md-table {
 }
 
 .whisper {
+  .post-info.whisper {
+    margin-left: 0.5em;
+  }
   .topic-body {
     .cooked {
       font-style: italic;

@@ -78,6 +78,7 @@ describe PostCreator do
         DiscourseEvent.expects(:trigger).with(:after_validate_topic, anything, anything).once
         DiscourseEvent.expects(:trigger).with(:before_create_topic, anything, anything).once
         DiscourseEvent.expects(:trigger).with(:after_trigger_post_process, anything).once
+        DiscourseEvent.expects(:trigger).with(:markdown_context, anything).at_least_once
         creator.create
       end
 
@@ -324,13 +325,13 @@ describe PostCreator do
       end
 
       it "fails for dupe post accross topic" do
-        first = create_post
-        second = create_post
+        first = create_post(raw: "this is a test #{SecureRandom.hex}")
+        second = create_post(raw: "this is a test #{SecureRandom.hex}")
 
         dupe = "hello 123 test #{SecureRandom.hex}"
 
-        response_1 = create_post(raw: dupe, user: first.user, topic_id: first.topic_id)
-        response_2 = create_post(raw: dupe, user: first.user, topic_id: second.topic_id)
+        response_1 = PostCreator.create(first.user, raw: dupe, topic_id: first.topic_id)
+        response_2 = PostCreator.create(first.user, raw: dupe, topic_id: second.topic_id)
 
         expect(response_1.errors.count).to eq(0)
         expect(response_2.errors.count).to eq(1)
@@ -478,6 +479,13 @@ describe PostCreator do
       expect(unrelated.notifications.count).to eq(0)
       expect(post.topic.subtype).to eq(TopicSubtype.user_to_user)
 
+      # PMs do not increase post count or topic count
+      expect(post.user.user_stat.post_count).to eq(0)
+      expect(post.user.user_stat.topic_count).to eq(0)
+
+      # archive this message and ensure archive is cleared for all users on reply
+      UserArchivedMessage.create(user_id: target_user2.id, topic_id: post.topic_id)
+
       # if an admin replies they should be added to the allowed user list
       admin = Fabricate(:admin)
       PostCreator.create(admin, raw: 'hi there welcome topic, I am a mod',
@@ -485,6 +493,18 @@ describe PostCreator do
 
       post.topic.reload
       expect(post.topic.topic_allowed_users.where(user_id: admin.id).count).to eq(1)
+
+      expect(UserArchivedMessage.where(user_id: target_user2.id, topic_id: post.topic_id).count).to eq(0)
+
+      # if another admin replies and is already member of the group, don't add them to topic_allowed_users
+      group = Fabricate(:group)
+      post.topic.topic_allowed_groups.create!(group: group)
+      admin2 = Fabricate(:admin)
+      group.add(admin2)
+
+      PostCreator.create(admin2, raw: 'I am also an admin, and a mod', topic_id: post.topic_id)
+
+      expect(post.topic.topic_allowed_users.where(user_id: admin2.id).count).to eq(0)
     end
   end
 
@@ -590,12 +610,12 @@ describe PostCreator do
 
   describe "word_count" do
     it "has a word count" do
-      creator = PostCreator.new(user, title: 'some inspired poetry for a rainy day', raw: 'mary had a little lamb, little lamb, little lamb. mary had a little lamb')
+      creator = PostCreator.new(user, title: 'some inspired poetry for a rainy day', raw: 'mary had a little lamb, little lamb, little lamb. mary had a little lamb. Здравствуйте')
       post = creator.create
-      expect(post.word_count).to eq(14)
+      expect(post.word_count).to eq(15)
 
       post.topic.reload
-      expect(post.topic.word_count).to eq(14)
+      expect(post.topic.word_count).to eq(15)
     end
   end
 
