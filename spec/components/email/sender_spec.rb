@@ -77,6 +77,24 @@ describe Email::Sender do
       email_sender.send
     end
 
+    context "doesn't add return_path when no plus addressing" do
+      before { SiteSetting.reply_by_email_address = '%{reply_key}@test.com' }
+
+      When { email_sender.send }
+      Then {
+        expect(message.header[:return_path].to_s).to eq("")
+      }
+    end
+
+    context "adds return_path with plus addressing" do
+      before { SiteSetting.reply_by_email_address = 'replies+%{reply_key}@test.com' }
+
+      When { email_sender.send }
+      Then {
+        expect(message.header[:return_path].to_s).to eq("replies+verp-#{EmailLog.last.bounce_key}@test.com")
+      }
+    end
+
     context "adds a List-ID header to identify the forum" do
       before do
         category =  Fabricate(:category, name: 'Name With Space')
