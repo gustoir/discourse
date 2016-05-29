@@ -164,13 +164,13 @@ fa_IR:
         all_time: "تمام وقت"
         last_7_days: "7 روز اخیر"
         last_30_days: "30 روز گذشته"
-      like_count: "لایک ها "
+      like_count: "پسند ها "
       topic_count: "موضوعات"
       post_count: "پست ها"
       user_count: "کاربران جدید"
       active_user_count: "کاربران فعال"
       contact: "ارتباط با ما"
-      contact_info: "در شرایط حساس و مسائل اضطراری مربوط به سایت٬‌ لطفا با تماس بگیرید از طریق %{contact_info}."
+      contact_info: "در شرایط حساس و مسائل اضطراری مربوط به سایت٬‌ لطفا با ایمیل %{contact_info} تماس بگیرید."
     bookmarked:
       title: "نشانک"
       clear_bookmarks: "پاک کردن نشانک ها"
@@ -552,8 +552,8 @@ fa_IR:
         after_5_minutes: "پس از 5 دقیقه"
         after_10_minutes: "پس از 10 دقیقه"
       invited:
-        search: "بنویسید تا فراخوانه‌ها را جستجو کنید..."
-        title: "فراخوانه‌ها"
+        search: "بنویسید تا دعوت نامه ها را جستجو کنید..."
+        title: "دعوت نامه ها"
         user: "کاربر فراخوانده شده"
         sent: "فرستاده شده"
         none: "هیچ دعوت در انتظاری برای نمایش موجود نیست."
@@ -992,12 +992,12 @@ fa_IR:
       read_more_MF: "There { UNREAD, plural, =0 {} one { is <a href='/unread'>1 unread</a> } other { are <a href='/unread'># unread</a> } } { NEW, plural, =0 {} one { {BOTH, select, true{and } false {is } other{}} <a href='/new'>1 new</a> topic} other { {BOTH, select, true{and } false {are } other{}} <a href='/new'># new</a> topics} } remaining, or {CATEGORY, select, true {browse other topics in {catLink}} false {{latestLink}} other {}}"
       browse_all_categories: جستجوی همهٔ دسته‌ها
       view_latest_topics: مشاهده آخرین موضوع
-      suggest_create_topic: چرا یک موضوع نسازید؟
+      suggest_create_topic: چرا یک موضوع نمی سازید؟
       jump_reply_up: رفتن به جدید ترین پاسخ
       jump_reply_down: رفتن به آخرین پاسخ
       deleted: "موضوع پاک شده است."
       auto_close_notice: "این موضوع خودکار بسته خواهد شد %{timeLeft}."
-      auto_close_notice_based_on_last_post: "این نوشته بعد از  %{duration} آخرین پاسخ بشته خواهد شد ."
+      auto_close_notice_based_on_last_post: "این نوشته بعد از  %{duration} آخرین پاسخ بسته خواهد شد ."
       auto_close_title: 'تنضیمات قفل خوکار'
       auto_close_save: "‌ذخیره"
       auto_close_remove: "این موضوع را خوکار قفل نکن"
@@ -1202,7 +1202,7 @@ fa_IR:
       has_replies:
         other: "{{count}} پاسخ"
       has_likes:
-        other: "{{count}} لایک"
+        other: "{{count}} پسند"
       has_likes_title:
         other: "{{count}} کاربر این مورد را پسندیده اند"
       has_likes_title_only_you: "شما این ارسال را پسندیده اید"
@@ -1230,8 +1230,8 @@ fa_IR:
       controls:
         reply: "آغاز ساخت یک پاسخ به این نوشته"
         like: "شبیه این نوشته"
-        has_liked: "شما این نوشته را لایک کرده اید"
-        undo_like: "برگنداندن لایک"
+        has_liked: "شما این نوشته را پسند کرده اید"
+        undo_like: "برگنداندن پسند"
         edit: "ویرایش این نوشته"
         edit_anonymous: "با عرض پوزش، اما شما برای ویرایش این نوشته باید وارد سیستم شوید."
         flag: "پرچم خصوصی این نوشته برا رسیدگی یا ارسال پیام خصوصی در باره آن"
@@ -1269,7 +1269,7 @@ fa_IR:
           spam: "برداشتن پرچم"
           inappropriate: "برگرداندن پرچم"
           bookmark: "برداشتن نشانک"
-          like: "خنثی سازی لایک"
+          like: "خنثی سازی پسند"
           vote: "خنثی سازی امتیاز"
         by_you:
           off_topic: "شما برای این مورد پرچم آف-تاپیک زدید"
@@ -1877,7 +1877,7 @@ fa_IR:
             description: 'استفاده شده برای  مشخص کردن اقدام موفقیت آمیز بود'
           love:
             name: 'دوست داشتن'
-            description: "رنگ دکمه های لایک"
+            description: "رنگ دکمه های پسند"
       email:
         settings: "تنظیمات"
         preview_digest: "پیشنمایش خلاصه"
@@ -2084,7 +2084,7 @@ fa_IR:
         reputation: ' اعتبار'
         permissions: پروانه‌ها
         activity: فعالیت
-        like_count: لایک‌های اعطایی/ دریافتی
+        like_count: پسند‌های اعطایی/ دریافتی
         last_100_days: 'در 100 روز گذشته'
         private_topics_count: موضوعات خصوصی
         posts_read_count: خواندن نوشته ها
@@ -2151,10 +2151,10 @@ fa_IR:
           posts_read_all_time: "نوشته‌های خوانده شده ( تمام مدت )"
           flagged_posts: "نوشته‌های پرچم‌خورده"
           flagged_by_users: "کاربرانی که پرچم خورده‌اند"
-          likes_given: "لایک‌های اعطایی"
-          likes_received: "لایک‌های دریافتی"
-          likes_received_days: "لایک‌های دریافتی: روزهای خاص"
-          likes_received_users: "لایک‌های دریافتی: کاربران خاص"
+          likes_given: "پسند‌های اعطایی"
+          likes_received: "پسند‌های دریافتی"
+          likes_received_days: "پسند‌های دریافتی: روزهای خاص"
+          likes_received_users: "پسند‌های دریافتی: کاربران خاص"
           qualifies: "دارای صلاحیت برای سطح اعتماد 3."
           does_not_qualify: "فاقد صلاحیت برای سطح اعتماد 3."
           will_be_promoted: "به‌زودی ترفیع درجه خواهد گرفت."
