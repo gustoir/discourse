@@ -1226,15 +1226,15 @@ fa_IR:
     forgot_password:
       subject_template: "[%{site_name}] باز یابی رمز عبور"
       text_body_template: |
-<div style='direction: rtl'>
-شخصی برای ریست رمز عبور درخواست کرده است [%{site_name}](%{base_url}).
+        <div style='direction: rtl'>
+        شخصی برای ریست رمز عبور درخواست کرده است [%{site_name}](%{base_url}).
 
-        اگر شما نبوده‌اید٬ می توانید با خیال راحت این ایمیل را نادیده بگیرید.
+        اگر شما نبوده‌اید، می توانید با خیال راحت این ایمیل را نادیده بگیرید.
 
         بر روی پیوند زیر برای انتخاب رمز عبور جدید کلیک کنید.
 
         %{base_url}/users/password-reset/%{email_token}
-</div>
+        </div>
     set_password:
       subject_template: "تنظیم رمز عبور [%{site_name}] "
       text_body_template: "شخصی برای اضافه کردن رمز عبور به حساب کاربری شما پرسیده در [%{site_name}](%{base_url}).  در روش دیگر٬‌ شما می توانید با وارد شوید از طریق سرویس دیگر مثل (گوگل٬‌ فیس بوک٬‌غیره) که ایمیل برابر استفاده می کنند. \n\n\nاگر شما نبود٬ می توانید با خیال راحت این ایمیل را نادیده بگیرید.\n\nبر روی پیوند پیش رو برای انتخاب رمز عبور جدید کلیک کنید.\n\n%{base_url}/users/password-reset/%{email_token}\n"
