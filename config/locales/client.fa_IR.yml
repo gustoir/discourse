@@ -26,17 +26,17 @@ fa_IR:
         millions: "{{number}}M"
     dates:
       time: "h:mm a"
-      long_no_year: "MMM D h:mm a"
-      long_no_year_no_time: "MMM D"
-      full_no_year_no_time: "MMMM Do"
-      long_with_year: "MMM D, YYYY h:mm a"
-      long_with_year_no_time: "MMM D, YYYY"
-      full_with_year_no_time: "MMMM Do, YYYY"
-      long_date_with_year: "MMM D, 'YY LT"
-      long_date_without_year: "MMM D, LT"
-      long_date_with_year_without_time: "MMM D, 'YY"
-      long_date_without_year_with_linebreak: "MMM D <br/>LT"
-      long_date_with_year_with_linebreak: "MMM D, 'YY <br/>LT"
+      long_no_year: "jMMM jD h:mm a"
+      long_no_year_no_time: "jMMM jD"
+      full_no_year_no_time: "jMMMM jDo"
+      long_with_year: "jMMM jD, jYYYY h:mm a"
+      long_with_year_no_time: "jMMM jD, jYYYY"
+      full_with_year_no_time: "jMMMM jDo, jYYYY"
+      long_date_with_year: "jMMM jD, 'jYY LT"
+      long_date_without_year: "jMMM jD, LT"
+      long_date_with_year_without_time: "jMMM jD, 'YY"
+      long_date_without_year_with_linebreak: "jMMM jD <br/>LT"
+      long_date_with_year_with_linebreak: "jMMM jD, 'YY <br/>LT"
       tiny:
         half_a_minute: "< 1 دقیقه"
         less_than_x_seconds:
@@ -57,8 +57,8 @@ fa_IR:
           other: "> %{count} سال"
         almost_x_years:
           other: "%{count} سال"
-        date_month: "MMM D"
-        date_year: "MMM 'YY"
+        date_month: "jMMM jD"
+        date_year: "jMMM 'jYY"
       medium:
         x_minutes:
           other: "%{count} دقیقه"
@@ -66,7 +66,7 @@ fa_IR:
           other: "%{count} ساعت"
         x_days:
           other: "%{count} روز"
-        date_year: "MMM D, 'YY"
+        date_year: "jMMM jD, 'jYY"
       medium_with_ago:
         x_minutes:
           other: "%{count} دقیقه پیش"

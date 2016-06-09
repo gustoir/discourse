@@ -104,6 +104,8 @@ module JsLocaleHelper
     result << moment_locale(locale_str)
     result << moment_formats
 
+    result << File.read("#{Rails.root}/lib/javascripts/moment-jalaali.js")
+
     I18n.locale = current_locale
 
     result
