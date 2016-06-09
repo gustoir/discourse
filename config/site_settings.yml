@@ -344,6 +344,9 @@ users:
   show_email_on_profile:
     client: true
     default: false
+  prioritize_username_in_ux:
+    client: true
+    default: true
   email_token_valid_hours:
     default: 24
     min: 1
@@ -585,6 +588,9 @@ email:
   ignore_by_title:
     type: list
     default: ''
+  mailgun_api_key:
+    default: ''
+    regex: '^key-\h{32}$'
 
 
 files:
@@ -773,6 +779,8 @@ spam:
   cooldown_minutes_after_hiding_posts: 10
   num_flags_to_block_new_user: 3
   num_users_to_block_new_user: 3
+  num_tl3_flags_to_block_new_user: 6
+  num_tl3_users_to_block_new_user: 4
   notify_mods_when_user_blocked: false
   flag_sockpuppets: false
   newuser_spam_host_threshold: 3

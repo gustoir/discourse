@@ -113,20 +113,9 @@ http://b.com/#{'a'*500}
         expect(reflection.link_post_id).to eq(linked_post.id)
 
         expect(reflection.user_id).to eq(link.user_id)
-      end
 
-      context 'removing a link' do
-
-        before do
-          post.revise(post.user, { raw: "no more linkies" })
-          TopicLink.extract_from(post)
-        end
-
-        it 'should remove the link' do
-          expect(topic.topic_links.where(post_id: post.id)).to be_blank
-          # should remove the reflected link
-          expect(other_topic.topic_links).to be_blank
-        end
+        linked_post.revise(post.user, { raw: "no more linkies https://eviltrout.com" })
+        expect(other_topic.topic_links.where(link_post_id: linked_post.id)).to be_blank
       end
     end
 
@@ -249,8 +238,7 @@ http://b.com/#{'a'*500}
       alternate_uri = URI.parse(Discourse.base_url)
 
       url = "http://#{alternate_uri.host}:5678/t/topic-slug/#{other_topic.id}"
-      post = topic.posts.create(user: user,
-                                raw: "Link to another topic: #{url}")
+      post = topic.posts.create(user: user, raw: "Link to another topic: #{url}")
       TopicLink.extract_from(post)
       reflection = other_topic.topic_links.first
 
@@ -258,7 +246,7 @@ http://b.com/#{'a'*500}
     end
   end
 
-  describe 'counts_for and topic_map' do
+  describe 'query methods' do
     it 'returns blank without posts' do
       expect(TopicLink.counts_for(Guardian.new, nil, nil)).to be_blank
     end
@@ -274,6 +262,20 @@ http://b.com/#{'a'*500}
         TopicLink.counts_for(Guardian.new, post.topic, [post])
       end
 
+      it 'creates a valid topic lookup' do
+        TopicLink.extract_from(post)
+
+        lookup = TopicLink.duplicate_lookup(post.topic)
+        expect(lookup).to be_present
+        expect(lookup['google.com']).to be_present
+
+        ch = lookup['www.codinghorror.com/blog']
+        expect(ch).to be_present
+        expect(ch[:domain]).to eq('www.codinghorror.com')
+        expect(ch[:username]).to eq(post.username)
+        expect(ch[:posted_at]).to be_present
+        expect(ch[:post_number]).to be_present
+      end
 
       it 'has the correct results' do
         TopicLink.extract_from(post)
@@ -285,7 +287,7 @@ http://b.com/#{'a'*500}
         expect(counts_for[post.id].first[:clicks]).to eq(1)
 
         array = TopicLink.topic_map(Guardian.new, post.topic_id)
-        expect(array.length).to eq(4)
+        expect(array.length).to eq(5)
         expect(array[0]["clicks"]).to eq("1")
       end
 

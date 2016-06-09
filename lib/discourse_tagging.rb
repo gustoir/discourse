@@ -32,12 +32,14 @@ module DiscourseTagging
       end
 
       if tag_names.present?
-        tags = Tag.where(name: tag_names).all
-        if tags.size < tag_names.size
-          existing_names = tags.map(&:name)
+        category = topic.category
+        tags = filter_allowed_tags(Tag.where(name: tag_names), guardian, { for_input: true, category: category }).to_a
+
+        if tags.size < tag_names.size && (category.nil? || category.tags.count == 0)
           tag_names.each do |name|
-            next if existing_names.include?(name)
-            tags << Tag.create(name: name)
+            unless Tag.where(name: name).exists?
+              tags << Tag.create(name: name)
+            end
           end
         end
 
@@ -50,6 +52,57 @@ module DiscourseTagging
       end
     end
     true
+  end
+
+  # Options:
+  #   term: a search term to filter tags by name
+  #   for_input: result is for an input field, so only show permitted tags
+  #   category: a Category to which the object being tagged belongs
+  def self.filter_allowed_tags(query, guardian, opts={})
+    term = opts[:term]
+    if term.present?
+      term.gsub!(/[^a-z0-9\.\-\_]*/, '')
+      term.gsub!("_", "\\_")
+      query = query.where('tags.name like ?', "%#{term}%")
+    end
+
+    if opts[:for_input]
+      unless guardian.is_staff?
+        staff_tag_names = SiteSetting.staff_tags.split("|")
+        query = query.where('tags.name NOT IN (?)', staff_tag_names) if staff_tag_names.present?
+      end
+
+      # Filters for category-specific tags:
+
+      if opts[:category] && (opts[:category].tags.count > 0 || opts[:category].tag_groups.count > 0)
+        if opts[:category].tags.count > 0 && opts[:category].tag_groups.count > 0
+          tag_group_ids = opts[:category].tag_groups.pluck(:id)
+          query = query.where(
+            "tags.id IN (SELECT tag_id FROM category_tags WHERE category_id = ?
+              UNION
+              SELECT tag_id FROM tag_group_memberships WHERE tag_group_id = ?)",
+            opts[:category].id, tag_group_ids
+          )
+        elsif opts[:category].tags.count > 0
+          query = query.where("tags.id IN (SELECT tag_id FROM category_tags WHERE category_id = ?)", opts[:category].id)
+        else # opts[:category].tag_groups.count > 0
+          tag_group_ids = opts[:category].tag_groups.pluck(:id)
+          query = query.where("tags.id IN (SELECT tag_id FROM tag_group_memberships WHERE tag_group_id = ?)", tag_group_ids)
+        end
+      else
+        # exclude tags that are restricted to other categories
+        if CategoryTag.exists?
+          query = query.where("tags.id NOT IN (SELECT tag_id FROM category_tags)")
+        end
+
+        if CategoryTagGroup.exists?
+          tag_group_ids = CategoryTagGroup.pluck(:tag_group_id).uniq
+          query = query.where("tags.id NOT IN (SELECT tag_id FROM tag_group_memberships WHERE tag_group_id = ?)", tag_group_ids)
+        end
+      end
+    end
+
+    query
   end
 
   def self.auto_notify_for(tags, topic)
@@ -78,23 +131,37 @@ module DiscourseTagging
 
     return unless tags.present?
 
-    tags.map! {|t| clean_tag(t) }
-    tags.delete_if {|t| t.blank? }
-    tags.uniq!
+    tag_names = tags.map {|t| clean_tag(t) }
+    tag_names.delete_if {|t| t.blank? }
+    tag_names.uniq!
 
     # If the user can't create tags, remove any tags that don't already exist
-    # TODO: this is doing a full count, it should just check first or use a cache
     unless guardian.can_create_tag?
-      tags = Tag.where(name: tags).pluck(:name)
+      tag_names = Tag.where(name: tag_names).pluck(:name)
     end
 
-    return tags[0...SiteSetting.max_tags_per_topic]
+    return tag_names[0...SiteSetting.max_tags_per_topic]
   end
 
+  def self.add_or_create_tags_by_name(taggable, tag_names_arg)
+    tag_names = DiscourseTagging.tags_for_saving(tag_names_arg, Guardian.new(Discourse.system_user)) || []
+    if taggable.tags.pluck(:name).sort != tag_names.sort
+      taggable.tags = Tag.where(name: tag_names).all
+      if taggable.tags.size < tag_names.size
+        new_tag_names = tag_names - taggable.tags.map(&:name)
+        new_tag_names.each do |name|
+          taggable.tags << Tag.create(name: name)
+        end
+      end
+    end
+  end
+
+  # TODO: this is unused?
   def self.notification_key(tag_id)
     "tags_notification:#{tag_id}"
   end
 
+  # TODO: this is unused?
   def self.muted_tags(user)
     return [] unless user
     UserCustomField.where(user_id: user.id, value: TopicUser.notification_levels[:muted]).pluck(:name).map { |x| x[0,17] == "tags_notification" ? x[18..-1] : nil}.compact
