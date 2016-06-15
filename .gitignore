@@ -107,3 +107,5 @@ bundler_stubs/*
 
 vendor/bundle/*
 Gemfile.lock
+=======
+*.db

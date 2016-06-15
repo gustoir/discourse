@@ -16,6 +16,8 @@ describe TopicLink do
     topic.user
   end
 
+  let(:post) { Fabricate(:post) }
+
   it "can't link to the same topic" do
     ftl = TopicLink.new(url: "/t/#{topic.id}",
                               topic_id: topic.id,
@@ -92,27 +94,42 @@ http://b.com/#{'a'*500}
         topic.posts.create(user: user, raw: 'initial post')
         linked_post = topic.posts.create(user: user, raw: "Link to another topic: #{url}")
 
+        # this is subtle, but we had a bug were second time
+        # TopicLink.extract_from was called a reflection was nuked
+        2.times do
+          topic.reload
+          TopicLink.extract_from(linked_post)
+
+          link = topic.topic_links.first
+          expect(link).to be_present
+          expect(link).to be_internal
+          expect(link.url).to eq(url)
+          expect(link.domain).to eq(test_uri.host)
+          link.link_topic_id == other_topic.id
+          expect(link).not_to be_reflection
+
+          reflection = other_topic.topic_links.first
+
+          expect(reflection).to be_present
+          expect(reflection).to be_reflection
+          expect(reflection.post_id).to be_present
+          expect(reflection.domain).to eq(test_uri.host)
+          expect(reflection.url).to eq("http://#{test_uri.host}/t/unique-topic-name/#{topic.id}/#{linked_post.post_number}")
+          expect(reflection.link_topic_id).to eq(topic.id)
+          expect(reflection.link_post_id).to eq(linked_post.id)
+
+          expect(reflection.user_id).to eq(link.user_id)
+        end
+
+        PostOwnerChanger.new(
+          post_ids: [linked_post.id],
+          topic_id: topic.id,
+          acting_user: user,
+          new_owner: Fabricate(:user)
+        ).change_owner!
+
         TopicLink.extract_from(linked_post)
-
-        link = topic.topic_links.first
-        expect(link).to be_present
-        expect(link).to be_internal
-        expect(link.url).to eq(url)
-        expect(link.domain).to eq(test_uri.host)
-        link.link_topic_id == other_topic.id
-        expect(link).not_to be_reflection
-
-        reflection = other_topic.topic_links.first
-
-        expect(reflection).to be_present
-        expect(reflection).to be_reflection
-        expect(reflection.post_id).to be_present
-        expect(reflection.domain).to eq(test_uri.host)
-        expect(reflection.url).to eq("http://#{test_uri.host}/t/unique-topic-name/#{topic.id}/#{linked_post.post_number}")
-        expect(reflection.link_topic_id).to eq(topic.id)
-        expect(reflection.link_post_id).to eq(linked_post.id)
-
-        expect(reflection.user_id).to eq(link.user_id)
+        expect(topic.topic_links.first.url).to eq(url)
 
         linked_post.revise(post.user, { raw: "no more linkies https://eviltrout.com" })
         expect(other_topic.topic_links.where(link_post_id: linked_post.id)).to be_blank
@@ -314,6 +331,31 @@ http://b.com/#{'a'*500}
         expect(TopicLink.counts_for(Guardian.new(admin), post.topic, [post]).length).to eq(1)
       end
 
+    end
+
+    describe ".duplicate_lookup" do
+      let(:user) { Fabricate(:user, username: "junkrat") }
+
+      let(:post_with_internal_link) do
+        Fabricate(:post, user: user, raw: "Check out this topic #{post.topic.url}/122131")
+      end
+
+      it "should return the right response" do
+        TopicLink.extract_from(post_with_internal_link)
+
+        result = TopicLink.duplicate_lookup(post_with_internal_link.topic)
+        expect(result.count).to eq(1)
+
+        lookup = result["test.localhost/t/#{post.topic.slug}/#{post.topic.id}/122131"]
+
+        expect(lookup[:domain]).to eq("test.localhost")
+        expect(lookup[:username]).to eq("junkrat")
+        expect(lookup[:posted_at].to_s).to eq(post_with_internal_link.created_at.to_s)
+        expect(lookup[:post_number]).to eq(1)
+
+        result = TopicLink.duplicate_lookup(post.topic)
+        expect(result).to eq({})
+      end
     end
   end
 
