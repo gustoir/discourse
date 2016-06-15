@@ -26,17 +26,17 @@ fa_IR:
         millions: "{{number}}M"
     dates:
       time: "h:mm a"
-      long_no_year: "jMMM jD h:mm a"
-      long_no_year_no_time: "jMMM jD"
+      long_no_year: "jMMMM jD h:mm a"
+      long_no_year_no_time: "jMMMM jD"
       full_no_year_no_time: "jMMMM jDo"
-      long_with_year: "jMMM jD, jYYYY h:mm a"
-      long_with_year_no_time: "jMMM jD, jYYYY"
-      full_with_year_no_time: "jMMMM jDo, jYYYY"
-      long_date_with_year: "jMMM jD, 'jYY LT"
-      long_date_without_year: "jMMM jD, LT"
-      long_date_with_year_without_time: "jMMM jD, 'YY"
-      long_date_without_year_with_linebreak: "jMMM jD <br/>LT"
-      long_date_with_year_with_linebreak: "jMMM jD, 'YY <br/>LT"
+      long_with_year: "jD jMMMM jYYYY h:mm a"
+      long_with_year_no_time: "jD jMMMM jYYYY"
+      full_with_year_no_time: "jDo jMMMM jYYYY"
+      long_date_with_year: "jD jMMMM jYY LT"
+      long_date_without_year: "jD jMMMM LT"
+      long_date_with_year_without_time: "jD jMMMM Y"
+      long_date_without_year_with_linebreak: "jD jMMMM <br/>LT"
+      long_date_with_year_with_linebreak: "jD jMMMM YY <br/>LT"
       tiny:
         half_a_minute: "< 1 دقیقه"
         less_than_x_seconds:
@@ -57,8 +57,8 @@ fa_IR:
           other: "> %{count} سال"
         almost_x_years:
           other: "%{count} سال"
-        date_month: "jMMM jD"
-        date_year: "jMMM 'jYY"
+        date_month: "jMMMM jD"
+        date_year: "jMMMM jYY"
       medium:
         x_minutes:
           other: "%{count} دقیقه"
@@ -929,6 +929,9 @@ fa_IR:
         category: "هیچ موضوعاتی در {{category}} نیست."
         top: "موضوع برتر وجود ندارد."
         search: " هیچ نتیجه جستجویی وجود ندارد."
+        educate:
+          new: '<p>موضوعات جدید شما اینجا نشان داده میشود.</p><p>به صورت پیش فرض پست های شما جدید تلقی میشوند و نشانگر مقابل را نمایش میدهند اگر در خلال دو روز اخیر ایجاد شده باشند <span class="badge new-topic badge-notification" style="vertical-align:middle;line-height:inherit;">جدید</span>.</p><p>برای تغییر آن تنظیمات خود را ببینید <a href="%{userPrefsUrl}">تنظیمات</a>.</p>'
+          unread: '<p>موضوعات خوانده نشده شما اینجا نشان داده میشود.</p><p>به صورت پیش فرض موضوعات خوانده نشده تلقی میشوند و تعداد آنها نشان داده میشود <span class="badge new-posts badge-notification">1</span> اگر شما:</p><ul><li>موضوع را ایجاد کرده باشید</li><li>به موضوعی پاسخ داده باشید</li><li>موضوعی را بیش از چهار دقیقه خوانده باشید</li></ul><p>یا موضوعی را مشخصا دنبال کرده باشید از طریق پنل مدیریت اعلانها در پاسسن هر موضوع.</p><p>تنظیمات خود را ببینید <a href="%{userPrefsUrl}">تنظیمات</a> اگر میخواهید آن را تغییر دهید.</p>'
       bottom:
         latest: "موضوع تازهٔ دیگری نیست."
         hot: "موضوع داغ دیگری نیست."

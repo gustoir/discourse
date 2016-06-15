@@ -38,8 +38,11 @@
 .rtl .pull-left {
   float: right !important;
 }
-.rtl .autocomplete { 
-  left: 27px; 
+.rtl .pull-right {
+  float: left !important;
+}
+.rtl .autocomplete {
+  left: 27px;
 }
 
 .rtl .customize .current-style .toggle-mobile {
