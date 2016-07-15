@@ -26,9 +26,10 @@ fa_IR:
         millions: "{{number}}M"
     dates:
       time: "h:mm a"
-      long_no_year: "jMMMM jD h:mm a"
-      long_no_year_no_time: "jMMMM jD"
-      full_no_year_no_time: "jMMMM jDo"
+      timeline_date: "jMMM jYYYY"
+      long_no_year: "jD jMMMM h:mm a"
+      long_no_year_no_time: "jD jMMMM"
+      full_no_year_no_time: "jDo jMMMM"
       long_with_year: "jD jMMMM jYYYY h:mm a"
       long_with_year_no_time: "jD jMMMM jYYYY"
       full_with_year_no_time: "jDo jMMMM jYYYY"
@@ -37,9 +38,7 @@ fa_IR:
       long_date_with_year_without_time: "jD jMMMM jY"
       long_date_without_year_with_linebreak: "jD jMMMM <br/>LT"
       long_date_with_year_with_linebreak: "jD jMMMM jYY <br/>LT"
-
       wrap_ago: "پیش %{date}"
-
       tiny:
         half_a_minute: "< 1 دقیقه"
         less_than_x_seconds:
@@ -60,7 +59,7 @@ fa_IR:
           other: "> %{count} سال"
         almost_x_years:
           other: "%{count} سال"
-        date_month: "jMMMM jD"
+        date_month: "jD jMMMM"
         date_year: "jMMMM jYY"
       medium:
         x_minutes:
@@ -69,7 +68,7 @@ fa_IR:
           other: "%{count} ساعت"
         x_days:
           other: "%{count} روز"
-        date_year: "jMMM jD, 'jYY"
+        date_year: "jD jMMM, 'jYY"
       medium_with_ago:
         x_minutes:
           other: "%{count} دقیقه پیش"
@@ -231,7 +230,6 @@ fa_IR:
       has_pending_posts:
         other: "این عنوان دارای <b>{{count}}</b> نوشته‌ی در انتظار تایید است"
       confirm: "ذخیره سازی تغییرها"
-      delete_prompt: "آیا مطمئن هستی از پاک کردن این <b>%{username}</b>? این باعث پاک شدن تمام پست ها و منجر به بلاک شدن ایمیل و IP می شود."
       approval:
         title: "نوشته نیاز به تایید دارد"
         description: "ما نوشته شما را دریافت کرده ایم ولی نیاز به تایید آن توسط یکی از مدیران است قبل از اینکه نمایش داده شود. لطفا صبر داشته باشید."
@@ -316,7 +314,6 @@ fa_IR:
       '6': "واکنش"
       '7': "اشاره‌ها"
       '9': "نقل‌قول‌ها"
-      '10': "ستاره‌دار"
       '11': "ویرایش‌ها"
       '12': "ارسال موارد"
       '13': "صندوق دریافت"
@@ -430,8 +427,6 @@ fa_IR:
         warnings_received: "هشدارها"
       messages:
         all: "همه"
-        mine: "خودم"
-        unread: "خوانده‌ نشده‌"
         inbox: "صندوق دریافت"
         sent: "ارسال شد"
         archive: "بایگانی"
@@ -633,7 +628,6 @@ fa_IR:
     logout: "شما از سایت خارج شده اید"
     refresh: "تازه کردن"
     read_only_mode:
-      enabled: "حالت فقط خواندن فعال است. می توانید به جستجو در وب سایت ادامه دهید ولی ممکن است تعاملات کار نکند."
       login_disabled: "ورود به سیستم غیر فعال شده همزمان با اینکه سایت در حال فقط خواندنی است."
     too_few_topics_and_posts_notice: "بیا <a href='http://blog.discourse.org/2014/08/building-a-discourse-community/'> این بحث را شروع کنیم!</a> در حال حاضر این <strong>%{currentTopics} / %{requiredTopics}</strong> مبحث ها و <strong>%{currentPosts} / %{requiredPosts}</strong> ارسال ها وجود دارد. بازدید کنندگان تازه وارد نیاز دارند به گفتگو هایی برای خواندن و پاسخ دادن."
     too_few_topics_notice: "بیا <a href='http://blog.discourse.org/2014/08/building-a-discourse-community/'> این بحث را شروع کنیم!</a> در حال حاضر این <strong>%{currentTopics} / %{requiredTopics}</strong> مباحث وجود دارد. بازدیدکنندگان تازه وارد نیاز دارند به گفتگوهایی برای خواندن و پاسخ دادن."
@@ -748,7 +742,6 @@ fa_IR:
       more_emoji: "بیشتر..."
       options: "گزینه ها"
       whisper: "نجوا"
-      emoji: "شکلک :smile:"
       add_warning: "این یک هشدار رسمی است."
       toggle_whisper: "تغییر وضعیت نجوا"
       posting_not_on_topic: "به کدام موضوع می‌خواهید پاسخ دهید؟"
@@ -932,9 +925,6 @@ fa_IR:
         category: "هیچ موضوعاتی در {{category}} نیست."
         top: "موضوع برتر وجود ندارد."
         search: " هیچ نتیجه جستجویی وجود ندارد."
-        educate:
-          new: '<p>موضوعات جدید شما اینجا نشان داده میشود.</p><p>به صورت پیش فرض پست های شما جدید تلقی میشوند و نشانگر مقابل را نمایش میدهند اگر در خلال دو روز اخیر ایجاد شده باشند <span class="badge new-topic badge-notification" style="vertical-align:middle;line-height:inherit;">جدید</span>.</p><p>برای تغییر آن تنظیمات خود را ببینید <a href="%{userPrefsUrl}">تنظیمات</a>.</p>'
-          unread: '<p>موضوعات خوانده نشده شما اینجا نشان داده میشود.</p><p>به صورت پیش فرض موضوعات خوانده نشده تلقی میشوند و تعداد آنها نشان داده میشود <span class="badge new-posts badge-notification">1</span> اگر شما:</p><ul><li>موضوع را ایجاد کرده باشید</li><li>به موضوعی پاسخ داده باشید</li><li>موضوعی را بیش از چهار دقیقه خوانده باشید</li></ul><p>یا موضوعی را مشخصا دنبال کرده باشید از طریق پنل مدیریت اعلانها در پاسسن هر موضوع.</p><p>تنظیمات خود را ببینید <a href="%{userPrefsUrl}">تنظیمات</a> اگر میخواهید آن را تغییر دهید.</p>'
       bottom:
         latest: "موضوع تازهٔ دیگری نیست."
         hot: "موضوع داغ دیگری نیست."
@@ -1226,7 +1216,7 @@ fa_IR:
         reply: "آغاز ساخت یک پاسخ به این نوشته"
         like: "شبیه این نوشته"
         has_liked: "شما این نوشته را پسند کرده اید"
-        undo_like: "برگنداندن پسند"
+        undo_like: "برگرداندن پسند"
         edit: "ویرایش این نوشته"
         edit_anonymous: "با عرض پوزش، اما شما برای ویرایش این نوشته باید وارد سیستم شوید."
         flag: "پرچم خصوصی این نوشته برا رسیدگی یا ارسال پیام خصوصی در باره آن"
@@ -1264,8 +1254,8 @@ fa_IR:
           spam: "برداشتن پرچم"
           inappropriate: "برگرداندن پرچم"
           bookmark: "برداشتن نشانک"
-          like: "خنثی سازی پسند"
-          vote: "خنثی سازی امتیاز"
+          like: "برگرداندن پسند"
+          vote: "برگرداندن امتیاز"
         by_you:
           off_topic: "شما برای این مورد پرچم آف-تاپیک زدید"
           spam: "شما برای این مورد پرچم هرزنامه زدید"
