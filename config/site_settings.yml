@@ -199,17 +199,19 @@ basic:
   fixed_category_positions:
     client: true
     default: false
-
   fixed_category_positions_on_create:
     client: true
     default: false
-
   show_subcategory_list:
     default: false
     client: true
   enable_badges:
     client: true
     default: true
+  enable_badge_sql:
+    client: true
+    default: false
+    hidden: true
   enable_whispers:
     client: true
     default: false
@@ -304,7 +306,10 @@ login:
   pending_users_reminder_delay:
     min: -1
     default: 8
-  permanent_session_cookie: true
+  maximum_session_age:
+    default: 1440
+    min: 1
+    max: 175200
 
 users:
   min_username_length:
@@ -364,7 +369,7 @@ users:
     client: true
     default: true
   email_token_valid_hours:
-    default: 24
+    default: 48
     min: 1
   email_token_grace_period_hours: 0
   purge_unactivated_users_grace_period_days: 14
@@ -612,16 +617,24 @@ email:
     default: ''
     type: list
   block_auto_generated_emails: true
-  bounce_score_threshold:
-    client: true
-    default: 4
-    min: 1
   ignore_by_title:
     type: list
     default: ''
   mailgun_api_key:
     default: ''
     regex: '^key-\h{32}$'
+  bounce_score_threshold:
+    client: true
+    default: 4
+    min: 1
+  bounce_score_threshold_deactivate: 30
+  soft_bounce_score:
+    default: 1
+    min: 1
+  hard_bounce_score:
+    default: 2
+    min: 2
+  reset_bounce_score_after_days: 30
 
 
 files:
@@ -709,6 +722,11 @@ files:
     shadowed_by_global: true
   default_opengraph_image_url: ''
   allow_all_attachments_for_group_messages: false
+  convert_pasted_images_to_hq_jpg: true
+  convert_pasted_images_quality:
+    default: 95
+    min: 1
+    max: 100
 
 trust:
   default_trust_level:
@@ -973,6 +991,8 @@ legal:
     default: ''
 
 backups:
+  readonly_mode_during_backup:
+    default: true
   allow_restore:
     default: false
   maximum_backups:
@@ -1091,9 +1111,6 @@ uncategorized:
   dominating_topic_minimum_percent: 20
   disable_avatar_education_message: false
 
-  # Reporting
-  daily_performance_report: false
-
   global_notice:
     default: ""
     client: true
@@ -1118,10 +1135,6 @@ uncategorized:
     default: -1
     hidden: true
   uncategorized_category_id:
-    default: -1
-    hidden: true
-
-  performance_report_topic_id:
     default: -1
     hidden: true
 
@@ -1208,7 +1221,6 @@ user_preferences:
   default_other_enable_quoting: true
   default_other_dynamic_favicon: false
   default_other_disable_jump_reply: false
-  default_other_edit_history_public: false
   default_other_like_notification_frequency:
     enum: 'LikeNotificationFrequencySiteSetting'
     default: 1

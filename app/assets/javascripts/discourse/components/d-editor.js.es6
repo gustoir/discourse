@@ -211,13 +211,14 @@ export default Ember.Component.extend({
 
     // disable clicking on links in the preview
     this.$('.d-editor-preview').on('click.preview', e => {
-      e.preventDefault();
-      return false;
+      if ($(e.target).is("a")) {
+        e.preventDefault();
+        return false;
+      }
     });
 
-    this.appEvents.on('composer:insert-text', text => {
-      this._addText(this._getSelected(), text);
-    });
+    this.appEvents.on('composer:insert-text', text => this._addText(this._getSelected(), text));
+    this.appEvents.on('composer:replace-text', (oldVal, newVal) => this._replaceText(oldVal, newVal));
 
     this._mouseTrap = mouseTrap;
   },
@@ -225,6 +226,7 @@ export default Ember.Component.extend({
   @on('willDestroyElement')
   _shutDown() {
     this.appEvents.off('composer:insert-text');
+    this.appEvents.off('composer:replace-text');
 
     const mouseTrap = this._mouseTrap;
     Object.keys(this.get('toolbar.shortcuts')).forEach(sc => mouseTrap.unbind(sc));
@@ -472,6 +474,15 @@ export default Ember.Component.extend({
 
       this.set('value', `${preLines}${number}${post}`);
       this._selectText(preLines.length, number.length);
+    }
+  },
+
+  _replaceText(oldVal, newVal) {
+    const val = this.get('value');
+    const loc = val.indexOf(oldVal);
+    if (loc !== -1) {
+      this.set('value', val.replace(oldVal, newVal));
+      this._selectText(loc + newVal.length, 0);
     }
   },
 

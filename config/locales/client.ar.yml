@@ -345,8 +345,6 @@ ar:
     undo: "تراجع"
     revert: "عكس"
     failed: "فشل"
-    switch_to_anon: "وضع التخفي"
-    switch_from_anon: "اخرج من وضع التخفي"
     banner:
       close: "تعطيل البانر"
       edit: "تحرير هذا البانر"
@@ -560,7 +558,6 @@ ar:
         disable: "إيقاف الإشعارات "
         enable: "تفعيل الإشعارات"
         each_browser_note: "ملاحظة : يجب انت تقوم بتغيير هذا الإعداد عند كل مرة تستخدم فيها متصفح جديد ."
-      dismiss_notifications: "جعل الجميع مقروء"
       dismiss_notifications_tooltip: "جعل جميع اشعارات غيرمقروء الى مقروء"
       disable_jump_reply: "لاتذهب إلى مشاركتي بعد الرد"
       dynamic_favicon: "إعرض عدد المواضيع الجديدة والمحدثة في أيقونة المتصفح"
@@ -577,7 +574,6 @@ ar:
       suspended_reason: "سبب"
       github_profile: "Github"
       watched_categories: "مراقبة"
-      watched_categories_instructions: "ستتم مراقبة جميع المواضيع الجديدة في هذه التصانيف. سيتم اشعارك بجميع المشاركات والمواضيع الجديدة، بالاضافة الى  عدد المشاركات الجديدة الذي سيظهر بجانب الموضوع."
       tracked_categories: "متابعة"
       tracked_categories_instructions: "ستتم متابعة جميع المواضيع الجديدة في هذه التصانيف. عدد المشاركات الجديدة سيظهر بجانب الموضوع."
       muted_categories: "كتم"
@@ -1893,10 +1889,10 @@ ar:
     posts_long: "هناك {{number}} مشاركات في هذا الموضوع"
     posts_likes_MF: |
       هذا الموضوع له {count, plural, one {1 reply} other {# replies}} {ratio, select,
-        low {with a high like to post ratio}
-        med {with a very high like to post ratio}
-        high {with an extremely high like to post ratio}
-        other {}}
+      low {with a high like to post ratio}
+      med {with a very high like to post ratio}
+      high {with an extremely high like to post ratio}
+      other {}}
     original_post: "المشاركة الاصلية"
     views: "مشاهدات"
     views_lowercase:
