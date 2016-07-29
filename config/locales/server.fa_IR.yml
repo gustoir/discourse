@@ -144,7 +144,7 @@ fa_IR:
       invalid_domain: "'%{domain}' یک دامنه معتبر نیست."
     default_names:
       everyone: "همه"
-      admins: "مدیران"
+      admins: "ادمین ها"
       moderators: "ناظمان"
       staff: "کارمند"
       trust_level_0: "کاربر سطح 0"

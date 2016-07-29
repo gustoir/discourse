@@ -286,7 +286,7 @@ fa_IR:
         title: "چه کسی میتواند پیام بفرستد و به این گروه @اشاره کند؟"
         nobody: "هیچ‌کس"
         only_admins: "تنها مدیران"
-        mods_and_admins: "فقط گردانندگان و ادمین ها"
+        mods_and_admins: "فقط ناظم ها و ادمین ها"
         members_mods_and_admins: "تنها کاربران گروه، مدیران ومدیران کل"
         everyone: "هرکس"
       trust_levels:
@@ -1284,9 +1284,9 @@ fa_IR:
             other: "شما و {{count}} کاربر دیگر به این نوشته رأی دادید"
         by_others:
           off_topic:
-            other: "{{count}} کاربر ین مورد را آف-تاپیک گزارش کردند"
+            other: "{{count}} کاربر این مورد را آف-تاپیک گزارش کردند"
           spam:
-            other: "{{count}} کاربر ین مورد را هرزنامه گزارش کردند"
+            other: "{{count}} کاربر این مورد را هرزنامه گزارش کردند"
           inappropriate:
             other: "{{count}} کاربر این مورد را نامناسب گزارش کردند"
           notify_moderators:
@@ -2044,23 +2044,23 @@ fa_IR:
         suspend: "تعلیق"
         unsuspend: "خارج کردن از تعلیق"
         suspended: "تعلیق شد ؟"
-        moderator: "مدیر ؟ "
-        admin: "مدیر؟"
-        blocked: "مسدود شد ؟"
+        moderator: "ناظم؟ "
+        admin: "ادمین؟"
+        blocked: "مسدود شده ؟"
         show_admin_profile: "مدیر"
         edit_title: "ویرایش سرنویس"
         save_title: "ذخیره سازی سرنویس"
         refresh_browsers: "تازه کردن اجباری مرورگر"
         refresh_browsers_message: "ارسال پیام به تمام مشتریان! "
         show_public_profile: "نمایش نمایه عمومی"
-        impersonate: 'جعل هویت کردن'
+        impersonate: 'تغییر هویت به یک کاربر دیگر'
         ip_lookup: "IP Lookup"
         log_out: "خروج"
         logged_out: "کاربر از کل دستگاه ها خارج شد."
-        revoke_admin: 'ابطال مدیریت'
-        grant_admin: 'اعطای مدیریت'
-        revoke_moderation: 'پس گرفتن مدیریت'
-        grant_moderation: 'اعطای مدیریت'
+        revoke_admin: 'ابطال دسترسی ادمین'
+        grant_admin: 'اعطای دسترسی ادمین'
+        revoke_moderation: 'پس گرفتن دسترسی ناظم'
+        grant_moderation: 'اعطای دسترسی ناظم'
         unblock: 'رفع انسداد'
         block: ' انسداد'
         reputation: ' اعتبار'
