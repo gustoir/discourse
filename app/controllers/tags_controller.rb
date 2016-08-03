@@ -156,7 +156,15 @@ class TagsController < ::ApplicationController
       tags << { id: t.name, text: t.name, count: 0 }
     end
 
-    render json: { results: tags }
+    json_response = { results: tags }
+
+    t = DiscourseTagging.clean_tag(params[:q])
+    if Tag.where(name: t).exists? && !tags.find { |h| h[:id] == t }
+      # filter_allowed_tags determined that the tag entered is not allowed
+      json_response[:forbidden] = t
+    end
+
+    render json: json_response
   end
 
   def notifications
@@ -177,8 +185,8 @@ class TagsController < ::ApplicationController
   def check_hashtag
     tag_values = params[:tag_values].each(&:downcase!)
 
-    valid_tags = TopicCustomField.where(name: DiscourseTagging::TAGS_FIELD_NAME, value: tag_values).map do |tag|
-      { value: tag.value, url: "#{Discourse.base_url}/tags/#{tag.value}" }
+    valid_tags = Tag.where(name: tag_values).map do |tag|
+      { value: tag.name, url: tag.full_url }
     end.compact
 
     render json: { valid: valid_tags }

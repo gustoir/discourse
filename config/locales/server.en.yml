@@ -915,7 +915,6 @@ en:
     ga_universal_tracking_code: "Google Universal Analytics (analytics.js) tracking code code, eg: UA-12345678-9; see http://google.com/analytics"
     ga_universal_domain_name: "Google Universal Analytics (analytics.js) domain name, eg: mysite.com; see http://google.com/analytics"
     gtm_container_id: "Google Tag Manager container id. eg: GTM-ABCDEF"
-    gtm_ua_domain_name: "Universal Analytics via Google Tag manager domain name. 'auto' is recommended."
     enable_escaped_fragments: "Fall back to Google's Ajax-Crawling API if no webcrawler is detected. See https://developers.google.com/webmasters/ajax-crawling/docs/learn-more"
     enable_noscript_support: "Enable standard webcrawler search engine support via the noscript tag"
     allow_moderators_to_create_categories: "Allow moderators to create new categories"
@@ -977,6 +976,7 @@ en:
     enable_sso_provider: "Implement Discourse SSO provider protocol at the /session/sso_provider endpoint, requires sso_secret to be set"
     sso_url: "URL of single sign on endpoint (must include http:// or https://)"
     sso_secret: "Secret string used to cryptographically authenticate SSO information, be sure it is 10 characters or longer"
+    sso_overrides_bio: "Overrides user bio in user profile and prevents user from changing it"
     sso_overrides_email: "Overrides local email with external site email from SSO payload on every login, and prevent local changes. (WARNING: discrepancies can occur due to normalization of local emails)"
     sso_overrides_username: "Overrides local username with external site username from SSO payload on every login, and prevent local changes. (WARNING: discrepancies can occur due to differences in username length/requirements)"
     sso_overrides_name: "Overrides local full name with external site full name from SSO payload on every login, and prevent local changes."
@@ -1217,6 +1217,9 @@ en:
     bounce_score_threshold: "Max bounce score before we will stop emailing a user."
     bounce_score_threshold_deactivate: "Max bounce score before we will deactivate a user."
     reset_bounce_score_after_days: "Automatically reset bounce score after X days."
+
+    attachment_content_type_blacklist: "List of keywords used to blacklist attachments based on the content type."
+    attachment_filename_blacklist: "List of keywords used to blacklist attachments based on the filename."
 
     manual_polling_enabled: "Push emails using the API for email replies."
     pop3_polling_enabled: "Poll via POP3 for email replies."
@@ -2184,7 +2187,7 @@ en:
     To unsubscribe from these emails, [click here](%{unsubscribe_url}).
 
   unsubscribe_mailing_list: |
-    You are receiving these emails cause you have enabled mailing list mode.
+    You are receiving this because you enabled mailing list mode.
 
     To unsubscribe from these emails, [click here](%{unsubscribe_url}).
 
