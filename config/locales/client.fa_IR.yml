@@ -35,7 +35,7 @@ fa_IR:
       full_with_year_no_time: "jDo jMMMM jYYYY"
       long_date_with_year: "jD jMMMM jYY LT"
       long_date_without_year: "jD jMMMM LT"
-      long_date_with_year_without_time: "jD jMMMM jY"
+      long_date_with_year_without_time: "jD jMMMM jYY"
       long_date_without_year_with_linebreak: "jD jMMMM <br/>LT"
       long_date_with_year_with_linebreak: "jD jMMMM jYY <br/>LT"
       wrap_ago: "پیش %{date}"
