@@ -78,6 +78,19 @@ export default function() {
 
     this.get('/clicks/track', success);
 
+    this.get('/search', request => {
+      if (request.queryParams.q === 'posts') {
+        return response({
+          posts: [{
+            id: 1234
+          }]
+        });
+      }
+
+      return response({});
+    });
+
+
     this.put('/users/eviltrout', () => response({ user: {} }));
 
     this.get("/t/280.json", () => response(fixturesByUrl['/t/280/1.json']));
@@ -149,8 +162,18 @@ export default function() {
       if (data.password === 'correct') {
         return response({username: 'eviltrout'});
       }
+
+      if (data.password === 'not-activated') {
+        return response({ error: "not active",
+                          reason: "not_activated",
+                          sent_to_email: '<small>eviltrout@example.com</small>',
+                          current_email: '<small>current@example.com</small>' });
+      }
+
       return response(400, {error: 'invalid login'});
     });
+
+    this.post('/users/action/send_activation_email', success);
 
     this.get('/users/hp.json', function() {
       return response({"value":"32faff1b1ef1ac3","challenge":"61a3de0ccf086fb9604b76e884d75801"});
@@ -242,6 +265,13 @@ export default function() {
 
     const siteText = {id: 'site.test', value: 'Test McTest'};
     const overridden = {id: 'site.overridden', value: 'Overridden', overridden: true };
+
+    this.get('/admin/users/list/active.json', () => {
+      return response(200, [
+        {id: 1, username: 'eviltrout', email: '<small>eviltrout@example.com</small>'}
+      ]);
+    });
+
     this.get('/admin/customize/site_texts', request => {
 
       if (request.queryParams.overridden) {

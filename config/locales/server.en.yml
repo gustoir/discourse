@@ -640,6 +640,13 @@ en:
     not_found_description: "Sorry, we couldn't find this unsubscribe. It's possible the link in your email has expired?"
     log_out: "Log Out"
 
+  user_api_key:
+    title: "Authorize application access"
+    authorize: "Authorize"
+    read: "read"
+    read_write: "read/write"
+    description: "Would you like to grant \"%{application_name}\" %{access} access to your account?"
+
   reports:
     visits:
       title: "User Visits"
@@ -828,6 +835,8 @@ en:
     min_private_message_title_length: "Minimum allowed title length for a message in characters"
     min_search_term_length: "Minimum valid search term length in characters"
     search_tokenize_chinese_japanese_korean: "Force search to tokenize Chinese/Japanese/Korean even on non CJK sites"
+    search_prefer_recent_posts: "If searching your large forum is slow, this option tries an index of more recent posts first"
+    search_recent_posts_size: "How many recent posts to keep in the index"
     allow_uncategorized_topics: "Allow topics to be created without a category. WARNING: If there are any uncategorized topics, you must recategorize them before turning this off."
     allow_duplicate_topic_titles: "Allow topics with identical, duplicate titles."
     unique_posts_mins: "How many minutes before a user can make a post with the same content again"
@@ -1026,6 +1035,8 @@ en:
     top_topics_formula_log_views_multiplier: "value of log views multiplier (n) in top topics formula: `log(views_count) * (n) + op_likes_count * 0.5 + LEAST(likes_count / posts_count, 3) + 10 + log(posts_count)`"
     top_topics_formula_first_post_likes_multiplier: "value of first post likes multiplier (n) in top topics formula: `log(views_count) * 2 + op_likes_count * (n) + LEAST(likes_count / posts_count, 3) + 10 + log(posts_count)`"
     top_topics_formula_least_likes_per_post_multiplier: "value of least likes per post multiplier (n) in top topics formula: `log(views_count) * 2 + op_likes_count * 0.5 + LEAST(likes_count / posts_count, (n)) + 10 + log(posts_count)`"
+
+    rebake_old_posts_count: "Number of old posts to be rebaked every 15 minutes."
 
     rate_limit_create_topic: "After creating a topic, users must wait (n) seconds before creating another topic."
     rate_limit_create_post: "After posting, users must wait (n) seconds before creating another post."
@@ -1363,6 +1374,16 @@ en:
     default_categories_tracking: "List of categories that are tracked by default."
     default_categories_muted: "List of categories that are muted by default."
 
+    max_user_api_reqs_per_day: "Maximum number of user API requests per key per day"
+    max_user_api_reqs_per_minute: "Maximum number of user API requests per key per minute"
+    allow_read_user_api_keys: "Allow generation of readonly user API keys"
+    allow_write_user_api_keys: "Allow generation of write user API keys"
+    allow_push_user_api_keys: "Allow generation of push user API keys"
+    max_api_keys_per_user: "Maximum number of user API keys per user"
+    min_trust_level_for_user_api_key: "Trust level required for generation of user API keys"
+    allowed_user_api_auth_redirects: "Allowed URL for authentication redirect for user API keys"
+    allowed_user_api_push_urls: "Allowed URLs for server push to user API"
+
     tagging_enabled: "Enable tags on topics?"
     min_trust_to_create_tag: "The minimum trust level required to create a tag."
     max_tags_per_topic: "The maximum tags that can be applied to a topic."
@@ -1374,7 +1395,7 @@ en:
     tag_style: "Visual style for tag badges."
     staff_tags: "A list of tags that can only be applied by staff members"
     min_trust_level_to_tag_topics: "Minimum trust level required to tag topics"
-    suppress_overlapping_tags_in_list: "Hide tags from list views, if they overlap with title"
+    suppress_overlapping_tags_in_list: "If tags match exact words in topic titles, don't show the tag"
     remove_muted_tags_from_latest: "Don't show topics tagged with muted tags in the latest topic list."
 
     errors:
@@ -1885,9 +1906,16 @@ en:
 
     backup_succeeded:
       subject_template: "Backup completed successfully"
-      text_body_template: "The backup was successful.
+      text_body_template: |
+        The backup was successful.
 
-      Visit the [admin > backup section](%{base_url}/admin/backups) to download your new backup."
+        Visit the [admin > backup section](%{base_url}/admin/backups) to download your new backup."
+
+        Here's the log:
+
+        ```text
+        %{logs}
+        ```
 
     backup_failed:
       subject_template: "Backup failed"
@@ -1896,13 +1924,20 @@ en:
 
         Here's the log:
 
-        ```
+        ```text
         %{logs}
         ```
 
     restore_succeeded:
       subject_template: "Restore completed successfully"
-      text_body_template: "The restore was successful."
+      text_body_template: |
+        The restore was successful.
+
+        Here's the log:
+
+        ```text
+        %{logs}
+        ```
 
     restore_failed:
       subject_template: "Restore failed"
@@ -1911,7 +1946,7 @@ en:
 
         Here's the log:
 
-        ```
+        ```text
         %{logs}
         ```
 
@@ -2039,13 +2074,6 @@ en:
         %{post_error}
 
         If you can correct the problem, please try again.
-
-    email_reject_rate_limit_specified:
-      subject_template: "[%{site_name}] Email issue -- Rate limited"
-      text_body_template: |
-        We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
-
-        Reason: %{rate_limit_description}
 
     email_reject_invalid_post_action:
       subject_template: "[%{site_name}] Email issue -- Invalid Post Action"
