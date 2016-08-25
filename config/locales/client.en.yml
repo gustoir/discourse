@@ -74,9 +74,6 @@ en:
         x_seconds:
           one:   "1s"
           other: "%{count}s"
-        less_than_x_minutes:
-          one:   "< 1m"
-          other: "< %{count}m"
         x_minutes:
           one:   "1m"
           other: "%{count}m"
@@ -458,14 +455,12 @@ en:
       latest_by: "latest by"
       toggle_ordering: "toggle ordering control"
       subcategories: "Subcategories"
-      topic_stats: "The number of new topics."
+      topic_sentence:
+        one: "1 topic"
+        other: "%{count} topics"
       topic_stat_sentence:
         one: "%{count} new topic in the past %{unit}."
         other: "%{count} new topics in the past %{unit}."
-      post_stats: "The number of new posts."
-      post_stat_sentence:
-        one: "%{count} new post in the past %{unit}."
-        other: "%{count} new posts in the past %{unit}."
 
     ip_lookup:
       title: IP Address Lookup
@@ -1012,6 +1007,11 @@ en:
       twitter: "Twitter"
       emoji_one: "Emoji One"
       win10: "Win10"
+
+    category_page_style:
+      categories_only: "Categories Only"
+      categories_with_featured_topics: "Categories with Featured Topics"
+      categories_and_latest_topics: "Categories and Latest Topics"
 
     shortcut_modifier_key:
       shift: 'Shift'
@@ -2402,6 +2402,11 @@ en:
         add_owners: Add owners
         incoming_email: "Custom incoming email address"
         incoming_email_placeholder: "enter email address"
+        flair_url: "Avatar Flair URL"
+        flair_url_placeholder: "(Optional) Image URL"
+        flair_bg_color: "Avatar Flair Background Color"
+        flair_bg_color_placeholder: "(Optional) Hex color value"
+        flair_preview: "Preview"
 
 
       api:
@@ -3108,6 +3113,7 @@ en:
         sample: "Use the following HTML code into your site to create and embed discourse topics. Replace <b>REPLACE_ME</b> with the canonical URL of the page you are embedding it on."
         title: "Embedding"
         host: "Allowed Hosts"
+        path_whitelist: "Path Whitelist"
         edit: "edit"
         category: "Post to Category"
         add_host: "Add Host"
@@ -3120,6 +3126,7 @@ en:
         embed_by_username: "Username for topic creation"
         embed_post_limit: "Maximum number of posts to embed"
         embed_username_key_from_feed: "Key to pull discourse username from feed"
+        embed_title_scrubber: "Regular expression used to scrub the title of posts"
         embed_truncate: "Truncate the embedded posts"
         embed_whitelist_selector: "CSS selector for elements that are allowed in embeds"
         embed_blacklist_selector: "CSS selector for elements that are removed from embeds"

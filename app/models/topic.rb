@@ -255,7 +255,7 @@ class Topic < ActiveRecord::Base
   end
 
   def best_post
-    posts.where(post_type: Post.types[:regular]).order('score desc nulls last').limit(1).first
+    posts.where(post_type: Post.types[:regular], user_deleted: false).order('score desc nulls last').limit(1).first
   end
 
   def has_flags?
@@ -362,7 +362,7 @@ class Topic < ActiveRecord::Base
       topics = topics.where("topics.category_id NOT IN (?)", muted_category_ids)
     end
 
-    # Remove muted categories
+    # Remove muted tags
     muted_tag_ids = TagUser.lookup(user, :muted).pluck(:tag_id)
     unless muted_tag_ids.empty?
       topics = topics.joins("LEFT OUTER JOIN topic_tags ON topic_tags.topic_id = topics.id")

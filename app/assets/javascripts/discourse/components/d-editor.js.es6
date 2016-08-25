@@ -32,6 +32,8 @@ const OP = {
   ADDED: 2
 };
 
+const FOUR_SPACES_INDENT = '4-spaces-indent';
+
 const _createCallbacks = [];
 
 class Toolbar {
@@ -362,12 +364,12 @@ export default Ember.Component.extend({
     });
   },
 
-  _getSelected(trimLeading) {
+  _getSelected(trimLeading, opts) {
     if (!this.get('ready')) { return; }
 
     const textarea = this.$('textarea.d-editor-input')[0];
     const value = textarea.value;
-    var start = textarea.selectionStart;
+    let start = textarea.selectionStart;
     let end = textarea.selectionEnd;
 
     // trim trailing spaces cause **test ** would be invalid
@@ -386,7 +388,12 @@ export default Ember.Component.extend({
     const pre = value.slice(0, start);
     const post = value.slice(end);
 
-    return { start, end, value: selVal, pre, post };
+    if (opts && opts.lineVal) {
+      const lineVal = value.split("\n")[value.substr(0, textarea.selectionStart).split("\n").length - 1];
+      return { start, end, value: selVal, pre, post, lineVal };
+    } else {
+      return { start, end, value: selVal, pre, post };
+    }
   },
 
   _selectText(from, length) {
@@ -533,15 +540,32 @@ export default Ember.Component.extend({
     },
 
     formatCode() {
-      const sel = this._getSelected();
-      if (sel.value.indexOf("\n") !== -1) {
-        return (this.siteSettings.code_formatting_style === "4-spaces-indent") ?
-                this._applySurround(sel, '    ', '', 'code_text') :
-                this._addText(sel, '```\n' + sel.value + '\n```');
+      const sel = this._getSelected('', { lineVal: true });
+      const selValue = sel.value;
+      const hasNewLine = selValue.indexOf("\n") !== -1;
+      const isBlankLine = sel.lineVal.trim().length === 0;
+      const isFourSpacesIndent = this.siteSettings.code_formatting_style === FOUR_SPACES_INDENT;
+
+      if (!hasNewLine) {
+        if (selValue.length === 0 && isBlankLine) {
+          if (isFourSpacesIndent) {
+            const example = I18n.t(`composer.code_text`);
+            this.set('value', `${sel.pre}    ${example}${sel.post}`);
+            return this._selectText(sel.pre.length + 4, example.length);
+          } else {
+            return this._applySurround(sel, "```\n", "\n```", 'paste_code_text');
+          }
+        } else {
+          return this._applySurround(sel, '`', '`', 'code_title');
+        }
       } else {
-        return (this.siteSettings.code_formatting_style === "4-spaces-indent") ?
-                this._applySurround(sel, '`', '`', 'code_text') :
-                this._applySurround(sel, '```\n', '\n```', 'paste_code_text');
+        if (isFourSpacesIndent) {
+          return this._applySurround(sel, '    ', '', 'code_text');
+        } else {
+          const preNewline = (sel.pre[-1] !== "\n" && sel.pre !== "") ? "\n" : "";
+          const postNewline = sel.post[0] !== "\n" ? "\n" : "";
+          return this._addText(sel, `${preNewline}\`\`\`\n${sel.value}\n\`\`\`${postNewline}`);
+        }
       }
     },
 

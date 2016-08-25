@@ -5,7 +5,7 @@ class Auth::DefaultCurrentUserProvider
 
   CURRENT_USER_KEY ||= "_DISCOURSE_CURRENT_USER".freeze
   API_KEY ||= "api_key".freeze
-  USER_API_KEY ||= "USER_API_KEY".freeze
+  USER_API_KEY ||= "HTTP_USER_API_KEY".freeze
   API_KEY_ENV ||= "_DISCOURSE_API".freeze
   TOKEN_COOKIE ||= "_t".freeze
   PATH_INFO ||= "PATH_INFO".freeze
@@ -178,7 +178,7 @@ class Auth::DefaultCurrentUserProvider
 
   def lookup_user_api_user(user_api_key)
     if api_key = UserApiKey.where(key: user_api_key, revoked_at: nil).includes(:user).first
-      if !api_key.write && @env["REQUEST_METHOD"] != "GET"
+      if !api_key.write && (@env["REQUEST_METHOD"] != "GET" && @env["PATH_INFO"] !~ /^\/message-bus\/.*\/poll/)
         raise Discourse::InvalidAccess
       end
 

@@ -55,6 +55,7 @@ required:
     client: true
     default: '/images/default-favicon.ico'
   apple_touch_icon_url: '/images/default-apple-touch-icon.png'
+  default_opengraph_image_url: ''
   exclude_rel_nofollow_domains:
     default: ''
     type: list
@@ -71,6 +72,9 @@ basic:
   set_locale_from_accept_language_header:
     default: false
     validator: "AllowUserLocaleEnabledValidator"
+  categories_topics:
+    default: 20
+    min: 5
   suggested_topics:
     client: true
     default: 5
@@ -153,6 +157,10 @@ basic:
      - facebook
      - google+
      - email
+  desktop_category_page_style:
+    client: true
+    enum: 'CategoryPageStyle'
+    default: 'categories_and_latest_topics'
   category_colors:
     client: true
     type: list
@@ -215,9 +223,11 @@ basic:
 
 login:
   invite_only:
+    refresh: true
     client: true
     default: false
   login_required:
+    refresh: true
     client: true
     default: false
   must_approve_users:
@@ -546,6 +556,8 @@ posting:
     choices:
      - 4-spaces-indent
      - code-fences
+  embed_truncate:
+    default: true
 
 email:
   email_time_window_mins:
@@ -724,7 +736,6 @@ files:
     client: true
     regex: '^((https?:)?\/)?\/.+[^\/]'
     shadowed_by_global: true
-  default_opengraph_image_url: ''
   allow_all_attachments_for_group_messages: false
   convert_pasted_images_to_hq_jpg: true
   convert_pasted_images_quality:
@@ -973,8 +984,8 @@ embedding:
   embed_post_limit:
     default: 100
     hidden: true
-  embed_truncate:
-    default: false
+  embed_title_scrubber:
+    default: ''
     hidden: true
   embed_whitelist_selector:
     default: ''
@@ -1268,7 +1279,7 @@ user_api:
     default: ''
     type: list
   allowed_user_api_auth_redirects:
-    default: 'https://api.discourse.org/api/auth_redirect'
+    default: 'https://api.discourse.org/api/auth_redirect|discourse://auth_redirect'
     type: list
 
 tags:

@@ -297,7 +297,6 @@ class TopicQuery
     end
 
     topics.each do |t|
-
       t.allowed_user_ids = filter == :private_messages ? t.allowed_users.map{|u| u.id} : []
     end
 
@@ -460,7 +459,6 @@ class TopicQuery
         result = result.preload(:tags)
 
         if @options[:tags] && @options[:tags].size > 0
-          result = result.joins(:tags)
 
           if @options[:match_all_tags]
             # ALL of the given tags:
@@ -477,6 +475,7 @@ class TopicQuery
             end
           else
             # ANY of the given tags:
+            result = result.joins(:tags)
             if @options[:tags][0].is_a?(Integer)
               result = result.where("tags.id in (?)", @options[:tags])
             else
