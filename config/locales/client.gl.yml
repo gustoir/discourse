@@ -959,7 +959,6 @@ gl:
       title: "buscar temas, publicacións, usuarios ou categorías"
       no_results: "Non se atoparon resultados."
       no_more_results: "Non se atoparon máis resultados."
-      search_help: Buscar axuda
       searching: "Buscando..."
       post_format: "#{{post_number}} de {{username}}"
       context:
@@ -1893,7 +1892,6 @@ gl:
             title: "Reverter a base de datos ao estado de funcionamento anterior"
             confirm: "Confirmas a reversión da base de datos ao estado de funcionamento anterior?"
       export_csv:
-        user_archive_confirm: "Confirmas a descarga das túas publicacións?"
         success: "Iniciouse a exportación, notificarémosche cunha mensaxe o remate do proceso."
         failed: "Produciuse un fallo na exportación. Comproba os rexistros."
         rate_limit_error: "Só se poden descargar as publicacións unha vez por día. Téntao de novo mañá."

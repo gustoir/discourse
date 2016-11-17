@@ -1,6 +1,8 @@
+
 {{#if model}}
+  {{add-category-class category=model.category}}
   <div class="container">
-    {{discourse-banner user=currentUser banner=site.banner overlay=view.hasScrolled hide=model.errorLoading}}
+    {{discourse-banner user=currentUser banner=site.banner overlay=hasScrolled hide=model.errorLoading}}
   </div>
 {{/if}}
 
@@ -53,7 +55,7 @@
             </h1>
 
             {{#unless model.isPrivateMessage}}
-              {{topic-category topic=model}}
+              {{topic-category topic=model class="topic-category"}}
             {{/unless}}
           {{/if}}
         </div>
@@ -66,17 +68,26 @@
     <div class='selected-posts {{unless multiSelect 'hidden'}}'>
       {{partial "selected-posts"}}
     </div>
-    {{#topic-navigation as |info|}}
-      {{#if info.renderTimeline}}
-        {{topic-timeline topic=model
-                         enteredIndex=enteredIndex
-                         loading=model.postStream.loading
-                         delegated=topicDelegated}}
-      {{else}}
+
+    {{#topic-navigation jumpToIndex="jumpToIndex" as |info|}}
+
+      {{#if info.renderAdminMenuButton}}
         {{topic-admin-menu-button topic=model fixed="true" delegated=topicDelegated}}
       {{/if}}
 
-      {{topic-progress topic=model delegated=topicDelegated showTimeline=info.showTimeline}}
+      {{#if info.renderTimeline}}
+        {{topic-timeline topic=model
+                         prevEvent=info.prevEvent
+                         fullscreen=info.topicProgressExpanded
+                         enteredIndex=enteredIndex
+                         loading=model.postStream.loading
+                         delegated=topicDelegated}}
+
+      {{else}}
+        {{topic-progress prevEvent=info.prevEvent topic=model delegated=topicDelegated expanded=info.topicProgressExpanded}}
+      {{/if}}
+
+
     {{/topic-navigation}}
 
     <div class="row">
@@ -138,7 +149,11 @@
               {{! replace "Log In to Reply" with the infobox }}
               {{signup-cta}}
             {{else}}
-              {{topic-footer-buttons topic=model topicDelegated=topicDelegated}}
+              {{#if currentUser}}
+                {{topic-footer-buttons topic=model topicDelegated=topicDelegated}}
+              {{else}}
+                {{d-button icon="reply" class="btn-primary" action="showLogin" label="topic.reply.title"}}
+              {{/if}}
             {{/if}}
 
             {{#if model.pending_posts_count}}
@@ -169,10 +184,9 @@
                   {{#if model.isPrivateMessage}}
                     {{basic-topic-list hideCategory="true"
                                        showPosters="true"
-                                       topics=model.details.suggested_topics
-                                       postsAction="showTopicEntrance"}}
+                                       topics=model.details.suggested_topics}}
                   {{else}}
-                    {{basic-topic-list topics=model.details.suggested_topics postsAction="showTopicEntrance"}}
+                    {{basic-topic-list topics=model.details.suggested_topics}}
                   {{/if}}
                 </div>
                 <h3>{{{browseMoreMessage}}}</h3>
@@ -208,9 +222,12 @@
   </div>
 {{/if}}
 
-{{render "share"}}
+{{share-popup topic=model replyAsNewTopic="replyAsNewTopic"}}
 
 {{#if currentUser.enable_quoting}}
-  {{render "quote-button"}}
+  {{quote-button topic=model
+                 quoteState=quoteState
+                 selectText="selectText"
+                 deselectText="deselectText"}}
 {{/if}}
 

@@ -29,6 +29,7 @@ class UserUpdater
     :digest_after_minutes,
     :new_topic_duration_minutes,
     :auto_track_topics_after_msecs,
+    :notification_level_when_replying,
     :email_previous_replies,
     :email_in_reply_to,
     :like_notification_frequency,
@@ -53,6 +54,7 @@ class UserUpdater
 
     user.name = attributes.fetch(:name) { user.name }
     user.locale = attributes.fetch(:locale) { user.locale }
+    user.date_of_birth = attributes.fetch(:date_of_birth) { user.date_of_birth }
 
     if guardian.can_grant_title?(user)
       user.title = attributes.fetch(:title) { user.title }

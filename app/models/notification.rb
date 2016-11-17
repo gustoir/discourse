@@ -55,9 +55,21 @@ class Notification < ActiveRecord::Base
              read: false)
       .update_all("read = 't'")
 
-    user.publish_notifications_state if count > 0
+    if count > 0
+      user.publish_notifications_state
+    end
 
     count
+  end
+
+  def self.read(user, notification_ids)
+    count = Notification.where(user_id: user.id,
+                               id: notification_ids,
+                               read: false).update_all(read: true)
+
+    if count > 0
+      user.publish_notifications_state
+    end
   end
 
   def self.interesting_after(min_date)

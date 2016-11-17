@@ -1,10 +1,16 @@
 import { observes } from 'ember-addons/ember-computed-decorators';
 import TextField from 'discourse/components/text-field';
 import userSearch from 'discourse/lib/user-search';
+import { getOwner } from 'discourse-common/lib/get-owner';
 
 export default TextField.extend({
+  @observes('usernames')
+  _update() {
+    if (this.get('canReceiveUpdates') === 'true')
+      this.didInsertElement({updateData: true});
+  },
 
-  didInsertElement() {
+  didInsertElement(opts) {
     this._super();
     var self = this,
         selected = [],
@@ -25,10 +31,11 @@ export default TextField.extend({
     }
 
     this.$().val(this.get('usernames')).autocomplete({
-      template: this.container.lookup('template:user-selector-autocomplete.raw'),
+      template: getOwner(this).lookup('template:user-selector-autocomplete.raw'),
       disabled: this.get('disabled'),
       single: this.get('single'),
       allowAny: this.get('allowAny'),
+      updateData: (opts && opts.updateData) ? opts.updateData : false,
 
       dataSource: function(term) {
         var results = userSearch({
