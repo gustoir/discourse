@@ -2,32 +2,32 @@ import { acceptance } from "helpers/qunit-helpers";
 
 acceptance("User", {loggedIn: true});
 
-test("Invites", () => {
-  visit("/users/eviltrout/invited/pending");
+QUnit.test("Invites", assert => {
+  visit("/u/eviltrout/invited/pending");
   andThen(() => {
-    ok($('body.user-invites-page').length, "has the body class");
+    assert.ok($('body.user-invites-page').length, "has the body class");
   });
 });
 
-test("Messages", () => {
-  visit("/users/eviltrout/messages");
+QUnit.test("Messages", assert => {
+  visit("/u/eviltrout/messages");
   andThen(() => {
-    ok($('body.user-messages-page').length, "has the body class");
+    assert.ok($('body.user-messages-page').length, "has the body class");
   });
 });
 
-test("Notifications", () => {
-  visit("/users/eviltrout/notifications");
+QUnit.test("Notifications", assert => {
+  visit("/u/eviltrout/notifications");
   andThen(() => {
-    ok($('body.user-notifications-page').length, "has the body class");
+    assert.ok($('body.user-notifications-page').length, "has the body class");
   });
 });
 
-test("Root URL - Viewing Self", () => {
-  visit("/users/eviltrout");
+QUnit.test("Root URL - Viewing Self", assert => {
+  visit("/u/eviltrout");
   andThen(() => {
-    ok($('body.user-summary-page').length, "has the body class");
-    equal(currentPath(), 'user.summary', "it defaults to summary");
-    ok(exists('.container.viewing-self'), "has the viewing-self class");
+    assert.ok($('body.user-activity-page').length, "has the body class");
+    assert.equal(currentPath(), 'user.userActivity.index', "it defaults to activity");
+    assert.ok(exists('.container.viewing-self'), "has the viewing-self class");
   });
 });

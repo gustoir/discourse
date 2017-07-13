@@ -8,7 +8,7 @@ describe UserSerializer do
     let(:serializer) { UserSerializer.new(user, scope: Guardian.new, root: false) }
     let(:json) { serializer.as_json }
 
-    let(:untrusted_attributes) { %i{bio_raw bio_cooked bio_excerpt location website profile_background card_background} }
+    let(:untrusted_attributes) { %i{bio_raw bio_cooked bio_excerpt location website website_name profile_background card_background} }
 
     it "doesn't serialize untrusted attributes" do
       untrusted_attributes.each { |attr| expect(json).not_to have_key(attr) }
@@ -60,7 +60,7 @@ describe UserSerializer do
 
     context "with `enable_names` false" do
       before do
-        SiteSetting.stubs(:enable_names?).returns(false)
+        SiteSetting.enable_names = false
       end
 
       it "has a name" do
@@ -192,7 +192,7 @@ describe UserSerializer do
     end
 
     it "serializes the fields listed in public_user_custom_fields site setting" do
-      SiteSetting.stubs(:public_user_custom_fields).returns('public_field')
+      SiteSetting.public_user_custom_fields = 'public_field'
       expect(json[:custom_fields]['public_field']).to eq(user.custom_fields['public_field'])
       expect(json[:custom_fields]['secret_field']).to eq(nil)
     end

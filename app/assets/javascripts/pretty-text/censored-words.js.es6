@@ -1,9 +1,15 @@
-export function censor(text, censoredWords, censoredPattern) {
-  let patterns = [],
-      originalText = text;
+function escapeRegexp(text) {
+  return text.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&');
+}
+
+export function censorFn(censoredWords, censoredPattern, replacementLetter) {
+
+  let patterns = [];
+
+  replacementLetter = replacementLetter || "&#9632;";
 
   if (censoredWords && censoredWords.length) {
-    patterns = censoredWords.split("|").map(t => { return "(" + t.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') + ")"; });
+    patterns = censoredWords.split("|").map(t => `(${escapeRegexp(t)})`);
   }
 
   if (censoredPattern && censoredPattern.length > 0) {
@@ -17,19 +23,35 @@ export function censor(text, censoredWords, censoredPattern) {
       censorRegexp = new RegExp("(\\b(?:" + patterns.join("|") + ")\\b)(?![^\\(]*\\))", "ig");
 
       if (censorRegexp) {
-        let m = censorRegexp.exec(text);
 
-        while (m && m[0]) {
-          if (m[0].length > originalText.length) { return originalText; } // regex is dangerous
-          const replacement = new Array(m[0].length+1).join('&#9632;');
-          text = text.replace(new RegExp("(\\b" + m[0] + "\\b)(?![^\\(]*\\))", "ig"), replacement);
-          m = censorRegexp.exec(text);
-        }
+        return function(text) {
+          let original = text;
+
+          try {
+            let m = censorRegexp.exec(text);
+
+            while (m && m[0]) {
+              if (m[0].length > original.length) { return original; } // regex is dangerous
+              const replacement = new Array(m[0].length+1).join(replacementLetter);
+              text = text.replace(new RegExp(`(\\b${escapeRegexp(m[0])}\\b)(?![^\\(]*\\))`, "ig"), replacement);
+              m = censorRegexp.exec(text);
+            }
+
+            return text;
+          } catch (e) {
+            return original;
+          }
+        };
+
       }
     } catch(e) {
-      return originalText;
+      // fall through
     }
   }
 
-  return text;
+  return function(t){ return t;};
+}
+
+export function censor(text, censoredWords, censoredPattern, replacementLetter) {
+  return censorFn(censoredWords, censoredPattern, replacementLetter)(text);
 }

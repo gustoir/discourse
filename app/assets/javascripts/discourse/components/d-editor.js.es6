@@ -6,11 +6,13 @@ import { categoryHashtagTriggerRule } from 'discourse/lib/category-hashtags';
 import { TAG_HASHTAG_POSTFIX } from 'discourse/lib/tag-hashtags';
 import { search as searchCategoryTag  } from 'discourse/lib/category-tag-search';
 import { SEPARATOR } from 'discourse/lib/category-hashtags';
-import { cook } from 'discourse/lib/text';
+import { cookAsync } from 'discourse/lib/text';
 import { translations } from 'pretty-text/emoji/data';
-import { emojiSearch } from 'pretty-text/emoji';
+import { emojiSearch, isSkinTonableEmoji } from 'pretty-text/emoji';
 import { emojiUrlFor } from 'discourse/lib/text';
 import { getRegister } from 'discourse-common/lib/get-owner';
+import { findRawTemplate } from 'discourse/lib/raw-templates';
+import { determinePostReplaceSelection } from 'discourse/lib/utilities';
 import deprecated from 'discourse-common/lib/deprecated';
 
 // Our head can be a static string or a function that returns a string
@@ -76,7 +78,7 @@ class Toolbar {
       group: 'insertions',
       icon: 'quote-right',
       shortcut: 'Shift+9',
-      perform: e => e.applySurround('> ', '', 'code_text')
+      perform: e => e.applyList('> ', 'blockquote_text')
     });
 
     this.addButton({id: 'code', group: 'insertions', shortcut: 'Shift+C', action: 'formatCode'});
@@ -136,7 +138,7 @@ class Toolbar {
       label: button.label,
       icon: button.label ? null : button.icon || button.id,
       action: button.action || 'toolbarButton',
-      perform: button.perform || Ember.K,
+      perform: button.perform || function() { },
       trimLeading: button.trimLeading
     };
 
@@ -244,15 +246,20 @@ export default Ember.Component.extend({
       }
     });
 
-    this.appEvents.on('composer:insert-text', text => this._addText(this._getSelected(), text));
-    this.appEvents.on('composer:replace-text', (oldVal, newVal) => this._replaceText(oldVal, newVal));
+    if (this.get('composerEvents')) {
+      this.appEvents.on('composer:insert-block', text => this._addBlock(this._getSelected(), text));
+      this.appEvents.on('composer:insert-text', text => this._addText(this._getSelected(), text));
+      this.appEvents.on('composer:replace-text', (oldVal, newVal) => this._replaceText(oldVal, newVal));
+    }
     this._mouseTrap = mouseTrap;
   },
 
   @on('willDestroyElement')
   _shutDown() {
-    this.appEvents.off('composer:insert-text');
-    this.appEvents.off('composer:replace-text');
+    if (this.get('composerEvents')) {
+      this.appEvents.off('composer:insert-text');
+      this.appEvents.off('composer:replace-text');
+    }
 
     const mouseTrap = this._mouseTrap;
     Object.keys(this.get('toolbar.shortcuts')).forEach(sc => mouseTrap.unbind(sc));
@@ -273,14 +280,14 @@ export default Ember.Component.extend({
     const value = this.get('value');
     const markdownOptions = this.get('markdownOptions') || {};
 
-    markdownOptions.siteSettings = this.siteSettings;
-
-    this.set('preview', cook(value));
-    Ember.run.scheduleOnce('afterRender', () => {
-      if (this._state !== "inDOM") { return; }
-      const $preview = this.$('.d-editor-preview');
-      if ($preview.length === 0) return;
-      this.sendAction('previewUpdated', $preview);
+    cookAsync(value, markdownOptions).then(cooked => {
+      this.set('preview', cooked);
+      Ember.run.scheduleOnce('afterRender', () => {
+        if (this._state !== "inDOM") { return; }
+        const $preview = this.$('.d-editor-preview');
+        if ($preview.length === 0) return;
+        this.sendAction('previewUpdated', $preview);
+      });
     });
   },
 
@@ -297,11 +304,10 @@ export default Ember.Component.extend({
   },
 
   _applyCategoryHashtagAutocomplete() {
-    const template = this.register.lookup('template:category-tag-autocomplete.raw');
     const siteSettings = this.siteSettings;
 
     this.$('.d-editor-input').autocomplete({
-      template: template,
+      template: findRawTemplate('category-tag-autocomplete'),
       key: '#',
       transformComplete(obj) {
         if (obj.model) {
@@ -323,14 +329,17 @@ export default Ember.Component.extend({
     if (!this.siteSettings.enable_emoji) { return; }
 
     const register = this.register;
-    const template = this.register.lookup('template:emoji-selector-autocomplete.raw');
     const self = this;
 
     $editorInput.autocomplete({
-      template: template,
+      template: findRawTemplate('emoji-selector-autocomplete'),
       key: ":",
       afterComplete(text) {
         self.set('value', text);
+      },
+
+      onKeyUp(text, cp) {
+        return text.substring(0, cp).match(/(:(?!:).?[\w-]*:?(?!:)(?:t\d?)?:?) ?$/g);
       },
 
       transformComplete(v) {
@@ -366,6 +375,20 @@ export default Ember.Component.extend({
 
           if (translations[full]) {
             return resolve([translations[full]]);
+          }
+
+          const match = term.match(/^:?(.*?):t(\d)?$/);
+          if (match) {
+            let name = match[1];
+            let scale = match[2];
+
+            if (isSkinTonableEmoji(name)) {
+              if (scale) {
+                return resolve([`${name}:t${scale}`]);
+              } else {
+                return resolve([2, 3, 4, 5, 6].map(x => `${name}:t${x}`));
+              }
+            }
           }
 
           const options = emojiSearch(term, {maxResults: 5});
@@ -526,11 +549,57 @@ export default Ember.Component.extend({
 
   _replaceText(oldVal, newVal) {
     const val = this.get('value');
-    const loc = val.indexOf(oldVal);
-    if (loc !== -1) {
-      this.set('value', val.replace(oldVal, newVal));
-      this._selectText(loc + newVal.length, 0);
+    const needleStart = val.indexOf(oldVal);
+
+    if (needleStart === -1) {
+      // Nothing to replace.
+      return;
     }
+
+    const textarea = this.$('textarea.d-editor-input')[0];
+
+    // Determine post-replace selection.
+    const newSelection = determinePostReplaceSelection({
+      selection: { start: textarea.selectionStart, end: textarea.selectionEnd },
+      needle: { start: needleStart, end: needleStart + oldVal.length },
+      replacement: { start: needleStart, end: needleStart + newVal.length }
+    });
+
+    // Replace value (side effect: cursor at the end).
+    this.set('value', val.replace(oldVal, newVal));
+
+    // Restore cursor.
+    this._selectText(newSelection.start, newSelection.end - newSelection.start);
+  },
+
+  _addBlock(sel, text) {
+    text = (text || '').trim();
+    if (text.length === 0) {
+      return;
+    }
+
+    let pre = sel.pre;
+    let post = sel.value + sel.post;
+
+    if (pre.length > 0) {
+      pre = pre.replace(/\n*$/, "\n\n");
+    }
+
+    if (post.length > 0) {
+      post = post.replace(/^\n*/, "\n\n");
+    }
+
+
+    const value = pre + text + post;
+    const $textarea = this.$('textarea.d-editor-input');
+
+    this.set('value', value);
+
+    $textarea.val(value);
+    $textarea.prop("selectionStart", (pre+text).length + 2);
+    $textarea.prop("selectionEnd", (pre+text).length + 2);
+
+    Ember.run.scheduleOnce("afterRender", () => $textarea.focus());
   },
 
   _addText(sel, text) {
@@ -553,6 +622,7 @@ export default Ember.Component.extend({
         applySurround: (head, tail, exampleKey, opts) => this._applySurround(selected, head, tail, exampleKey, opts),
         applyList: (head, exampleKey) => this._applyList(selected, head, exampleKey),
         addText: text => this._addText(selected, text),
+        replaceText: text => this._addText({pre: '', post: ''}, text),
         getText: () => this.get('value'),
       };
 

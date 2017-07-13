@@ -2,12 +2,61 @@ require 'rails_helper'
 
 describe StaticController do
 
+  context 'brotli_asset' do
+    it 'returns a non brotli encoded 404 if asset is missing' do
+
+        get :brotli_asset, path: 'missing.js'
+
+        expect(response.status).to eq(404)
+        expect(response.headers['Content-Encoding']).not_to eq('br')
+        expect(response.headers["Cache-Control"]).to match(/max-age=1/)
+    end
+
+    it 'can handle fallback brotli assets' do
+      begin
+        assets_path = Rails.root.join("tmp/backup_assets")
+
+        GlobalSetting.stubs(:fallback_assets_path).returns(assets_path.to_s)
+
+        FileUtils.mkdir_p(assets_path)
+
+        file_path = assets_path.join("test.js.br")
+        File.write(file_path, 'fake brotli file')
+
+        get :brotli_asset, path: 'test.js'
+
+        expect(response.status).to eq(200)
+        expect(response.headers["Cache-Control"]).to match(/public/)
+      ensure
+        File.delete(file_path)
+      end
+    end
+
+    it 'has correct headers for brotli assets' do
+      begin
+        assets_path = Rails.root.join("public/assets")
+
+        FileUtils.mkdir_p(assets_path)
+
+        file_path = assets_path.join("test.js.br")
+        File.write(file_path, 'fake brotli file')
+
+        get :brotli_asset, path: 'test.js'
+
+        expect(response.status).to eq(200)
+        expect(response.headers["Cache-Control"]).to match(/public/)
+      ensure
+        File.delete(file_path)
+      end
+    end
+  end
+
   context 'show' do
     before do
       post = create_post
-      SiteSetting.stubs(:tos_topic_id).returns(post.topic.id)
-      SiteSetting.stubs(:guidelines_topic_id).returns(post.topic.id)
-      SiteSetting.stubs(:privacy_topic_id).returns(post.topic.id)
+      SiteSetting.tos_topic_id = post.topic.id
+      SiteSetting.guidelines_topic_id = post.topic.id
+      SiteSetting.privacy_topic_id = post.topic.id
     end
 
     context "with a static file that's present" do
@@ -38,7 +87,7 @@ describe StaticController do
         end
 
         context "when #{setting_name} site setting is set" do
-          before  { SiteSetting.stubs(setting_name).returns('http://example.com/page') }
+          before  { SiteSetting.public_send("#{setting_name}=", 'http://example.com/page') }
 
           it "redirects to the #{setting_name}" do
             expect(subject).to redirect_to('http://example.com/page')
@@ -61,9 +110,41 @@ describe StaticController do
     end
 
     it "should display the login template when login is required" do
-      SiteSetting.stubs(:login_required).returns(true)
+      SiteSetting.login_required = true
       xhr :get, :show, id: 'login'
       expect(response).to be_success
+    end
+
+    context "when login_required is enabled" do
+      before do
+        SiteSetting.login_required = true
+      end
+
+      it 'faq page redirects to login page for anon' do
+        xhr :get, :show, id: 'faq'
+        expect(response).to redirect_to '/login'
+      end
+
+      it 'guidelines page redirects to login page for anon' do
+        xhr :get, :show, id: 'guidelines'
+        expect(response).to redirect_to '/login'
+      end
+
+      it 'faq page loads for logged in user' do
+        log_in
+        xhr :get, :show, id: 'faq'
+        expect(response).to be_success
+        expect(response).to render_template('static/show')
+        expect(assigns(:page)).to eq('faq')
+      end
+
+      it 'guidelines page loads for logged in user' do
+        log_in
+        xhr :get, :show, id: 'guidelines'
+        expect(response).to be_success
+        expect(response).to render_template('static/show')
+        expect(assigns(:page)).to eq('faq')
+      end
     end
   end
 

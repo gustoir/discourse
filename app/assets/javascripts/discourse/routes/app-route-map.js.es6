@@ -1,5 +1,3 @@
-import { defaultHomepage } from 'discourse/lib/utilities';
-
 export default function() {
   // Error page
   this.route('exception', { path: '/exception' });
@@ -45,22 +43,32 @@ export default function() {
     this.route('categoryNone', { path: '/c/:slug/none' });
     this.route('category', { path: '/c/:parentSlug/:slug' });
     this.route('categoryWithID', { path: '/c/:parentSlug/:slug/:id' });
-
-    // homepage
-    this.route(defaultHomepage(), { path: '/' });
   });
+
+  this.route('groups', { resetNamespace: true });
 
   this.route('group', { path: '/groups/:name', resetNamespace: true }, function() {
     this.route('members');
-    this.route('posts');
-    this.route('topics');
-    this.route('mentions');
-    this.route('messages');
+
+    this.route('activity', function() {
+      this.route('posts');
+      this.route('topics');
+      this.route('mentions');
+      this.route('messages');
+    });
+
+    this.route('logs');
+    this.route('edit');
   });
 
   // User routes
-  this.route('users', { resetNamespace: true });
-  this.route('user', { path: '/users/:username', resetNamespace: true }, function() {
+  this.route('users', { resetNamespace: true, path: '/u' });
+  this.route('password-reset', { path: '/u/password-reset/:token' });
+  this.route('account-created', { path: '/u/account-created' }, function() {
+    this.route('resent');
+    this.route('edit-email');
+  });
+  this.route('user', { path: '/u/:username', resetNamespace: true }, function() {
     this.route('summary');
     this.route('userActivity', { path: '/activity', resetNamespace: true }, function() {
       this.route('topics');
@@ -89,6 +97,15 @@ export default function() {
     });
 
     this.route('preferences', { resetNamespace: true }, function() {
+      this.route('account');
+      this.route('profile');
+      this.route('emails');
+      this.route('notifications');
+      this.route('categories');
+      this.route('tags');
+      this.route('interface');
+      this.route('apps');
+
       this.route('username');
       this.route('email');
       this.route('about', { path: '/about-me' });
@@ -132,10 +149,14 @@ export default function() {
       this.route('showCategory' + filter.capitalize(), {path: '/c/:category/:tag_id/l/' + filter});
       this.route('showParentCategory' + filter.capitalize(), {path: '/c/:parent_category/:category/:tag_id/l/' + filter});
     });
-    this.route('show', {path: 'intersection/:tag_id/*additional_tags'});
+    this.route('intersection', {path: 'intersection/:tag_id/*additional_tags'});
   });
 
   this.route('tagGroups', {path: '/tag_groups', resetNamespace: true}, function() {
     this.route('show', {path: '/:id'});
+  });
+
+  this.route('invites', { path: '/invites', resetNamespace: true }, function() {
+    this.route('show', { path: '/:token' });
   });
 }

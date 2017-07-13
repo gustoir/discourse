@@ -53,12 +53,7 @@ describe Discourse do
     let!(:another_admin) { Fabricate(:admin) }
 
     it 'returns the user specified by the site setting site_contact_username' do
-      SiteSetting.stubs(:site_contact_username).returns(another_admin.username)
-      expect(Discourse.site_contact_user).to eq(another_admin)
-    end
-
-    it 'returns the user specified by the site setting site_contact_username regardless of its case' do
-      SiteSetting.stubs(:site_contact_username).returns(another_admin.username.upcase)
+      SiteSetting.site_contact_username = another_admin.username
       expect(Discourse.site_contact_user).to eq(another_admin)
     end
 
@@ -118,7 +113,7 @@ describe Discourse do
       context 'user enabled readonly mode' do
         it "adds a key in redis and publish a message through the message bus" do
           expect($redis.get(user_readonly_mode_key)).to eq(nil)
-          message = MessageBus.track_publish { Discourse.enable_readonly_mode(user_enabled: true) }.first
+          message = MessageBus.track_publish { Discourse.enable_readonly_mode(user_readonly_mode_key) }.first
           assert_readonly_mode(message, user_readonly_mode_key)
         end
       end
@@ -160,10 +155,10 @@ describe Discourse do
       end
 
       it "returns true when user enabled readonly mode key is present in redis" do
-        Discourse.enable_readonly_mode(user_enabled: true)
+        Discourse.enable_readonly_mode(user_readonly_mode_key)
         expect(Discourse.readonly_mode?).to eq(true)
 
-        Discourse.disable_readonly_mode(user_enabled: true)
+        Discourse.disable_readonly_mode(user_readonly_mode_key)
         expect(Discourse.readonly_mode?).to eq(false)
       end
     end
@@ -211,4 +206,3 @@ describe Discourse do
   end
 
 end
-

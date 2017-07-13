@@ -40,6 +40,21 @@ describe TopicQuery do
 
   end
 
+  context "custom filters" do
+    it "allows custom filters to be applied" do
+      topic1 = Fabricate(:topic)
+      _topic2 = Fabricate(:topic)
+
+      TopicQuery.add_custom_filter(:only_topic_id) do |results, topic_query|
+        results = results.where('topics.id = ?', topic_query.options[:only_topic_id])
+      end
+
+      expect(TopicQuery.new(nil, {only_topic_id: topic1.id}).list_latest.topics.map(&:id)).to eq([topic1.id])
+
+      TopicQuery.remove_custom_filter(:only_topic_id)
+    end
+  end
+
   context "list_topics_by" do
 
     it "allows users to view their own invisible topics" do
@@ -48,6 +63,35 @@ describe TopicQuery do
 
       expect(TopicQuery.new(nil).list_topics_by(user).topics.count).to eq(1)
       expect(TopicQuery.new(user).list_topics_by(user).topics.count).to eq(2)
+    end
+
+  end
+
+  context "prioritize_pinned_topics" do
+
+    it "does the pagination correctly" do
+
+      num_topics = 15
+      per_page = 3
+
+      topics = []
+      (num_topics - 1).downto(0).each do |i|
+         topics[i] = Fabricate(:topic)
+      end
+
+      topic_query = TopicQuery.new(user)
+      results = topic_query.send(:default_results)
+
+      expect(topic_query.prioritize_pinned_topics(results, {
+        :per_page => per_page,
+        :page => 0
+      })).to eq(topics[0...per_page])
+
+      expect(topic_query.prioritize_pinned_topics(results, {
+        :per_page => per_page,
+        :page => 1
+      })).to eq(topics[per_page...num_topics])
+
     end
 
   end
@@ -409,6 +453,29 @@ describe TopicQuery do
       end
     end
 
+    context 'with whispers' do
+
+      it 'correctly shows up in unread for staff' do
+
+        first = create_post(raw: 'this is the first post', title: 'super amazing title')
+
+        _whisper = create_post(topic_id: first.topic.id,
+                              post_type: Post.types[:whisper],
+                              raw: 'this is a whispered reply')
+
+        topic_id = first.topic.id
+
+        TopicUser.update_last_read(user, topic_id, first.post_number, 1)
+        TopicUser.update_last_read(admin, topic_id, first.post_number, 1)
+
+        TopicUser.change(user.id, topic_id, notification_level: TopicUser.notification_levels[:tracking])
+        TopicUser.change(admin.id, topic_id, notification_level: TopicUser.notification_levels[:tracking])
+
+        expect(TopicQuery.new(user).list_unread.topics).to eq([])
+        expect(TopicQuery.new(admin).list_unread.topics).to eq([first.topic])
+      end
+    end
+
     context 'with read data' do
       let!(:partially_read) { Fabricate(:post, user: creator).topic }
       let!(:fully_read) { Fabricate(:post, user: creator).topic }
@@ -419,8 +486,11 @@ describe TopicQuery do
       end
 
       context 'list_unread' do
-        it 'contains no topics' do
+        it 'lists topics correctly' do
+          new_topic = Fabricate(:post, user: creator).topic
+
           expect(topic_query.list_unread.topics).to eq([])
+          expect(topic_query.list_read.topics).to match_array([fully_read, partially_read])
         end
       end
 
@@ -435,11 +505,6 @@ describe TopicQuery do
         end
       end
 
-      context 'list_read' do
-        it 'contain both topics ' do
-          expect(topic_query.list_read.topics).to match_array([fully_read, partially_read])
-        end
-      end
     end
 
   end
@@ -629,7 +694,6 @@ describe TopicQuery do
 
       related_by_group_pm  = create_pm(sender, target_group_names: [group_with_user.name])
       read(user, related_by_group_pm, 1)
-
 
       expect(TopicQuery.new(user).list_suggested_for(pm_to_group).topics.map(&:id)).to(
         eq([related_by_group_pm.id, related_by_user_pm.id, pm_to_user.id])

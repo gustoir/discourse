@@ -14,7 +14,7 @@ describe ApplicationHelper do
   describe "mobile_view?" do
     context "enable_mobile_theme is true" do
       before do
-        SiteSetting.stubs(:enable_mobile_theme).returns(true)
+        SiteSetting.enable_mobile_theme = true
       end
 
       it "is true if mobile_view is '1' in the session" do
@@ -67,7 +67,7 @@ describe ApplicationHelper do
 
     context "enable_mobile_theme is false" do
       before do
-        SiteSetting.stubs(:enable_mobile_theme).returns(false)
+        SiteSetting.enable_mobile_theme = false
       end
 
       it "is false if mobile_view is '1' in the session" do
@@ -103,6 +103,12 @@ describe ApplicationHelper do
     it 'returns an empty string when the I18n.locale is not rtl' do
       I18n.stubs(:locale).returns(:zh_TW)
       expect(helper.rtl_class).to eq('')
+    end
+  end
+
+  describe 'gsub_emoji_to_unicode' do
+    it "converts all emoji to unicode" do
+      expect(helper.gsub_emoji_to_unicode('Boat Talk: my :sailboat: boat: why is it so slow? :snail:')).to eq("Boat Talk: my ⛵ boat: why is it so slow? 🐌")
     end
   end
 

@@ -19,7 +19,7 @@ const TopicRoute = Discourse.Route.extend({
   titleToken() {
     const model = this.modelFor('topic');
     if (model) {
-      const result = model.get('title'),
+      const result = model.get('unicode_title') ? model.get('unicode_title') : model.get('title'),
             cat = model.get('category');
 
       // Only display uncategorized in the title tag if it was renamed
@@ -50,9 +50,11 @@ const TopicRoute = Discourse.Route.extend({
       this.controllerFor('flag').setProperties({ selected: null, flagTopic: true });
     },
 
-    showAutoClose() {
-      showModal('edit-topic-auto-close', { model: this.modelFor('topic') });
-      this.controllerFor('modal').set('modalClass', 'edit-auto-close-modal');
+    showTopicStatusUpdate() {
+      const model = this.modelFor('topic');
+      model.set('topic_timer', Ember.Object.create(model.get('topic_timer')));
+      showModal('edit-topic-timer', { model });
+      this.controllerFor('modal').set('modalClass', 'edit-topic-timer-modal');
     },
 
     showChangeTimestamp() {
@@ -72,8 +74,12 @@ const TopicRoute = Discourse.Route.extend({
 
     showHistory(model) {
       showModal('history', { model });
-      this.controllerFor('history').refresh(model.get("id"), "latest");
-      this.controllerFor('history').set('post', model);
+      const historyController = this.controllerFor('history');
+
+      historyController.refresh(model.get("id"), "latest");
+      historyController.set('post', model);
+      historyController.set('topicController', this.controllerFor('topic'));
+
       this.controllerFor('modal').set('modalClass', 'history-modal');
     },
 
@@ -117,7 +123,6 @@ const TopicRoute = Discourse.Route.extend({
 
     willTransition() {
       this._super();
-      this.controllerFor("topic").send('deselectText');
       Em.run.cancel(scheduledReplace);
       isTransitioning = true;
       return true;
@@ -184,7 +189,6 @@ const TopicRoute = Discourse.Route.extend({
     postStream.cancelFilter();
 
     topicController.set('multiSelect', false);
-    topicController.unsubscribe();
     this.controllerFor('composer').set('topic', null);
     this.screenTrack.stop();
 
@@ -207,13 +211,17 @@ const TopicRoute = Discourse.Route.extend({
 
     // close the multi select when switching topics
     controller.set('multiSelect', false);
+    controller.get('quoteState').clear();
 
     this.controllerFor('composer').set('topic', model);
     this.topicTrackingState.trackIncoming('all');
-    controller.subscribe();
 
     // We reset screen tracking every time a topic is entered
     this.screenTrack.start(model.get('id'), controller);
+
+    Ember.run.scheduleOnce('afterRender', () => {
+      this.appEvents.trigger('header:update-topic', model);
+    });
   }
 
 });

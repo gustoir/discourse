@@ -1,6 +1,8 @@
+import DiscourseURL from 'discourse/lib/url';
 import computed from 'ember-addons/ember-computed-decorators';
 import { bufferedRender } from 'discourse-common/lib/buffered-render';
-import { getOwner } from 'discourse-common/lib/get-owner';
+import { findRawTemplate } from 'discourse/lib/raw-templates';
+import { wantsNewWindow } from 'discourse/lib/intercept-click';
 
 export function showEntrance(e) {
   let target = $(e.target);
@@ -32,7 +34,7 @@ export default Ember.Component.extend(bufferedRender({
   },
 
   buildBuffer(buffer) {
-    const template = getOwner(this).lookup('template:list/topic-list-item.raw');
+    const template = findRawTemplate('list/topic-list-item');
     if (template) {
       buffer.push(template(this));
     }
@@ -108,16 +110,24 @@ export default Ember.Component.extend(bufferedRender({
     const result = showEntrance.call(this, e);
     if (result === false) { return result; }
 
+    const topic = this.get('topic');
     const target = $(e.target);
     if (target.hasClass('bulk-select')) {
       const selected = this.get('selected');
-      const topic = this.get('topic');
 
       if (target.is(':checked')) {
         selected.addObject(topic);
       } else {
         selected.removeObject(topic);
       }
+    }
+
+    if (target.hasClass('raw-topic-link')) {
+       if (wantsNewWindow(e)) { return true; }
+
+      this.appEvents.trigger('header:update-topic', topic);
+      DiscourseURL.routeTo(target.attr('href'));
+      return false;
     }
 
     if (target.closest('a.topic-status').length === 1) {
@@ -128,14 +138,11 @@ export default Ember.Component.extend(bufferedRender({
 
   highlight(opts = { isLastViewedTopic: false }) {
     const $topic = this.$();
-    const originalCol = $topic.css('backgroundColor');
     $topic
       .addClass('highlighted')
-      .attr('data-islastviewedtopic', opts.isLastViewedTopic)
-      .stop()
-      .animate({ backgroundColor: originalCol }, 2500, 'swing', function() {
-        $topic.removeClass('highlighted');
-      });
+      .attr('data-islastviewedtopic', opts.isLastViewedTopic);
+
+    $topic.on('animationend', () => $topic.removeClass('highlighted'));
   },
 
   _highlightIfNeeded: function() {

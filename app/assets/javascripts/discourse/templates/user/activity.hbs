@@ -23,12 +23,14 @@
       {{/link-to}}
     </li>
     {{/if}}
-    {{plugin-outlet "user-activity-bottom"}}
+    {{plugin-outlet name="user-activity-bottom"
+                    connectorTagName='li'
+                    args=(hash model=model)}}
   {{/mobile-nav}}
 
   {{#if viewingSelf}}
     <div class='user-archive'>
-      {{d-button action="exportUserArchive" label="user.download_archive" icon="download"}}
+      {{d-button action="exportUserArchive" label="user.download_archive.button_text" icon="download"}}
     </div>
   {{/if}}
 {{/d-section}}

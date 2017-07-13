@@ -30,8 +30,14 @@ describe Email::Styles do
       expect(frag.at("img")["style"]).to match("max-width")
     end
 
-    it "adds a width and height to images with an emoji path" do
+    it "adds a width and height to emojis" do
       frag = basic_fragment("<img src='/images/emoji/fish.png' class='emoji'>")
+      expect(frag.at("img")["width"]).to eq("20")
+      expect(frag.at("img")["height"]).to eq("20")
+    end
+
+    it "adds a width and height to custom emojis" do
+      frag = basic_fragment("<img src='/uploads/default/_emoji/fish.png' class='emoji emoji-custom'>")
       expect(frag.at("img")["width"]).to eq("20")
       expect(frag.at("img")["height"]).to eq("20")
     end
@@ -111,7 +117,7 @@ describe Email::Styles do
 
     context "without https" do
       before do
-        SiteSetting.stubs(:force_https).returns(false)
+        SiteSetting.force_https = false
       end
 
       it "rewrites the href to have http" do
@@ -132,7 +138,7 @@ describe Email::Styles do
 
     context "with https" do
       before do
-        SiteSetting.stubs(:force_https).returns(true)
+        SiteSetting.force_https = true
       end
 
       it "rewrites the forum URL to have https" do
@@ -167,7 +173,20 @@ describe Email::Styles do
       style.strip_avatars_and_emojis
       expect(style.to_html).to match_html("cry_cry")
     end
+
+    it "works if img tag has no attrs" do
+      cooked = "Create a method for click on image and use ng-click in <img> in your slide box...it is simple"
+      style = Email::Styles.new(cooked)
+      style.strip_avatars_and_emojis
+      expect(style.to_html).to eq(cooked)
+    end
   end
 
+  context "onebox_styles" do
+    it "renders quote as <blockquote>" do
+      fragment = html_fragment('<aside class="quote"> <div class="title"> <div class="quote-controls"> <i class="fa fa-chevron-down" title="expand/collapse"></i><a href="/t/xyz/123" title="go to the quoted post" class="back"></a> </div> <img alt="" width="20" height="20" src="https://cdn-enterprise.discourse.org/boingboing/user_avatar/bbs.boingboing.net/techapj/40/54379_1.png" class="avatar">techAPJ: </div> <blockquote> <p>lorem ipsum</p> </blockquote> </aside>')
+      expect(fragment.to_s.squish).to match(/^<blockquote.+<\/blockquote>$/)
+    end
+  end
 
 end

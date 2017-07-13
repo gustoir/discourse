@@ -7,6 +7,7 @@ class DecoratorHelper {
   constructor(widget, attrs, state) {
     this.widget = widget;
     this.attrs = attrs;
+    this.canConnectComponent = true;
     this.state = state;
     this.register = widget.register;
     this.register.deprecateContainer(this);
@@ -86,7 +87,7 @@ class DecoratorHelper {
   }
 
   /**
-   * You can use this bridge to mount an Ember View inside the virtual
+   * You can use this bridge to mount an Ember Component inside the virtual
    * DOM post stream. Note that this is a bit bizarre, as our core app
    * is rendered in Ember, then we switch to a virtual dom, and this
    * allows part of that virtual dom to use Ember again!
@@ -99,13 +100,12 @@ class DecoratorHelper {
    * Example:
    *
    * ```
-   * helper.connect({ templateName: 'my-handlebars-template' });
+   * helper.connect({ component: 'my-component-name' });
    * ```
    **/
   connect(details) {
     return new Connector(this.widget, details);
   }
-
 }
 DecoratorHelper.prototype.h = h;
 

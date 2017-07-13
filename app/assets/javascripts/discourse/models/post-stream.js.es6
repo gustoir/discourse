@@ -15,6 +15,7 @@ export default RestModel.extend({
   loadingAbove: null,
   loadingBelow: null,
   loadingFilter: null,
+  loadingNearPost: null,
   stagingPost: null,
   postsWithPlaceholders: null,
   timelineLookup: null,
@@ -168,7 +169,7 @@ export default RestModel.extend({
     this.set('summary', false);
 
     let jump = false;
-    if (userFilters.contains(username)) {
+    if (userFilters.includes(username)) {
       userFilters.removeObject(username);
     } else {
       userFilters.addObject(username);
@@ -206,6 +207,7 @@ export default RestModel.extend({
 
     // TODO: if we have all the posts in the filter, don't go to the server for them.
     this.set('loadingFilter', true);
+    this.set('loadingNearPost', opts.nearPost);
 
     opts = _.merge(opts, this.get('streamFilters'));
 
@@ -216,6 +218,8 @@ export default RestModel.extend({
     }).catch(result => {
       this.errorLoading(result);
       throw result;
+    }).finally(() => {
+      this.set('loadingNearPost', null);
     });
   },
 
@@ -256,7 +260,7 @@ export default RestModel.extend({
         return this.findPostsByIds(gap).then(posts => {
           posts.forEach(p => {
             const stored = this.storePost(p);
-            if (!currentPosts.contains(stored)) {
+            if (!currentPosts.includes(stored)) {
               currentPosts.insertAt(postIdx++, stored);
             }
           });
@@ -410,7 +414,7 @@ export default RestModel.extend({
     if (stored) {
       const posts = this.get('posts');
 
-      if (!posts.contains(stored)) {
+      if (!posts.includes(stored)) {
         if (!this.get('loadingBelow')) {
           this.get('postsWithPlaceholders').appendPost(() => posts.pushObject(stored));
         } else {
@@ -444,11 +448,18 @@ export default RestModel.extend({
     return this._identityMap[id];
   },
 
-  loadPost(postId){
+  loadPost(postId) {
     const url = "/posts/" + postId;
     const store = this.store;
+    const existing = this._identityMap[postId];
 
-    return ajax(url).then(p => this.storePost(store.createRecord('post', p)));
+    return ajax(url).then(p => {
+      if (existing) {
+        p.cooked = existing.cooked;
+      }
+
+      return this.storePost(store.createRecord('post', p));
+    });
   },
 
   /**
@@ -540,7 +551,9 @@ export default RestModel.extend({
     return Ember.RSVP.Promise.resolve();
   },
 
-  triggerChangedPost(postId, updatedAt) {
+  triggerChangedPost(postId, updatedAt, opts) {
+    opts = opts || {};
+
     const resolved = Ember.RSVP.Promise.resolve();
     if (!postId) { return resolved; }
 
@@ -548,7 +561,13 @@ export default RestModel.extend({
     if (existing && existing.updated_at !== updatedAt) {
       const url = "/posts/" + postId;
       const store = this.store;
-      return ajax(url).then(p => this.storePost(store.createRecord('post', p)));
+      return ajax(url).then(p => {
+        if (opts.preserveCooked) {
+          p.cooked = existing.get('cooked');
+        }
+
+        this.storePost(store.createRecord('post', p));
+      });
     }
     return resolved;
   },
@@ -725,6 +744,68 @@ export default RestModel.extend({
       if (posts) {
         posts.forEach(p => this.storePost(store.createRecord('post', p)));
       }
+    });
+  },
+
+  backfillExcerpts(streamPosition){
+    this._excerpts = this._excerpts || [];
+    const stream = this.get('stream');
+
+    this._excerpts.loadNext = streamPosition;
+
+    if (this._excerpts.loading) {
+      return this._excerpts.loading.then(()=>{
+        if(!this._excerpts[stream[streamPosition]]) {
+
+          if (this._excerpts.loadNext === streamPosition) {
+            return this.backfillExcerpts(streamPosition);
+          }
+        }
+      });
+    }
+
+
+    let postIds = stream.slice(Math.max(streamPosition-20,0), streamPosition+20);
+
+    for(let i=postIds.length-1;i>=0;i--) {
+      if (this._excerpts[postIds[i]]) {
+        postIds.splice(i,1);
+      }
+    }
+
+    let data = {
+      post_ids: postIds
+    };
+
+    this._excerpts.loading = ajax("/t/" + this.get('topic.id') + "/excerpts.json", {data})
+      .then(excerpts => {
+        excerpts.forEach(obj => {
+          this._excerpts[obj.post_id] = obj;
+        });
+      })
+      .finally(()=>{ this._excerpts.loading = null; });
+
+    return this._excerpts.loading;
+  },
+
+  excerpt(streamPosition){
+
+    const stream = this.get('stream');
+
+    return new Ember.RSVP.Promise((resolve,reject) => {
+
+      let excerpt = this._excerpts && this._excerpts[stream[streamPosition]];
+
+      if(excerpt) {
+        resolve(excerpt);
+        return;
+      }
+
+      this.backfillExcerpts(streamPosition)
+          .then(()=>{
+            resolve(this._excerpts[stream[streamPosition]]);
+          })
+          .catch(e => reject(e));
     });
   },
 

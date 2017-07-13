@@ -2,7 +2,7 @@ require "rails_helper"
 
 describe Jobs::PendingQueuedPostReminder do
   context "notify_about_queued_posts_after is 0" do
-    before { SiteSetting.stubs(:notify_about_queued_posts_after).returns(0) }
+    before { SiteSetting.notify_about_queued_posts_after = 0 }
 
     it "never emails" do
       described_class.any_instance.expects(:should_notify_ids).never
@@ -12,7 +12,9 @@ describe Jobs::PendingQueuedPostReminder do
   end
 
   context "notify_about_queued_posts_after is 24" do
-    before { SiteSetting.stubs(:notify_about_queued_posts_after).returns(24) }
+    before do
+      SiteSetting.notify_about_queued_posts_after = 24
+    end
 
     it "doesn't email if there are no queued posts" do
       described_class.any_instance.stubs(:should_notify_ids).returns([])

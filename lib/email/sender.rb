@@ -51,8 +51,6 @@ module Email
         end
       end
 
-      @message.parts[0].body = @message.parts[0].body.to_s.gsub(/\[\/?email-indent\]/, '')
-
       # Fix relative (ie upload) HTML links in markdown which do not work well in plain text emails.
       # These are the links we add when a user uploads a file or image.
       # Ideally we would parse general markdown into plain text, but that is almost an intractable problem.
@@ -67,32 +65,54 @@ module Email
 
       host = Email::Sender.host_for(Discourse.base_url)
 
-      topic_id = header_value('X-Discourse-Topic-Id')
-      post_id = header_value('X-Discourse-Post-Id')
+      post_id   = header_value('X-Discourse-Post-Id')
+      topic_id  = header_value('X-Discourse-Topic-Id')
       reply_key = header_value('X-Discourse-Reply-Key')
 
       # always set a default Message ID from the host
-      uuid = SecureRandom.uuid
-      @message.header['Message-ID'] = "<#{uuid}@#{host}>"
+      @message.header['Message-ID'] = "<#{SecureRandom.uuid}@#{host}>"
 
       if topic_id.present?
         email_log.topic_id = topic_id
 
-        incoming_email = IncomingEmail.find_by(post_id: post_id, topic_id: topic_id)
+        post = Post.find_by(id: post_id)
+        topic = Topic.find_by(id: topic_id)
+        first_post = topic.ordered_posts.first
 
-        incoming_message_id = nil
-        incoming_message_id = "<#{incoming_email.message_id}>" if incoming_email.try(:message_id).present?
+        topic_message_id = first_post.incoming_email&.message_id.present? ?
+          "<#{first_post.incoming_email.message_id}>" :
+          "<topic/#{topic_id}@#{host}>"
 
-        topic_identifier = "<topic/#{topic_id}@#{host}>"
-        post_identifier = "<topic/#{topic_id}/#{post_id}@#{host}>"
+        post_message_id = post.incoming_email&.message_id.present? ?
+          "<#{post.incoming_email.message_id}>" :
+          "<topic/#{topic_id}/#{post_id}@#{host}>"
 
-        @message.header['Message-ID'] = post_identifier
-        @message.header['In-Reply-To'] = incoming_message_id || topic_identifier
-        @message.header['References'] = topic_identifier
+        referenced_posts = Post.includes(:incoming_email)
+                               .where(id: PostReply.where(reply_id: post_id).select(:post_id))
+                               .order(id: :desc)
 
-        topic = Topic.where(id: topic_id).first
+        referenced_post_message_ids = referenced_posts.map do |post|
+          if post.incoming_email&.message_id.present?
+            "<#{post.incoming_email.message_id}>"
+          else
+            if post.post_number == 1
+              "<topic/#{topic_id}@#{host}>"
+            else
+              "<topic/#{topic_id}/#{post.id}@#{host}>"
+            end
+          end
+        end
 
-        # http://www.ietf.org/rfc/rfc2919.txt
+        # https://www.ietf.org/rfc/rfc2822.txt
+        if post.post_number == 1
+          @message.header['Message-ID']  = topic_message_id
+        else
+          @message.header['Message-ID']  = post_message_id
+          @message.header['In-Reply-To'] = referenced_post_message_ids[0] || topic_message_id
+          @message.header['References']  = [referenced_post_message_ids, topic_message_id].flatten.compact.uniq
+        end
+
+        # https://www.ietf.org/rfc/rfc2919.txt
         if topic && topic.category && !topic.category.uncategorized?
           list_id = "<#{topic.category.name.downcase.tr(' ', '-')}.#{host}>"
 
@@ -105,10 +125,17 @@ module Email
           list_id = "<#{host}>"
         end
 
-        # http://www.ietf.org/rfc/rfc3834.txt
+        # https://www.ietf.org/rfc/rfc3834.txt
         @message.header['Precedence']   = 'list'
         @message.header['List-ID']      = list_id
-        @message.header['List-Archive'] = topic.url if topic
+
+        if topic
+          if SiteSetting.private_email?
+            @message.header['List-Archive'] = "#{Discourse.base_url}#{topic.slugless_url}"
+          else
+            @message.header['List-Archive'] = topic.url
+          end
+        end
       end
 
       if reply_key.present? && @message.header['Reply-To'] =~ /\<([^\>]+)\>/

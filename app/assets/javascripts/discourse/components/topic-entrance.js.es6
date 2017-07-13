@@ -92,13 +92,18 @@ export default Ember.Component.extend(CleansUp, {
     this.appEvents.off('topic-entrance:show');
   },
 
+  _jumpTo(destination) {
+    this.cleanUp();
+    DiscourseURL.routeTo(destination);
+  },
+
   actions: {
     enterTop() {
-      DiscourseURL.routeTo(this.get('topic.url'));
+      this._jumpTo(this.get('topic.url'));
     },
 
     enterBottom() {
-      DiscourseURL.routeTo(this.get('topic.lastPostUrl'));
+      this._jumpTo(this.get('topic.lastPostUrl'));
     }
   }
 });

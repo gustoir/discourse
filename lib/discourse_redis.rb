@@ -35,13 +35,14 @@ class DiscourseRedis
         if slave_client.call([:info]).split("\r\n").include?(MASTER_LINK_STATUS)
           logger.info "#{log_prefix}: Master server is active, killing all connections to slave..."
 
+          self.master = true
+
           CONNECTION_TYPES.each do |connection_type|
             slave_client.call([:client, [:kill, 'type', connection_type]])
           end
 
           Discourse.clear_readonly!
           Discourse.request_refresh!
-          self.master = true
           success = true
         end
       ensure
@@ -60,7 +61,7 @@ class DiscourseRedis
     end
 
     def running?
-      synchronize { @timer_task.running? }
+      @timer_task.running?
     end
 
     private
@@ -92,7 +93,10 @@ class DiscourseRedis
     end
 
     def resolve
-      return @slave_options if !@fallback_handler.master
+      if !@fallback_handler.master
+        @fallback_handler.verify_master unless @fallback_handler.running?
+        return @slave_options
+      end
 
       begin
         options = @options.dup

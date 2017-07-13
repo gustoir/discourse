@@ -1,6 +1,6 @@
 desc "Runs the qunit test suite"
 
-task "qunit:test" => :environment do
+task "qunit:test", [:timeout] => :environment do |_, args|
 
   require "rack"
   require "socket"
@@ -45,6 +45,10 @@ task "qunit:test" => :environment do
 
     if options.present?
       cmd += "?#{options.to_query.gsub('+', '%20')}"
+    end
+
+    if args[:timeout].present?
+      cmd += " #{args[:timeout]}"
     end
 
     # wait for server to respond, will exception out on failure

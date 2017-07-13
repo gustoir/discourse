@@ -1,130 +1,72 @@
-import computed from 'ember-addons/ember-computed-decorators';
 import { selectedText } from 'discourse/lib/utilities';
 
 // we don't want to deselect when we click on buttons that use it
-function ignoreElements(e) {
+function willQuote(e) {
   const $target = $(e.target);
-  return $target.hasClass('quote-button') ||
-         $target.closest('.create').length ||
-         $target.closest('.reply-new').length ||
-         $target.closest('.share').length;
+  return $target.hasClass('quote-button') || $target.closest('.create, .share, .reply-new').length;
 }
 
 export default Ember.Component.extend({
   classNames: ['quote-button'],
   classNameBindings: ['visible'],
-  isMouseDown: false,
-  _isTouchInProgress: false,
+  visible: false,
 
-  @computed('quoteState.buffer')
-  visible: buffer => buffer && buffer.length > 0,
+  _isMouseDown: false,
+  _reselected: false,
 
-  /**
-    Binds to the following global events:
-      - `mousedown` to clear the quote button if they click elsewhere.
-      - `mouseup` to trigger the display of the quote button.
-      - `selectionchange` to make the selection work under iOS
-
-    @method didInsertElement
-  **/
-  didInsertElement() {
-    let onSelectionChanged = () => this._selectText(window.getSelection().anchorNode);
-
-    // Windows Phone hack, it is not firing the touch events
-    // best we can do is debounce this so we dont keep locking up
-    // the selection when we add the caret to measure where we place
-    // the quote reply widget
-    //
-    // Same hack applied to Android cause it has unreliable touchend
-    const isAndroid = this.capabilities.isAndroid;
-    if (this.capabilities.isWinphone || isAndroid) {
-      onSelectionChanged = _.debounce(onSelectionChanged, 500);
-    }
-
-    $(document).on("mousedown.quote-button", e => {
-      this.set('isMouseDown', true);
-
-      if (ignoreElements(e)) { return; }
-
-      // deselects only when the user left click
-      // (allows anyone to `extend` their selection using shift+click)
-      if (!window.getSelection().isCollapsed &&
-          e.which === 1 &&
-          !e.shiftKey) {
-        this.sendAction('deselectText');
-      }
-    }).on('mouseup.quote-button', e => {
-      if (ignoreElements(e)) { return; }
-
-      this._selectText(e.target);
-      this.set('isMouseDown', false);
-    }).on('selectionchange', () => {
-      // there is no need to handle this event when the mouse is down
-      // or if there a touch in progress
-      if (this.get('isMouseDown') || this._isTouchInProgress) { return; }
-      // `selection.anchorNode` is used as a target
-      onSelectionChanged();
-    });
-
-    // Android is dodgy, touchend often will not fire
-    // https://code.google.com/p/android/issues/detail?id=19827
-    if (!this.isAndroid) {
-      $(document).on('touchstart.quote-button', () => {
-        this._isTouchInProgress = true;
-        return true;
-      });
-
-      $(document).on('touchend.quote-button', () => {
-        this._isTouchInProgress = false;
-        return true;
-      });
-    }
+  _hideButton() {
+    this.get('quoteState').clear();
+    this.set('visible', false);
   },
 
-  _selectText(target) {
-    // anonymous users cannot "quote-reply"
-    if (!this.currentUser) return;
-
+  _selectionChanged() {
     const quoteState = this.get('quoteState');
-
-    const $target = $(target);
-    const postId = $target.closest('.boxed, .reply').data('post-id');
-
-    const details = this.get('topic.details');
-    if (!(details.get('can_reply_as_new_topic') || details.get('can_create_post'))) {
-      return;
-    }
 
     const selection = window.getSelection();
     if (selection.isCollapsed) {
+      if (this.get("visible")) { this._hideButton(); }
       return;
     }
 
-    const range = selection.getRangeAt(0),
-          cloned = range.cloneRange(),
-          $ancestor = $(range.commonAncestorContainer);
+    // ensure we selected content inside 1 post *only*
+    let firstRange, postId;
+    for (let r = 0; r < selection.rangeCount; r++) {
+      const range = selection.getRangeAt(r);
 
-    if ($ancestor.closest('.cooked').length === 0) {
-      return this.sendAction('deselectText');
+      if ($(range.startContainer.parentNode).closest('.cooked').length === 0) return;
+
+      const $ancestor = $(range.commonAncestorContainer);
+
+      firstRange = firstRange || range;
+      postId = postId || $ancestor.closest('.boxed, .reply').data('post-id');
+
+      if ($ancestor.closest(".contents").length === 0 || !postId) {
+        if (this.get("visible")) { this._hideButton(); }
+        return;
+      }
     }
 
-    const selVal = selectedText();
-    if (quoteState.get('buffer') === selVal) { return; }
-    quoteState.setProperties({ postId, buffer: selVal });
+    quoteState.selected(postId, selectedText());
+    this.set('visible', quoteState.buffer.length > 0);
+
+    // on Desktop, shows the button at the beginning of the selection
+    // on Mobile, shows the button at the end of the selection
+    const isMobileDevice = this.site.isMobileDevice;
+    const { isIOS, isAndroid, isSafari } = this.capabilities;
+    const showAtEnd = isMobileDevice || isIOS || isAndroid;
+
+    // Don't mess with the original range as it results in weird behaviours
+    // where certain browsers will deselect the selection
+    const clone = firstRange.cloneRange();
 
     // create a marker element containing a single invisible character
     const markerElement = document.createElement("span");
     markerElement.appendChild(document.createTextNode("\ufeff"));
 
-    const isMobileDevice = this.site.isMobileDevice;
-    const capabilities = this.capabilities;
-    const isIOS = capabilities.isIOS;
-    const isAndroid = capabilities.isAndroid;
-
-    // collapse the range at the beginning/end of the selection
-    // and insert it at the start of our selection range
-    range.collapse(!isMobileDevice);
-    range.insertNode(markerElement);
+    // on mobile, collapse the range at the end of the selection
+    if (showAtEnd) { clone.collapse(); }
+    // insert the marker
+    clone.insertNode(markerElement);
 
     // retrieve the position of the marker
     const $markerElement = $(markerElement);
@@ -135,39 +77,60 @@ export default Ember.Component.extend({
     // remove the marker
     markerElement.parentNode.removeChild(markerElement);
 
-    // work around Chrome that would sometimes lose the selection
-    const sel = window.getSelection();
-    sel.removeAllRanges();
-    sel.addRange(cloned);
+    // work around Safari that would sometimes lose the selection
+    if (isSafari) {
+      this._reselected = true;
+      selection.removeAllRanges();
+      selection.addRange(clone);
+    }
 
-    Ember.run.scheduleOnce('afterRender', function() {
-      let topOff = markerOffset.top;
-      let leftOff = markerOffset.left;
+    // change the position of the button
+    Ember.run.scheduleOnce("afterRender", () => {
+      let top = markerOffset.top;
+      let left = markerOffset.left + Math.max(0, parentScrollLeft);
 
-      if (parentScrollLeft > 0) leftOff += parentScrollLeft;
-
-      if (isMobileDevice || isIOS || isAndroid) {
-        topOff = topOff + 20;
-        leftOff = Math.min(leftOff + 10, $(window).width() - $quoteButton.outerWidth());
+      if (showAtEnd) {
+        top = top + 20;
+        left = Math.min(left + 10, $(window).width() - $quoteButton.outerWidth());
       } else {
-        topOff = topOff - $quoteButton.outerHeight() - 5;
+        top = top - $quoteButton.outerHeight() - 5;
       }
 
-      $quoteButton.offset({ top: topOff, left: leftOff });
+      $quoteButton.offset({ top, left });
+    });
+
+  },
+
+  didInsertElement() {
+    const { isWinphone, isAndroid } = this.capabilities;
+    const wait = (isWinphone || isAndroid) ? 250 : 25;
+    const onSelectionChanged = _.debounce(() => this._selectionChanged(), wait);
+
+    $(document).on("mousedown.quote-button", e => {
+      this._isMouseDown = true;
+      this._reselected = false;
+      if (!willQuote(e)) {
+        this._hideButton();
+      }
+    }).on("mouseup.quote-button", () => {
+      this._isMouseDown = false;
+      onSelectionChanged();
+    }).on("selectionchange.quote-button", () => {
+      if (!this._isMouseDown && !this._reselected) {
+        onSelectionChanged();
+      }
     });
   },
 
   willDestroyElement() {
-    $(document)
-      .off("mousedown.quote-button")
-      .off("mouseup.quote-button")
-      .off("touchstart.quote-button")
-      .off("touchend.quote-button")
-      .off("selectionchange");
+    $(document).off("mousedown.quote-button")
+               .off("mouseup.quote-button")
+               .off("selectionchange.quote-button");
   },
 
-  click(e) {
-    e.stopPropagation();
-    this.sendAction('selectText');
+  click() {
+    const { postId, buffer } = this.get('quoteState');
+    this.attrs.selectText(postId, buffer).then(() => this._hideButton());
+    return false;
   }
 });

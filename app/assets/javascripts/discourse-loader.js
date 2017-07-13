@@ -1,4 +1,4 @@
-var define, require, requirejs;
+var define, requirejs;
 
 (function() {
 
@@ -54,7 +54,7 @@ var define, require, requirejs;
     var name = this.name;
 
     return this._require || (this._require = function(dep) {
-      return require(resolve(dep, name));
+      return requirejs(resolve(dep, name));
     });
   };
 
@@ -127,7 +127,7 @@ var define, require, requirejs;
     if (!mod) {
       throw new Error('Could not find module `' + name + '` imported from `' + origin + '`');
     }
-    return require(name);
+    return requirejs(name);
   }
 
   function missingModule(name) {
@@ -135,8 +135,12 @@ var define, require, requirejs;
   }
 
   requirejs = require = function(name) {
-    var mod = registry[name] || registry[MOVED_MODULES[name]];
 
+    if (MOVED_MODULES[name]) {
+      name = MOVED_MODULES[name];
+    }
+
+    var mod = registry[name];
 
     if (mod && mod.callback instanceof Alias) {
       mod = registry[mod.callback.name];

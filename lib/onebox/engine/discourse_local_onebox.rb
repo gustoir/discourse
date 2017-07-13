@@ -34,9 +34,9 @@ module Onebox
 
         def upload_html(path)
           case File.extname(path)
-          when /^\.(mov|mp4|webm|ogv)$/
+          when /^\.(mov|mp4|webm|ogv)$/i
             "<video width='100%' height='100%' controls><source src='#{@url}'><a href='#{@url}'>#{@url}</a></video>"
-          when /^\.(mp3|ogg|wav)$/
+          when /^\.(mp3|ogg|wav|m4a)$/i
             "<audio controls><source src='#{@url}'><a href='#{@url}'>#{@url}</a></audio>"
           end
         end
@@ -56,7 +56,7 @@ module Onebox
             excerpt.gsub!(/[\r\n]+/, " ")
             excerpt.gsub!("[/quote]", "[quote]") # don't break my quote
 
-            quote = "[quote=\"#{post.user.username}, topic:#{topic.id}, slug:#{slug}, post:#{post.post_number}\"]#{excerpt}[/quote]"
+            quote = "[quote=\"#{post.user.username}, topic:#{topic.id}, slug:#{slug}, post:#{post.post_number}\"]\n#{excerpt}\n[/quote]"
 
             args = {}
             args[:topic_id] = source_topic_id if source_topic_id > 0
@@ -69,7 +69,7 @@ module Onebox
             first_post = topic.ordered_posts.first
 
             args = {
-              topic: topic.id,
+              topic_id: topic.id,
               avatar: PrettyText.avatar_img(topic.user.avatar_template, "tiny"),
               original_url: @url,
               title: PrettyText.unescape_emoji(CGI::escapeHTML(topic.title)),

@@ -1,12 +1,13 @@
 import userSearch from 'discourse/lib/user-search';
-import { default as computed, on } from 'ember-addons/ember-computed-decorators';
+import { default as computed, on, observes } from 'ember-addons/ember-computed-decorators';
 import { linkSeenMentions, fetchUnseenMentions } from 'discourse/lib/link-mentions';
 import { linkSeenCategoryHashtags, fetchUnseenCategoryHashtags } from 'discourse/lib/link-category-hashtags';
 import { linkSeenTagHashtags, fetchUnseenTagHashtags } from 'discourse/lib/link-tag-hashtag';
+import Composer from 'discourse/models/composer';
 import { load } from 'pretty-text/oneboxer';
 import { ajax } from 'discourse/lib/ajax';
 import InputValidation from 'discourse/models/input-validation';
-import { getOwner } from 'discourse-common/lib/get-owner';
+import { findRawTemplate } from 'discourse/lib/raw-templates';
 import { tinyAvatar,
          displayErrorForUpload,
          getUploadMarkdown,
@@ -29,6 +30,14 @@ export default Ember.Component.extend({
   _setupPreview() {
     const val = (this.site.mobileView ? false : (this.keyValueStore.get('composer.showPreview') || 'true'));
     this.set('showPreview', val === 'true');
+
+    this.appEvents.on('composer:show-preview', () => {
+      this.set('showPreview', true);
+    });
+
+    this.appEvents.on('composer:hide-preview', () => {
+      this.set('showPreview', false);
+    });
   },
 
   @computed('site.mobileView', 'showPreview')
@@ -39,6 +48,11 @@ export default Ember.Component.extend({
   @computed('showPreview')
   toggleText: function(showPreview) {
     return showPreview ? I18n.t('composer.hide_preview') : I18n.t('composer.show_preview');
+  },
+
+  @observes('showPreview')
+  showPreviewChanged() {
+      this.keyValueStore.set({ key: 'composer.showPreview', value: this.get('showPreview') });
   },
 
   @computed
@@ -62,10 +76,9 @@ export default Ember.Component.extend({
   @on('didInsertElement')
   _composerEditorInit() {
     const topicId = this.get('topic.id');
-    const template = getOwner(this).lookup('template:user-selector-autocomplete.raw');
     const $input = this.$('.d-editor-input');
     $input.autocomplete({
-      template,
+      template: findRawTemplate('user-selector-autocomplete'),
       dataSource: term => userSearch({ term, topicId, includeGroups: true }),
       key: "@",
       transformComplete: v => v.username || v.name
@@ -139,7 +152,7 @@ export default Ember.Component.extend({
   _renderUnseenMentions($preview, unseen) {
     // 'Create a New Topic' scenario is not supported (per conversation with codinghorror)
     // https://meta.discourse.org/t/taking-another-1-7-release-task/51986/7
-    fetchUnseenMentions(unseen, this.get('topic.id')).then(() => {
+    fetchUnseenMentions(unseen, this.get('composer.topic.id')).then(() => {
       linkSeenMentions($preview, this.siteSettings);
       this._warnMentionedGroups($preview);
       this._warnCannotSeeMention($preview);
@@ -168,7 +181,7 @@ export default Ember.Component.extend({
       post.set('refreshedPost', true);
     }
 
-    $oneboxes.each((_, o) => load(o, refresh, ajax));
+    $oneboxes.each((_, o) => load(o, refresh, ajax, this.currentUser.id));
   },
 
   _warnMentionedGroups($preview) {
@@ -188,13 +201,25 @@ export default Ember.Component.extend({
   },
 
   _warnCannotSeeMention($preview) {
+    const composerDraftKey = this.get('composer.draftKey');
+
+    if (composerDraftKey === Composer.CREATE_TOPIC ||
+        composerDraftKey === Composer.NEW_PRIVATE_MESSAGE_KEY ||
+        composerDraftKey === Composer.REPLY_AS_NEW_TOPIC_KEY ||
+        composerDraftKey === Composer.REPLY_AS_NEW_PRIVATE_MESSAGE_KEY) {
+
+      return;
+    }
+
     Ember.run.scheduleOnce('afterRender', () => {
-      var found = this.get('warnedCannotSeeMentions') || [];
+      let found = this.get('warnedCannotSeeMentions') || [];
+
       $preview.find('.mention.cannot-see').each((idx,e) => {
         const $e = $(e);
-        var name = $e.data('name');
+        let name = $e.data('name');
+
         if (found.indexOf(name) === -1) {
-          this.sendAction('cannotSeeMention', [{name: name}]);
+          this.sendAction('cannotSeeMention', [{ name: name }]);
           found.push(name);
         }
       });
@@ -216,6 +241,8 @@ export default Ember.Component.extend({
   _bindUploadTarget() {
     this._unbindUploadTarget(); // in case it's still bound, let's clean it up first
 
+    this._pasted = false;
+
     const $element = this.$();
     const csrf = this.session.get('csrfToken');
     const uploadPlaceholder = this.get('uploadPlaceholder');
@@ -226,10 +253,24 @@ export default Ember.Component.extend({
       pasteZone: $element,
     });
 
+    $element.on('fileuploadpaste', () => this._pasted = true);
+
     $element.on('fileuploadsubmit', (e, data) => {
-      const isUploading = validateUploadedFiles(data.files);
+      const isPrivateMessage = this.get("composer.privateMessage");
+
       data.formData = { type: "composer" };
+      if (isPrivateMessage) data.formData.for_private_message = true;
+      if (this._pasted) data.formData.pasted = true;
+
+      const opts = {
+        isPrivateMessage,
+        allowStaffToUploadAnyFileInPm: this.siteSettings.allow_staff_to_upload_any_file_in_pm,
+      };
+
+      const isUploading = validateUploadedFiles(data.files, opts);
+
       this.setProperties({ uploadProgress: 0, isUploading });
+
       return isUploading;
     });
 
@@ -238,6 +279,7 @@ export default Ember.Component.extend({
     });
 
     $element.on("fileuploadsend", (e, data) => {
+      this._pasted = false;
       this._validUploads++;
       this.appEvents.trigger('composer:insert-text', uploadPlaceholder);
 
@@ -416,6 +458,8 @@ export default Ember.Component.extend({
   @on('willDestroyElement')
   _composerClosed() {
     this.appEvents.trigger('composer:will-close');
+    this.appEvents.off('composer:show-preview');
+    this.appEvents.off('composer:hide-preview');
     Ember.run.next(() => {
       $('#main-outlet').css('padding-bottom', 0);
       // need to wait a bit for the "slide down" transition of the composer
@@ -457,7 +501,6 @@ export default Ember.Component.extend({
 
     togglePreview() {
       this.toggleProperty('showPreview');
-      this.keyValueStore.set({ key: 'composer.showPreview', value: this.get('showPreview') });
     },
 
     extraButtons(toolbar) {

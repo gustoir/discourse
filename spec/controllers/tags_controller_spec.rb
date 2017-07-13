@@ -81,6 +81,12 @@ describe TagsController do
         expect(response).to be_success
         expect(assigns(:list).topics).to include(t)
       end
+
+      it "can filter by bookmarked" do
+        log_in(:user)
+        xhr :get, :show_bookmarks, tag_id: tag.name
+        expect(response).to be_success
+      end
     end
   end
 
@@ -114,6 +120,30 @@ describe TagsController do
         json = ::JSON.parse(response.body)
         expect(json["results"].map{|j| j["id"]}.sort).to eq([])
         expect(json["forbidden"]).to be_present
+      end
+
+      it "can return tags that are in secured categories but are allowed to be used" do
+        c = Fabricate(:private_category, group: Fabricate(:group))
+        Fabricate(:topic, category: c, tags: [Fabricate(:tag, name: "cooltag")])
+        xhr :get, :search, q: "cool"
+        expect(response).to be_success
+        json = ::JSON.parse(response.body)
+        expect(json["results"].map{|j| j["id"]}).to eq(['cooltag'])
+      end
+
+      it "supports Chinese and Russian" do
+        tag_names = ['房地产', 'тема-в-разработке']
+        tag_names.each { |name| Fabricate(:tag, name: name) }
+
+        xhr :get, :search, q: '房'
+        expect(response).to be_success
+        json = ::JSON.parse(response.body)
+        expect(json["results"].map{|j| j["id"]}).to eq(['房地产'])
+
+        xhr :get, :search, q: 'тема'
+        expect(response).to be_success
+        json = ::JSON.parse(response.body)
+        expect(json["results"].map{|j| j["id"]}).to eq(['тема-в-разработке'])
       end
     end
   end

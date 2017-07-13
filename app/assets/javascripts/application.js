@@ -9,6 +9,7 @@
 
 // Stuff we need to load first
 //= require ./discourse/lib/utilities
+//= require ./discourse/lib/page-visible
 //= require ./discourse/lib/ajax
 //= require ./discourse/lib/text
 //= require ./discourse/lib/hash
@@ -24,16 +25,23 @@
 //= require ./discourse/lib/computed
 //= require ./discourse/lib/formatter
 //= require ./discourse/lib/eyeline
+//= require ./discourse/lib/show-modal
 //= require ./discourse/mixins/scrolling
-//= require ./discourse/mixins/scrolling
+//= require ./discourse/lib/ajax-error
 //= require ./discourse/models/model
 //= require ./discourse/models/rest
+//= require ./discourse/models/result-set
+//= require ./discourse/models/store
+//= require ./discourse/models/action-summary
+//= require ./discourse/models/topic
+//= require ./discourse/models/draft
+//= require ./discourse/models/composer
 //= require ./discourse/models/badge-grouping
 //= require ./discourse/models/badge
 //= require ./discourse/models/permission-type
 //= require ./discourse/models/user-action-group
 //= require ./discourse/models/category
-//= require ./discourse/lib/ajax-error
+//= require ./discourse/models/input-validation
 //= require ./discourse/lib/search
 //= require ./discourse/lib/user-search
 //= require ./discourse/lib/export-csv
@@ -42,10 +50,7 @@
 //= require ./discourse/lib/debounce
 //= require ./discourse/lib/safari-hacks
 //= require_tree ./discourse/adapters
-//= require ./discourse/models/result-set
-//= require ./discourse/models/store
 //= require ./discourse/models/post-action-type
-//= require ./discourse/models/action-summary
 //= require ./discourse/models/post
 //= require ./discourse/lib/posts-with-placeholders
 //= require ./discourse/models/post-stream
@@ -59,7 +64,6 @@
 //= require ./discourse/models/user-badge
 //= require ./discourse/controllers/discovery-sortable
 //= require ./discourse/controllers/navigation/default
-//= require ./discourse/views/modal-body
 //= require ./discourse/components/edit-category-panel
 //= require ./discourse/components/dropdown-button
 //= require ./discourse/components/notifications-button
@@ -68,8 +72,6 @@
 //= require ./discourse/lib/emoji/groups
 //= require ./discourse/lib/emoji/toolbar
 //= require ./discourse/components/d-editor
-//= require ./discourse/views/composer
-//= require ./discourse/lib/show-modal
 //= require ./discourse/lib/screen-track
 //= require ./discourse/routes/discourse
 //= require ./discourse/routes/build-topic-route
@@ -91,7 +93,6 @@
 //= require_tree ./discourse/models
 //= require_tree ./discourse/components
 //= require_tree ./discourse/raw-views
-//= require_tree ./discourse/views
 //= require_tree ./discourse/helpers
 //= require_tree ./discourse/templates
 //= require_tree ./discourse/routes

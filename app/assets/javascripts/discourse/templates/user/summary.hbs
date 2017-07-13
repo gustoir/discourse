@@ -37,6 +37,9 @@
       <li>
           {{user-stat value=model.likes_received label="user.summary.likes_received"}}
       </li>
+      {{plugin-outlet name="user-summary-stat"
+                      connectorTagName="li"
+                      args=(hash model=model)}}
     </ul>
   </div>
 
@@ -103,7 +106,7 @@
               <a class='domain'
                  href='{{unbound link.url}}'
                  title='{{unbound link.title}}'
-                 rel='{{unless user.removeNoFollow 'nofollow'}}'
+                 rel='{{unless user.removeNoFollow 'nofollow noopener'}}'
                  target='_blank'>
                 {{shorten-url link.url}}
               </a>
@@ -136,7 +139,7 @@
     </div>
   </div>
 
-  <div class='top-section'>
+  <div class='top-section most-liked-section'>
     <div class='top-sub-section likes-section pull-left'>
       <h3 class='stats-title'>{{i18n "user.summary.most_liked_by"}}</h3>
       {{#if model.most_liked_by_users.length}}
@@ -173,15 +176,17 @@
     </div>
   </div>
 
-  <div class='top-section badges-section'>
-    <h3 class='stats-title'>{{i18n "user.summary.top_badges"}}</h3>
-    {{#each model.badges as |badge|}}
-      {{badge-card badge=badge count=badge.count navigateOnClick="true" username=user.username_lower}}
-    {{else}}
-      <p>{{i18n "user.summary.no_badges"}}</p>
-    {{/each}}
-    {{#if moreBadges}}
-      <p>{{#link-to "user.badges" user class="more"}}{{i18n "user.summary.more_badges"}}{{/link-to}}</p>
-    {{/if}}
-  </div>
+  {{#if siteSettings.enable_badges}}
+    <div class='top-section badges-section'>
+      <h3 class='stats-title'>{{i18n "user.summary.top_badges"}}</h3>
+      {{#each model.badges as |badge|}}
+        {{badge-card badge=badge count=badge.count username=user.username_lower}}
+      {{else}}
+        <p>{{i18n "user.summary.no_badges"}}</p>
+      {{/each}}
+      {{#if moreBadges}}
+        <p>{{#link-to "user.badges" user class="more"}}{{i18n "user.summary.more_badges"}}{{/link-to}}</p>
+      {{/if}}
+    </div>
+  {{/if}}
 {{/d-section}}

@@ -96,8 +96,8 @@ describe TopicEmbed do
 
       response = nil
 
-      before(:each) do
-        SiteSetting.stubs(:embed_classname_whitelist).returns 'emoji , foo'
+      before do
+        SiteSetting.embed_classname_whitelist = 'emoji, foo'
         file.stubs(:read).returns contents
         TopicEmbed.stubs(:open).returns file
         response = TopicEmbed.find_remote(url)
@@ -155,7 +155,7 @@ describe TopicEmbed do
       response = nil
 
       before(:each) do
-        SiteSetting.stubs(:embed_classname_whitelist).returns ' '
+        SiteSetting.embed_classname_whitelist = ''
         file.stubs(:read).returns contents
         TopicEmbed.stubs(:open).returns file
         response = TopicEmbed.find_remote(url)
@@ -176,7 +176,23 @@ describe TopicEmbed do
       it 'img node doesn\'t have other class' do
         expect(response.body).to have_tag('img', without: { class: 'other' })
       end
+    end
 
+    context "non-ascii URL" do
+      let(:url) { 'http://eviltrout.com/test/ماهی' }
+      let(:contents) { "<title>سلام</title><body>این یک پاراگراف آزمون است.</body>" }
+      let!(:embeddable_host) { Fabricate(:embeddable_host) }
+      let!(:file) { StringIO.new }
+
+      before do
+        file.stubs(:read).returns contents
+        TopicEmbed.stubs(:open).returns file
+      end
+
+      it "doesn't throw an error" do
+        response = TopicEmbed.find_remote(url)
+        expect(response.title).to eq("سلام")
+      end
     end
 
   end

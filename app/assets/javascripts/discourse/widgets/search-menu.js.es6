@@ -54,6 +54,11 @@ const SearchHelper = {
       this._activeSearch = searchForTerm(term, { typeFilter, searchContext, fullSearchUrl });
       this._activeSearch.then(content => {
         searchData.noResults = content.resultTypes.length === 0;
+
+        if (content.grouped_search_result) {
+          searchData.term = content.grouped_search_result.term;
+        }
+
         searchData.results = content;
       }).finally(() => {
         searchData.loading = false;
@@ -85,7 +90,7 @@ export default createWidget('search-menu', {
 
       query += `q=${encodeURIComponent(searchData.term)}`;
 
-      if (contextEnabled) {
+      if (contextEnabled && ctx) {
         if (this.currentUser &&
             ctx.id.toString().toLowerCase() === this.currentUser.username_lower &&
             type === "private_messages") {
@@ -125,7 +130,8 @@ export default createWidget('search-menu', {
         results.push(this.attach('search-menu-results', { term: searchData.term,
                                                           noResults: searchData.noResults,
                                                           results: searchData.results,
-                                                          invalidTerm: searchData.invalidTerm }));
+                                                          invalidTerm: searchData.invalidTerm,
+                                                          searchContextEnabled: searchData.contextEnabled }));
       }
     }
 
@@ -147,7 +153,12 @@ export default createWidget('search-menu', {
   },
 
   html(attrs) {
-    searchData.contextEnabled = attrs.contextEnabled;
+    if (searchData.contextEnabled !== attrs.contextEnabled) {
+      searchData.contextEnabled = attrs.contextEnabled;
+      this.triggerSearch();
+    } else {
+      searchData.contextEnabled = attrs.contextEnabled;
+    }
 
     return this.attach('menu-panel', { maxWidth: 500, contents: () => this.panelContents() });
   },
@@ -169,6 +180,7 @@ export default createWidget('search-menu', {
   },
 
   searchContextChanged(enabled) {
+    // This indicates the checkbox has been clicked, NOT that the context has changed.
     searchData.typeFilter = null;
     this.sendWidgetAction('searchMenuContextChanged', enabled);
     searchData.contextEnabled = enabled;
@@ -191,6 +203,8 @@ export default createWidget('search-menu', {
     if (url) {
       this.sendWidgetEvent('linkClicked');
       DiscourseURL.routeTo(url);
+    } else if (searchData.contextEnabled) {
+      this.triggerSearch();
     }
   }
 });

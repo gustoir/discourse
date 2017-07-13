@@ -1,3 +1,5 @@
+require 'column_dropper'
+
 # fix any bust caches post initial migration
 ActiveRecord::Base.send(:subclasses).each { |m| m.reset_column_information }
 
@@ -23,3 +25,12 @@ if uncat_id == -1 || !Category.exists?(uncat_id)
   Category.exec_sql "INSERT INTO site_settings(name, data_type, value, created_at, updated_at)
            VALUES ('uncategorized_category_id', 3, #{category_id}, now(), now())"
 end
+
+ColumnDropper.drop(
+  table: 'categories',
+  after_migration: 'AddUploadsToCategories',
+  columns: ['logo_url', 'background_url'],
+  on_drop: ->(){
+    STDERR.puts 'Removing superflous categories columns!'
+  }
+)

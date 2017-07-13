@@ -36,7 +36,7 @@ describe SessionController do
       # send welcome messages
       Fabricate(:admin)
       # skip for now
-      # SiteSetting.stubs("send_welcome_message").returns(false)
+      # SiteSetting.send_welcome_message = false
     end
 
     def get_sso(return_path)
@@ -141,6 +141,19 @@ describe SessionController do
       expect(response).to redirect_to('/b/')
     end
 
+    it 'redirects to random url if it is allowed' do
+      SiteSetting.sso_allows_all_return_paths = true
+
+      sso = get_sso('https://gusundtrout.com')
+      sso.external_id = '666' # the number of the beast
+      sso.email = 'bob@bob.com'
+      sso.name = 'Sam Saffron'
+      sso.username = 'sam'
+
+      get :sso_login, Rack::Utils.parse_query(sso.payload)
+      expect(response).to redirect_to('https://gusundtrout.com')
+    end
+
     it 'redirects to root if the host of the return_path is different' do
       sso = get_sso('//eviltrout.com')
       sso.external_id = '666' # the number of the beast
@@ -172,7 +185,14 @@ describe SessionController do
       sso.custom_fields["shop_url"] = "http://my_shop.com"
       sso.custom_fields["shop_name"] = "Sam"
 
-      get :sso_login, Rack::Utils.parse_query(sso.payload)
+      events = DiscourseEvent.track_events do
+        get :sso_login, Rack::Utils.parse_query(sso.payload)
+      end
+
+      expect(events.map { |event| event[:event_name] }).to include(
+       :user_logged_in, :user_first_logged_in
+      )
+
       expect(response).to redirect_to('/a/')
 
       logged_on_user = Discourse.current_user_provider.new(request.env).current_user
@@ -323,9 +343,10 @@ describe SessionController do
 
     describe 'local attribute override from SSO payload' do
       before do
-        SiteSetting.stubs("sso_overrides_email").returns(true)
-        SiteSetting.stubs("sso_overrides_username").returns(true)
-        SiteSetting.stubs("sso_overrides_name").returns(true)
+        SiteSetting.email_editable = false
+        SiteSetting.sso_overrides_email = true
+        SiteSetting.sso_overrides_username = true
+        SiteSetting.sso_overrides_name = true
 
         @user = Fabricate(:user)
 
@@ -487,19 +508,25 @@ describe SessionController do
 
       describe 'success by username' do
         it 'logs in correctly' do
-          xhr :post, :create, login: user.username, password: 'myawesomepassword'
+          events = DiscourseEvent.track_events do
+            xhr :post, :create, login: user.username, password: 'myawesomepassword'
+          end
+
+          expect(events.map { |event| event[:event_name] }).to include(
+            :user_logged_in, :user_first_logged_in
+          )
 
           user.reload
 
           expect(session[:current_user_id]).to eq(user.id)
-          expect(user.auth_token).to be_present
-          expect(cookies[:_t]).to eq(user.auth_token)
+          expect(user.user_auth_tokens.count).to eq(1)
+          expect(UserAuthToken.hash_token(cookies[:_t])).to eq(user.user_auth_tokens.first.auth_token)
         end
       end
 
       describe 'local logins disabled' do
         it 'fails' do
-          SiteSetting.stubs(:enable_local_logins).returns(false)
+          SiteSetting.enable_local_logins = false
           xhr :post, :create, login: user.username, password: 'myawesomepassword'
           expect(response.status.to_i).to eq(500)
         end
@@ -591,7 +618,7 @@ describe SessionController do
         let(:permitted_ip_address) { '111.234.23.11' }
         before do
           Fabricate(:screened_ip_address, ip_address: permitted_ip_address, action_type: ScreenedIpAddress.actions[:allow_admin])
-          SiteSetting.stubs(:use_admin_ip_whitelist).returns(true)
+          SiteSetting.use_admin_ip_whitelist = true
         end
 
         it 'is successful for admin at the ip address' do
@@ -644,6 +671,23 @@ describe SessionController do
             I18n.t 'login.not_approved'
           )
         end
+      end
+    end
+
+    context 'rate limited' do
+      it 'rate limits login' do
+        SiteSetting.max_logins_per_ip_per_hour = 2
+        RateLimiter.stubs(:disabled?).returns(false)
+        RateLimiter.clear_all!
+
+        2.times do
+          xhr :post, :create, login: user.username, password: 'myawesomepassword'
+          expect(response).to be_success
+        end
+        xhr :post, :create, login: user.username, password: 'myawesomepassword'
+        expect(response).not_to be_success
+        json = JSON.parse(response.body)
+        expect(json["error_type"]).to eq("rate_limit")
       end
     end
   end

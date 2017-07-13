@@ -56,9 +56,13 @@ export default Ember.Object.extend({
   },
 
   findAll(type, findArgs) {
-    const self = this;
-    return this.adapterFor(type).findAll(this, type, findArgs).then(function(result) {
-      return self._resultSet(type, result);
+    const adapter = this.adapterFor(type);
+    return adapter.findAll(this, type, findArgs).then((result) => {
+      let results = this._resultSet(type, result);
+      if (adapter.afterFindAll) {
+        results = adapter.afterFindAll(results);
+      }
+      return results;
     });
   },
 
@@ -293,7 +297,16 @@ export default Ember.Object.extend({
 
     if (existing) {
       delete obj.id;
-      const klass = this.register.lookupFactory('model:' + type) || RestModel;
+      let klass = this.register.lookupFactory('model:' + type);
+
+      if (klass && klass.class) {
+        klass = klass.class;
+      }
+
+      if (!klass) {
+        klass = RestModel;
+      }
+
       existing.setProperties(klass.munge(obj));
       obj.id = id;
       return existing;
