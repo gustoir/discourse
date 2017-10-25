@@ -9,6 +9,21 @@ end
 
 describe GlobalSetting do
 
+  describe '.use_s3_assets?' do
+    it 'returns false by default' do
+      expect(GlobalSetting.use_s3?).to eq(false)
+    end
+
+    it 'returns true once set' do
+      global_setting :s3_bucket, 'test_bucket'
+      global_setting :s3_region, 'ap-australia'
+      global_setting :s3_access_key_id, '123'
+      global_setting :s3_secret_access_key, '123'
+
+      expect(GlobalSetting.use_s3?).to eq(true)
+    end
+  end
+
   describe '.safe_secret_key_base' do
     it 'sets redis token if it is somehow flushed after 30 seconds' do
 
@@ -85,13 +100,13 @@ describe GlobalSetting::FileProvider do
 
     provider = GlobalSetting::FileProvider.from(f.path)
 
-    expect(provider.lookup(:a,"")).to eq 1000
-    expect(provider.lookup(:b,"")).to eq "10 # = 00"
-    expect(provider.lookup(:c,"")).to eq "10 # = 00"
-    expect(provider.lookup(:d,"bob")).to eq nil
-    expect(provider.lookup(:e,"bob")).to eq "bob"
-    expect(provider.lookup(:f,"bob")).to eq "bob"
-    expect(provider.lookup(:a1,"")).to eq 1
+    expect(provider.lookup(:a, "")).to eq 1000
+    expect(provider.lookup(:b, "")).to eq "10 # = 00"
+    expect(provider.lookup(:c, "")).to eq "10 # = 00"
+    expect(provider.lookup(:d, "bob")).to eq nil
+    expect(provider.lookup(:e, "bob")).to eq "bob"
+    expect(provider.lookup(:f, "bob")).to eq "bob"
+    expect(provider.lookup(:a1, "")).to eq 1
 
     expect(provider.keys.sort).to eq [:a, :a1, :b, :c, :d]
 
@@ -105,7 +120,7 @@ describe GlobalSetting::FileProvider do
 
     provider = GlobalSetting::FileProvider.from(f.path)
 
-    expect(provider.lookup(:a,"")).to eq 500
+    expect(provider.lookup(:a, "")).to eq 500
 
     f.unlink
   end

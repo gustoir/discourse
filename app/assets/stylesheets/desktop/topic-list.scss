@@ -23,8 +23,7 @@
     float: none;
   }
 
-
-  a.badge-category {
+  a.badge-category, .dropdown-header {
     padding: 3px 12px;
     font-size: 1.143em;
   }
@@ -34,12 +33,17 @@
 // Base list
 // --------------------------------------------------
 
-.topic-list {
-  margin: 0 0 10px;
-  .fa-thumb-tack { color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%)); }
-  .fa-thumb-tack.unpinned { color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%)); }
+.topic-list-icons {
+  .d-icon-thumb-tack { color: dark-light-choose($primary-medium, $secondary-medium); }
+  .d-icon-thumb-tack.unpinned { color: dark-light-choose($primary-medium, $secondary-medium); }
   a.title {color: $primary;}
-  .fa-bookmark { color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%)); }
+  .d-icon-bookmark { color: dark-light-choose($primary-medium, $secondary-medium); }
+}
+
+.topic-list {
+  @extend .topic-list-icons;
+
+  margin: 0 0 10px;
   th,
   td {
     padding: 12px 5px;
@@ -51,7 +55,7 @@
     }
   }
   th {
-    button i.fa {color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%)); }
+    button .d-icon {color: dark-light-choose($primary-medium, $secondary-medium); }
   }
 
   > tbody > tr {
@@ -61,16 +65,14 @@
   }
   button.bulk-select {
     padding: 0;
-    background: transparent;
-    &:hover {
-      color: dark-light-diff($primary, $secondary, 90%, -60%);
-    }
+    font-size: 1.05em;
+    margin-right: 0.3em;
   }
 
   .star {
     width: 20px;
     padding-right: 0;
-    .fa-star {
+    .d-icon-star {
       position: relative;
     }
     + .main-link {
@@ -104,8 +106,8 @@
   }
 
   .posters a:first-child .avatar.latest:not(.single) {
-     box-shadow: 0 0 3px 1px desaturate(scale-color($tertiary, $lightness: 65%), 35%);
-     border: 2px solid desaturate(scale-color($tertiary, $lightness: 50%), 40%);
+     box-shadow: 0 0 3px 1px desaturate($tertiary-medium, 35%);
+     border: 2px solid desaturate($tertiary-medium, 40%);
      position: relative;
      top: -2px;
      left: -2px;
@@ -115,7 +117,7 @@
   .sortable {
     cursor: pointer;
     &:hover {
-      background-color: dark-light-diff($primary, $secondary, 90%, -75%);
+      background-color: $primary-low; 
     }
     @include unselectable;
   }
@@ -132,7 +134,7 @@
   .post-actions {
     clear: both;
     width: auto;
-    color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%));
+    color: dark-light-choose($primary-medium, $secondary-medium);
     text-align: left;
     font-size: 12px;
     margin-top: 5px;
@@ -141,7 +143,7 @@
     }
     a {
       font-size: 11px;
-      color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%));
+      color: dark-light-choose($primary-medium, $secondary-medium);
       margin-right: 3px;
       line-height: 20px;
     }
@@ -218,11 +220,11 @@
     margin: 10px 0 0;
     /* topic status glyphs */
     i {
-      color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%)) !important;
+      color: dark-light-choose($primary-medium, $secondary-medium) !important;
       font-size: 0.929em;
     }
     a.last-posted-at, a.last-posted-at:visited {
-      color: dark-light-choose(scale-color($primary, $lightness: 50%), scale-color($secondary, $lightness: 50%));
+      color: dark-light-choose($primary-medium, $secondary-medium);
       font-size: 0.88em;
     }
     .badge {
@@ -276,7 +278,7 @@ button.dismiss-read {
   margin-left: 10px;
 }
 
-.category-notification-menu, .tags-admin-menu {
+.tags-admin-menu {
   .dropdown-menu {
     right: 0;
     top: 30px;

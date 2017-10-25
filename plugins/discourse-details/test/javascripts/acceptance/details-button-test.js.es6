@@ -11,12 +11,12 @@ test('details button', (assert) => {
 
   click('#create-topic');
   click('button.options');
-  click('.popup-menu .fa-caret-right');
+  click('.popup-menu .d-icon-caret-right');
 
   andThen(() => {
     assert.equal(
       find(".d-editor-input").val(),
-      `\n[details=${I18n.t("composer.details_title")}]\n${I18n.t("composer.details_text")}\n[/details]\n`,
+      `\n[details="${I18n.t("composer.details_title")}"]\n${I18n.t("composer.details_text")}\n[/details]\n`,
       'it should contain the right output'
     );
   });
@@ -30,18 +30,18 @@ test('details button', (assert) => {
   });
 
   click('button.options');
-  click('.popup-menu .fa-caret-right');
+  click('.popup-menu .d-icon-caret-right');
 
   andThen(() => {
     assert.equal(
       find(".d-editor-input").val(),
-      `\n[details=${I18n.t("composer.details_title")}]\nThis is my title\n[/details]\n`,
+      `\n[details="${I18n.t("composer.details_title")}"]\nThis is my title\n[/details]\n`,
       'it should contain the right selected output'
     );
 
     const textarea = findTextarea();
-    assert.equal(textarea.selectionStart, 19, 'it should start highlighting at the right position');
-    assert.equal(textarea.selectionEnd, 35, 'it should end highlighting at the right position');
+    assert.equal(textarea.selectionStart, 21, 'it should start highlighting at the right position');
+    assert.equal(textarea.selectionEnd, 37, 'it should end highlighting at the right position');
   });
 
   fillIn('.d-editor-input', "Before some text in between After");
@@ -53,18 +53,18 @@ test('details button', (assert) => {
   });
 
   click('button.options');
-  click('.popup-menu .fa-caret-right');
+  click('.popup-menu .d-icon-caret-right');
 
   andThen(() => {
     assert.equal(
       find(".d-editor-input").val(),
-      `Before \n[details=${I18n.t("composer.details_title")}]\nsome text in between\n[/details]\n After`,
+      `Before \n[details="${I18n.t("composer.details_title")}"]\nsome text in between\n[/details]\n After`,
       'it should contain the right output'
     );
 
     const textarea = findTextarea();
-    assert.equal(textarea.selectionStart, 26, 'it should start highlighting at the right position');
-    assert.equal(textarea.selectionEnd, 46, 'it should end highlighting at the right position');
+    assert.equal(textarea.selectionStart, 28, 'it should start highlighting at the right position');
+    assert.equal(textarea.selectionEnd, 48, 'it should end highlighting at the right position');
   });
 
   fillIn('.d-editor-input', "Before \nsome text in between\n After");
@@ -76,17 +76,17 @@ test('details button', (assert) => {
   });
 
   click('button.options');
-  click('.popup-menu .fa-caret-right');
+  click('.popup-menu .d-icon-caret-right');
 
   andThen(() => {
     assert.equal(
       find(".d-editor-input").val(),
-      `Before \n\n[details=${I18n.t("composer.details_title")}]\nsome text in between\n[/details]\n\n After`,
+      `Before \n\n[details="${I18n.t("composer.details_title")}"]\nsome text in between\n[/details]\n\n After`,
       'it should contain the right output'
     );
 
     const textarea = findTextarea();
-    assert.equal(textarea.selectionStart, 27, 'it should start highlighting at the right position');
-    assert.equal(textarea.selectionEnd, 47, 'it should end highlighting at the right position');
+    assert.equal(textarea.selectionStart, 29, 'it should start highlighting at the right position');
+    assert.equal(textarea.selectionEnd, 49, 'it should end highlighting at the right position');
   });
 });

@@ -9,7 +9,7 @@ class CookedPostProcessor
 
   attr_reader :cooking_options
 
-  def initialize(post, opts={})
+  def initialize(post, opts = {})
     @dirty = false
     @opts = opts
     @post = post
@@ -20,6 +20,7 @@ class CookedPostProcessor
     @cooking_options[:topic_id] = post.topic_id
     @cooking_options = @cooking_options.symbolize_keys
     @cooking_options[:omit_nofollow] = true if post.omit_nofollow?
+    @cooking_options[:cook_method] = post.cook_method
 
     analyzer = post.post_analyzer
     @doc = Nokogiri::HTML::fragment(analyzer.cook(post.raw, @cooking_options))
@@ -29,10 +30,13 @@ class CookedPostProcessor
 
   def post_process(bypass_bump = false)
     DistributedMutex.synchronize("post_process_#{@post.id}") do
+      DiscourseEvent.trigger(:before_post_process_cooked, @doc, @post)
       keep_reverse_index_up_to_date
       post_process_images
       post_process_oneboxes
       optimize_urls
+      update_post_image
+      enforce_nofollow
       pull_hotlinked_images(bypass_bump)
       grant_badges
       DiscourseEvent.trigger(:post_process_cooked, @doc, @post)
@@ -63,9 +67,9 @@ class CookedPostProcessor
 
     upload_ids |= oneboxed_image_uploads.pluck(:id)
 
-    values = upload_ids.map{ |u| "(#{@post.id},#{u})" }.join(",")
+    values = upload_ids.map { |u| "(#{@post.id},#{u})" }.join(",")
     PostUpload.transaction do
-      PostUpload.delete_all(post_id: @post.id)
+      PostUpload.where(post_id: @post.id).delete_all
       if upload_ids.length > 0
         PostUpload.exec_sql("INSERT INTO post_uploads (post_id, upload_id) VALUES #{values}")
       end
@@ -80,8 +84,6 @@ class CookedPostProcessor
       limit_size!(img)
       convert_to_link!(img)
     end
-
-    update_post_image
   end
 
   def extract_images
@@ -102,8 +104,6 @@ class CookedPostProcessor
     @doc.css("img[src]") -
     # minus, emojis
     @doc.css("img.emoji") -
-    # minus, image inside oneboxes
-    oneboxed_images -
     # minus, images inside quotes
     @doc.css(".quote img")
   end
@@ -113,8 +113,16 @@ class CookedPostProcessor
   end
 
   def oneboxed_image_uploads
-    urls = oneboxed_images.map { |img| img["src"] }
-    Upload.where(origin: urls)
+    urls = Set.new
+
+    oneboxed_images.each do |img|
+      url = img["src"].sub(/^https?:/i, "")
+      urls << url
+      urls << "http:#{url}"
+      urls << "https:#{url}"
+    end
+
+    Upload.where(origin: urls.to_a)
   end
 
   def limit_size!(img)
@@ -142,11 +150,11 @@ class CookedPostProcessor
       original_width, original_height = original_image_size.map(&:to_f)
 
       if w > 0
-        ratio = w/original_width
-        [w.floor, (original_height*ratio).floor]
+        ratio = w / original_width
+        [w.floor, (original_height * ratio).floor]
       else
-        ratio = h/original_height
-        [(original_width*ratio).floor, h.floor]
+        ratio = h / original_height
+        [(original_width * ratio).floor, h.floor]
       end
     end
   end
@@ -178,7 +186,7 @@ class CookedPostProcessor
     # we can *always* crawl our own images
     return unless SiteSetting.crawl_images? || Discourse.store.has_been_uploaded?(url)
 
-    @size_cache[url] ||= FastImage.size(absolute_url)
+    @size_cache[url] = FastImage.size(absolute_url)
   rescue Zlib::BufError # FastImage.size raises BufError for some gifs
   end
 
@@ -194,24 +202,20 @@ class CookedPostProcessor
 
   def convert_to_link!(img)
     src = img["src"]
-    return unless src.present?
+    return if src.blank? || is_a_hyperlink?(img)
 
     width, height = img["width"].to_i, img["height"].to_i
-    original_width, original_height = get_size(src)
+    # TODO: store original dimentions in db
+    original_width, original_height = (get_size(src) || [0, 0]).map(&:to_i)
 
     # can't reach the image...
-    if original_width.nil? ||
-       original_height.nil? ||
-       original_width == 0 ||
-       original_height == 0
+    if original_width == 0 || original_height == 0
       Rails.logger.info "Can't reach '#{src}' to get its dimension."
       return
     end
 
-    return if original_width.to_i <= width && original_height.to_i <= height
-    return if original_width.to_i <= SiteSetting.max_image_width && original_height.to_i <= SiteSetting.max_image_height
-
-    return if is_a_hyperlink?(img)
+    return if original_width <= width && original_height <= height
+    return if original_width <= SiteSetting.max_image_width && original_height <= SiteSetting.max_image_height
 
     crop = false
     if original_width.to_f / original_height.to_f < MIN_RATIO_TO_CROP
@@ -232,13 +236,12 @@ class CookedPostProcessor
     parent = img.parent
     while parent
       return true if parent.name == "a"
-      break unless parent.respond_to? :parent
-      parent = parent.parent
+      parent = parent.parent if parent.respond_to?(:parent)
     end
     false
   end
 
-  def add_lightbox!(img, original_width, original_height, upload=nil)
+  def add_lightbox!(img, original_width, original_height, upload = nil)
     # first, create a div to hold our lightbox
     lightbox = Nokogiri::XML::Node.new("div", @doc)
     lightbox["class"] = "lightbox-wrapper"
@@ -283,7 +286,7 @@ class CookedPostProcessor
     return I18n.t("upload.pasted_image_filename")
   end
 
-  def create_span_node(klass, content=nil)
+  def create_span_node(klass, content = nil)
     span = Nokogiri::XML::Node.new("span", @doc)
     span.content = content if content
     span["class"] = klass
@@ -292,6 +295,8 @@ class CookedPostProcessor
 
   def update_post_image
     img = extract_images_for_post.first
+    return if img.blank?
+
     if img["src"].present?
       @post.update_column(:image_url, img["src"][0...255]) # post
       @post.topic.update_column(:image_url, img["src"][0...255]) if @post.is_first_post? # topic
@@ -312,17 +317,13 @@ class CookedPostProcessor
 
     uploads = oneboxed_image_uploads.select(:url, :origin)
     oneboxed_images.each do |img|
-      upload = uploads.detect { |u| u.origin == img["src"] }
-      next unless upload.present?
-      img["src"] = upload.url
-      # make sure we grab dimensions for oneboxed images
-      limit_size!(img)
+      url = img["src"].sub(/^https?:/i, "")
+      upload = uploads.find { |u| u.origin.sub(/^https?:/i, "") == url }
+      img["src"] = upload.url if upload.present?
     end
 
-    # respect nofollow admin settings
-    if !@cooking_options[:omit_nofollow] && SiteSetting.add_rel_nofollow_to_user_content
-      PrettyText.add_rel_nofollow_to_user_content(@doc)
-    end
+    # make sure we grab dimensions for oneboxed images
+    oneboxed_images.each { |img| limit_size!(img) }
   end
 
   def optimize_urls
@@ -334,7 +335,7 @@ class CookedPostProcessor
       end
     end
 
-    use_s3_cdn = SiteSetting.enable_s3_uploads && SiteSetting.s3_cdn_url.present?
+    use_s3_cdn = SiteSetting.Upload.enable_s3_uploads && SiteSetting.Upload.s3_cdn_url.present?
 
     %w{href data-download-href}.each do |selector|
       @doc.css("a[#{selector}]").each do |a|
@@ -348,6 +349,12 @@ class CookedPostProcessor
       src = img["src"].to_s
       img["src"] = UrlHelper.schemaless UrlHelper.absolute(src) if UrlHelper.is_local(src)
       img["src"] = Discourse.store.cdn_url(img["src"]) if use_s3_cdn
+    end
+  end
+
+  def enforce_nofollow
+    if !@cooking_options[:omit_nofollow] && SiteSetting.add_rel_nofollow_to_user_content
+      PrettyText.add_rel_nofollow_to_user_content(@doc)
     end
   end
 
@@ -374,7 +381,7 @@ class CookedPostProcessor
     # log the site setting change
     reason = I18n.t("disable_remote_images_download_reason")
     staff_action_logger = StaffActionLogger.new(Discourse.system_user)
-    staff_action_logger.log_site_setting_change("download_remote_images_to_local", true, false, { details: reason })
+    staff_action_logger.log_site_setting_change("download_remote_images_to_local", true, false, details: reason)
 
     # also send a private message to the site contact user
     notify_about_low_disk_space

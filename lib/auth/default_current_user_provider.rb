@@ -44,7 +44,7 @@ class Auth::DefaultCurrentUserProvider
     current_user = nil
 
     if auth_token && auth_token.length == 32
-      limiter = RateLimiter.new(nil, "cookie_auth_#{request.ip}", COOKIE_ATTEMPTS_PER_MIN ,60)
+      limiter = RateLimiter.new(nil, "cookie_auth_#{request.ip}", COOKIE_ATTEMPTS_PER_MIN , 60)
 
       if limiter.can_perform?
         @user_token = UserAuthToken.lookup(auth_token,
@@ -76,7 +76,7 @@ class Auth::DefaultCurrentUserProvider
     # possible we have an api call, impersonate
     if api_key
       current_user = lookup_api_user(api_key, request)
-      raise Discourse::InvalidAccess unless current_user
+      raise Discourse::InvalidAccess.new(I18n.t('invalid_api_credentials'), nil, custom_message: "invalid_api_credentials") unless current_user
       raise Discourse::InvalidAccess if current_user.suspended? || !current_user.active
       @env[API_KEY_ENV] = true
     end
@@ -127,8 +127,8 @@ class Auth::DefaultCurrentUserProvider
 
       if !@user_token.legacy && needs_rotation
         if @user_token.rotate!(user_agent: @env['HTTP_USER_AGENT'],
-                              client_ip: @request.ip,
-                              path: @env['REQUEST_PATH'])
+                               client_ip: @request.ip,
+                               path: @env['REQUEST_PATH'])
           cookies[TOKEN_COOKIE] = cookie_hash(@user_token.unhashed_auth_token)
         end
       elsif @user_token.legacy
@@ -197,9 +197,9 @@ class Auth::DefaultCurrentUserProvider
     elsif user && @user_token
       @user_token.destroy
     end
+
     cookies.delete(TOKEN_COOKIE)
   end
-
 
   # api has special rights return true if api was detected
   def is_api?

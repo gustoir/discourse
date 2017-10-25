@@ -1,7 +1,7 @@
 import startApp from 'wizard/test/helpers/start-app';
 
 var wizard;
-module("Acceptance: wizard", {
+QUnit.module("Acceptance: wizard", {
   beforeEach() {
     wizard = startApp();
   },
@@ -56,7 +56,7 @@ test("Going back and forth in steps", assert => {
     assert.ok(!exists('.wizard-step-title'));
     assert.ok(!exists('.wizard-step-description'));
 
-    assert.ok(exists('select.field-snack'), "went to the next step");
+    assert.ok(exists('.select-box-kit.field-snack'), "went to the next step");
     assert.ok(exists('.preview-area'), "renders the component field");
 
     assert.ok(!exists('.wizard-btn.next'));

@@ -40,7 +40,7 @@ class GlobalSetting
         token = $redis.without_namespace.get(REDIS_SECRET_KEY)
         unless token && token =~ VALID_SECRET_KEY
           token = SecureRandom.hex(64)
-          $redis.without_namespace.set(REDIS_SECRET_KEY,token)
+          $redis.without_namespace.set(REDIS_SECRET_KEY, token)
         end
       end
       if !secret_key_base.blank? && token != secret_key_base
@@ -48,6 +48,8 @@ class GlobalSetting
       end
       token
     end
+  rescue Redis::CommandError => e
+    @safe_secret_key_base = SecureRandom.hex(64) if e.message =~ /READONLY/
   end
 
   def self.load_defaults
@@ -73,9 +75,24 @@ class GlobalSetting
     end
   end
 
+  def self.use_s3?
+    (@use_s3 ||=
+      begin
+        s3_bucket &&
+        s3_region && (
+          s3_use_iam_profile || (s3_access_key_id && s3_secret_access_key)
+        ) ? :true : :false
+      end) == :true
+  end
+
+  # for testing
+  def self.reset_s3_cache!
+    @use_s3 = nil
+  end
+
   def self.database_config
-    hash = {"adapter" => "postgresql"}
-    %w{pool timeout socket host port username password replica_host replica_port}.each do |s|
+    hash = { "adapter" => "postgresql" }
+    %w{pool connect_timeout timeout socket host port username password replica_host replica_port}.each do |s|
       if val = self.send("db_#{s}")
         hash[s] = val
       end
@@ -91,7 +108,7 @@ class GlobalSetting
 
     hash["prepared_statements"] = !!self.db_prepared_statements
 
-    {"production" => hash}
+    { "production" => hash }
   end
 
   # For testing purposes
@@ -116,13 +133,6 @@ class GlobalSetting
         c[:db] = redis_db if redis_db != 0
         c[:db] = 1 if Rails.env == "test"
 
-        if redis_sentinels.present?
-          c[:sentinels] = redis_sentinels.split(",").map do |address|
-            host,port = address.split(":")
-            {host: host, port: port}
-          end.to_a
-        end
-
         c.freeze
       end
   end
@@ -133,7 +143,6 @@ class GlobalSetting
       return $1.to_i if setting.to_s.strip =~ /^([0-9]+)$/
       setting
     end
-
 
     def resolve(current, default)
       BaseProvider.coerce(
@@ -167,8 +176,7 @@ class GlobalSetting
       end
     end
 
-
-    def lookup(key,default)
+    def lookup(key, default)
       var = @data[key]
       resolve(var, var.nil? ? default : "")
     end
@@ -193,7 +201,7 @@ class GlobalSetting
     end
 
     def keys
-      ENV.keys.select{|k| k =~ /^DISCOURSE_/}.map{|k| k[10..-1].downcase.to_sym}
+      ENV.keys.select { |k| k =~ /^DISCOURSE_/ }.map { |k| k[10..-1].downcase.to_sym }
     end
   end
 
@@ -206,7 +214,6 @@ class GlobalSetting
       []
     end
   end
-
 
   class << self
     attr_accessor :provider

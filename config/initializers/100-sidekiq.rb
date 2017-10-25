@@ -25,7 +25,7 @@ if Sidekiq.server?
 
     if !scheduler_hostname || scheduler_hostname.split(',').include?(`hostname`.strip)
       require 'scheduler/scheduler'
-      manager = Scheduler::Manager.new
+      manager = Scheduler::Manager.new($redis.without_namespace)
       Scheduler::Manager.discover_schedules.each do |schedule|
         manager.ensure_schedule!(schedule)
       end
@@ -35,7 +35,7 @@ if Sidekiq.server?
             manager.tick
           rescue => e
             # the show must go on
-            Discourse.handle_job_exception(e, {message: "While ticking scheduling manager"})
+            Discourse.handle_job_exception(e, message: "While ticking scheduling manager")
           end
           sleep 1
         end

@@ -4,6 +4,7 @@
 //= require ./ember-addons/ember-computed-decorators
 //= require ./ember-addons/fmt
 //= require_tree ./discourse-common
+//= require_tree ./select-box-kit
 //= require ./discourse
 //= require ./deprecated
 
@@ -66,11 +67,8 @@
 //= require ./discourse/controllers/navigation/default
 //= require ./discourse/components/edit-category-panel
 //= require ./discourse/components/dropdown-button
-//= require ./discourse/components/notifications-button
 //= require ./discourse/lib/link-mentions
 //= require ./discourse/components/site-header
-//= require ./discourse/lib/emoji/groups
-//= require ./discourse/lib/emoji/toolbar
 //= require ./discourse/components/d-editor
 //= require ./discourse/lib/screen-track
 //= require ./discourse/routes/discourse

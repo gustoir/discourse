@@ -1,6 +1,6 @@
 import { wantsNewWindow } from 'discourse/lib/intercept-click';
 import { createWidget } from 'discourse/widgets/widget';
-import { iconNode } from 'discourse/helpers/fa-icon-node';
+import { iconNode } from 'discourse-common/lib/icon-library';
 import { h } from 'virtual-dom';
 import DiscourseURL from 'discourse/lib/url';
 
@@ -31,8 +31,10 @@ export default createWidget('link', {
   },
 
   buildAttributes(attrs) {
-    return { href: this.href(attrs),
-             title: attrs.title ? I18n.t(attrs.title) : this.label(attrs) };
+    return {
+      href: this.href(attrs),
+      title: attrs.title ? I18n.t(attrs.title, attrs.titleOptions) : this.label(attrs)
+    };
   },
 
   label(attrs) {
@@ -54,7 +56,13 @@ export default createWidget('link', {
     }
 
     if (!attrs.hideLabel) {
-      result.push(this.label(attrs));
+      let label = this.label(attrs);
+
+      if (attrs.omitSpan) {
+        result.push(label);
+      } else {
+        result.push(h('span.d-label', label));
+      }
     }
 
     const currentUser = this.currentUser;

@@ -46,6 +46,11 @@ describe Upload do
 
   end
 
+  it "extracts file extension" do
+    created_upload = UploadCreator.new(image, image_filename).create_for(user_id)
+    expect(created_upload.extension).to eq("png")
+  end
+
   context ".get_from_url" do
     let(:url) { "/uploads/default/original/3X/1/0/10f73034616a796dfd70177dc54b6def44c4ba6f.png" }
     let(:upload) { Fabricate(:upload, url: url) }
@@ -105,6 +110,28 @@ describe Upload do
   describe '.generate_digest' do
     it "should return the right digest" do
       expect(Upload.generate_digest(image.path)).to eq('bc975735dfc6409c1c2aa5ebf2239949bcbdbd65')
+    end
+  end
+
+  describe '.short_url' do
+    it "should generate a correct short url" do
+      upload = Upload.new(sha1: 'bda2c513e1da04f7b4e99230851ea2aafeb8cc4e', extension: 'png')
+      expect(upload.short_url).to eq('upload://r3AYqESanERjladb4vBB7VsMBm6.png')
+    end
+  end
+
+  describe '.sha1_from_short_url' do
+    it "should be able to look up sha1" do
+      sha1 = 'bda2c513e1da04f7b4e99230851ea2aafeb8cc4e'
+
+      expect(Upload.sha1_from_short_url('upload://r3AYqESanERjladb4vBB7VsMBm6.png')).to eq(sha1)
+      expect(Upload.sha1_from_short_url('upload://r3AYqESanERjladb4vBB7VsMBm6')).to eq(sha1)
+      expect(Upload.sha1_from_short_url('r3AYqESanERjladb4vBB7VsMBm6')).to eq(sha1)
+    end
+
+    it "should be able to look up sha1 even with leading zeros" do
+      sha1 = '0000c513e1da04f7b4e99230851ea2aafeb8cc4e'
+      expect(Upload.sha1_from_short_url('upload://1Eg9p8rrCURq4T3a6iJUk0ri6.png')).to eq(sha1)
     end
   end
 

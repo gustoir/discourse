@@ -113,7 +113,7 @@ module DiscourseNarrativeBot
       }
     }
 
-    SEARCH_ANSWER = [':herb:', '🌿'].freeze.each(&:freeze)
+    SEARCH_ANSWER = ':herb:'.freeze
 
     def self.reset_trigger
       I18n.t('discourse_narrative_bot.new_user_narrative.reset_trigger')
@@ -121,7 +121,7 @@ module DiscourseNarrativeBot
 
     def reset_bot(user, post)
       if pm_to_bot?(post)
-        reset_data(user, { topic_id: post.topic_id })
+        reset_data(user, topic_id: post.topic_id)
       else
         reset_data(user)
       end
@@ -154,7 +154,7 @@ module DiscourseNarrativeBot
       PostRevisor.new(post, topic).revise!(
         self.discobot_user,
         { raw: raw },
-        { skip_validations: true, force_new_version: true }
+        skip_validations: true, force_new_version: true
       )
 
       set_state_data(:post_version, post.reload.version || 0)
@@ -328,7 +328,7 @@ module DiscourseNarrativeBot
       else
         raw = I18n.t(
           "#{I18N_KEY}.images.not_found",
-          i18n_post_args(image_url: "#{Discourse.base_url}/images/dog-walk.gif")
+          i18n_post_args(image_url: "#{Discourse.base_url}/plugins/discourse-narrative-bot/images/dog-walk.gif")
         )
 
         transition = false
@@ -485,7 +485,7 @@ module DiscourseNarrativeBot
       post_topic_id = @post.topic_id
       return unless valid_topic?(post_topic_id)
 
-      if @post.raw.match(/#{SEARCH_ANSWER.join('|')}/)
+      if @post.raw.match(/#{SEARCH_ANSWER}/)
         fake_delay
         reply_to(@post, I18n.t("#{I18N_KEY}.search.reply", i18n_post_args(search_url: url_helpers(:search_url))))
       else

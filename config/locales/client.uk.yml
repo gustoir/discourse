@@ -55,6 +55,7 @@ uk:
           other: "%{count} днів тому"
       previous_month: 'Попередній місяць'
       next_month: 'Наступний місяць'
+      placeholder: Виберіть дату
     share:
       topic: 'поширити посилання на цю тему'
       post: 'допис #%{postNumber}'
@@ -67,16 +68,16 @@ uk:
     emails_are_disabled: "Надсилання повідомлень електронною поштою було глобально вимкнено адміністратором. Жодне сповіщення електронною поштою не буде надіслано."
     s3:
       regions:
-        us_west_2: "США Захід (Орегон)"
-        eu_west_1: "ЄС (Ірландія)"
-        eu_central_1: "ЄС (Франкфурт)"
-        ap_southeast_1: "Азія (Сингапур)"
-        ap_southeast_2: "Азія (Сідней)"
-        ap_south_1: "Азія (Мумбай)"
         ap_northeast_1: "Азія (Токіо)"
         ap_northeast_2: "Азія (Сеул)"
-        sa_east_1: "Південна Америка (Сан Паоло)"
+        ap_south_1: "Азія (Мумбай)"
+        ap_southeast_1: "Азія (Сингапур)"
+        ap_southeast_2: "Азія (Сідней)"
         cn_north_1: "Китай (Пекін)"
+        eu_central_1: "ЄС (Франкфурт)"
+        eu_west_1: "ЄС (Ірландія)"
+        sa_east_1: "Південна Америка (Сан Паоло)"
+        us_west_2: "США Захід (Орегон)"
     edit: 'редагувати назву та категорію цієї теми'
     not_implemented: "Цей функціонал ще не реалізовано, даруйте!"
     no_value: "Ні"
@@ -251,10 +252,6 @@ uk:
       add: "Додати"
       closed_group: Закрита Група
       selector_placeholder: "Додати учасників"
-      title:
-        one: "група"
-        few: "групи"
-        other: "групи"
       members: "Учасники"
       topics: "Теми"
       posts: "Дописи"
@@ -685,8 +682,6 @@ uk:
     notifications:
       more: "переглянути старіші сповіщення"
       total_flagged: "всього дописів, на які поскаржилися"
-      quoted: "<i title='Цитування' class='fa fa-quote-right'></i><p><span>{{username}}</span> {{description}}</p>"
-      replied: "<i title='Відповідь від' class='fa fa-reply'></i><p><span>{{username}}</span> {{description}}</p>"
       alt:
         posted: "Опубліковано"
     upload_selector:
@@ -1320,6 +1315,18 @@ uk:
           body: "Тіло"
           revert: "Повернути зміни"
           revert_confirm: "Чи впевнені ви, що хочете повернути ваші зміни?"
+        theme:
+          upload: "Завантажити"
+          about_theme: "Про тему"
+          license: "Ліцензія"
+          update_to_latest: "Оновити до останьої"
+          add: "Додати"
+          scss:
+            text: "CSS"
+          head_tag:
+            text: "</head>"
+          body_tag:
+            text: "</body>"
         colors:
           title: "Кольори"
           long_title: "Схеми Кольорів"
@@ -1328,6 +1335,7 @@ uk:
           delete_confirm: "Видалити цю кольорову схему?"
           undo: "скасувати"
           undo_title: "Скасувати ваші зміни цього кольору з часу останнього збереження."
+          revert: "Повернути"
           primary:
             name: 'основний'
           secondary:
@@ -1345,6 +1353,7 @@ uk:
           success:
             name: 'успіх'
           love:
+            name: 'любов'
             description: "Колір кнопки \"Подобається\"."
       email:
         title: "Листів"
@@ -1415,6 +1424,8 @@ uk:
           block: "block"
           do_nothing: "do nothing"
         staff_actions:
+          all: "всі"
+          filter: "Filter:"
           title: "Дії персоналу"
           clear_filters: "Показати все"
           staff_user: "Член персоналу"
@@ -1435,6 +1446,8 @@ uk:
             change_trust_level: "зміна рівня довіри"
             change_username: "зміна імені користувача"
             change_site_setting: "зміна налаштування сайта"
+            change_theme: "змінити тему"
+            delete_theme: "видалити тему"
             change_site_text: "змінити текст сайту"
             suspend_user: "призупинення користувача"
             unsuspend_user: "скасування призупинення"
@@ -1453,6 +1466,8 @@ uk:
             revoke_admin: "відкликати адміністраторство"
             grant_moderation: "зробити модератором"
             revoke_moderation: "відкликати модераторство"
+            deleted_tag: "видалити тег"
+            lock_trust_level: "заблокувати рівень довіри"
         screened_emails:
           title: "Screened Emails"
           description: "Коли хтось намагатиметься створити новий обліковий запис, наступні електронні скриньки буде перевірено, і реєстрацію заблоковано, або вжито якихось інших дій."
@@ -1476,6 +1491,15 @@ uk:
             ip_address: "IP-адреса"
             add: "Додати"
             filter: "Пошук"
+      watched_words:
+        search: "Пошук"
+        clear_filter: "Очистити"
+        actions:
+          block: 'Заблокувати'
+        form:
+          add: 'Додати'
+          success: 'Успіх'
+          upload: "Вивантажити"
       impersonate:
         not_found: "Цього користувача не вдалося знайти."
       users:
@@ -1483,6 +1507,7 @@ uk:
         create: 'Додати адміністратора'
         last_emailed: "Останній ел. лист"
         not_found: "Даруйте, такого імені користувача немає в нашій системі."
+        id_not_found: "Даруйте, користувача за таким номером немає в нашій системі."
         active: "Активний(а)"
         show_emails: "Показати електронну пошту"
         nav:
@@ -1504,13 +1529,13 @@ uk:
           moderators: 'Модератори'
           blocked: 'Заблоковані користувачі'
           suspended: 'Призупинені користувачі'
+        not_verified: "Не підтверджений"
         check_email:
           text: "Показати"
       user:
         suspend_failed: "Щось трапилося під час призупинення цього користувача: {{error}}"
         unsuspend_failed: "Щось трапилося під час скасування призупинення цього користувача: {{error}}"
         suspend_duration: "На який термін призупинити діяльність цього користувача?"
-        suspend_duration_units: "(днів)"
         suspend_reason_label: "Чому Ви призупиняєте цього користувача? Цей текст <b>буде видимим для всіх</b> на сторінці профілю цього користувача, і його буде показано користувачу при спробі увійти в систему. Будьте лаконічні."
         suspend_reason: "Причина"
         suspended_by: "Призупинено"
@@ -1609,6 +1634,7 @@ uk:
           confirm: 'Підтвердження'
       site_text:
         edit: 'редагувати'
+        revert: "Повернути зміни"
         go_back: "Повернутись до пошуку"
         show_overriden: 'Показувати тільки перевизначені'
       site_settings:
@@ -1639,9 +1665,14 @@ uk:
           uncategorized: 'Інше'
           backups: "Backups"
           login: "Вхід"
+          plugins: "Плагіни"
           user_preferences: "Налаштування"
+          tags: "Теги"
           search: "Пошук"
+          groups: "Групи"
       badges:
+        title: Значки
+        new_badge: Новий значок
         new: Новий
         name: Ім'я
         badge: Значок

@@ -12,7 +12,7 @@ class TopicLinkClick < ActiveRecord::Base
   WHITELISTED_REDIRECT_HOSTNAMES = Set.new(%W{www.youtube.com youtu.be})
 
   # Create a click from a URL and post_id
-  def self.create_from(args={})
+  def self.create_from(args = {})
     url = args[:url][0...TopicLink.max_url_length]
     return nil if url.blank?
 
@@ -31,7 +31,7 @@ class TopicLinkClick < ActiveRecord::Base
     query = url.index('?')
     unless query.nil?
       endpos = url.index('#') || url.size
-      urls << url[0..query-1] + url[endpos..-1]
+      urls << url[0..query - 1] + url[endpos..-1]
     end
 
     # add a cdn link
@@ -44,8 +44,8 @@ class TopicLinkClick < ActiveRecord::Base
         end
       end
 
-      if SiteSetting.s3_cdn_url.present?
-        cdn_uri = URI.parse(SiteSetting.s3_cdn_url) rescue nil
+      if SiteSetting.Upload.s3_cdn_url.present?
+        cdn_uri = URI.parse(SiteSetting.Upload.s3_cdn_url) rescue nil
         if cdn_uri && cdn_uri.hostname == uri.hostname && uri.path.starts_with?(cdn_uri.path)
           is_cdn_link = true
           path = uri.path[cdn_uri.path.length..-1]
