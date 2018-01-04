@@ -41,6 +41,9 @@ $user_card_background: $secondary;
     a.card-huge-avatar {
       outline: none;
     }
+    .staged {
+      font-style: italic;
+    }
   }
 
   &.no-bg {
@@ -60,7 +63,7 @@ $user_card_background: $secondary;
 
   h1 {
     min-width: 120px;
-    font-size: 1.786em;
+    font-size: 1.857em;
     line-height: 1.25;
     display: block;
     max-width: 250px;
@@ -71,13 +74,13 @@ $user_card_background: $secondary;
       color: $user_card_primary;
     }
     i {
-      font-size: .8em;
+      font-size: .857em;
       color: $user_card_primary;
     }
   }
 
   h2 {
-    font-size: 1.071em;
+    font-size: 1.143em;
     line-height: 1.25;
     font-weight: normal;
     display: block;
@@ -221,7 +224,7 @@ $user_card_background: $secondary;
 
       .user-badge {
         background: scale-color($user_card_background, $lightness: -5%);
-        border: 1px solid $primary-low; 
+        border: 1px solid $primary-low;
         color: $user_card_primary;
       }
 
@@ -252,7 +255,11 @@ $user_card_background: $secondary;
     position: absolute;
     right: 12px;
     bottom: 12px;
-    font-size: 2.143em;
+    font-size: 2.286em;
     i {color: $user_card_primary;}
+  }
+
+  .metadata .email .btn {
+    padding: 2px 12px;
   }
 }

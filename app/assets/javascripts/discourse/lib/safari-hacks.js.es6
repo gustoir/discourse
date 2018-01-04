@@ -1,10 +1,4 @@
-export function isAppleDevice() {
-  // IE has no DOMNodeInserted so can not get this hack despite saying it is like iPhone
-  // This will apply hack on all iDevices
-  return navigator.userAgent.match(/(iPad|iPhone|iPod)/g) &&
-         navigator.userAgent.match(/Safari/g) &&
-         !navigator.userAgent.match(/Trident/g);
-}
+import { isAppleDevice } from 'discourse/lib/utilities';
 
 // we can't tell what the actual visible window height is
 // because we cannot account for the height of the mobile keyboard
@@ -39,6 +33,12 @@ function calcHeight() {
     if (window.screen.height === 736) {
       withoutKeyboard = smallViewport ? 353 : 383;
     }
+
+    // iPhone X
+    if (window.screen.height === 812) {
+      withoutKeyboard = smallViewport ? 340 : 370;
+    }
+
     // iPad can use innerHeight cause it renders nothing in the footer
     if (window.innerHeight > 920) {
       withoutKeyboard -= 45;

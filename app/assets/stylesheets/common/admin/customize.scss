@@ -1,9 +1,13 @@
 // Customise area
-.customize {
+.admin-customize {
   h1 {
     margin-bottom: 10px;
     input {
       margin-bottom: 0;
+      font-size: 1rem;
+    }
+    .btn-small {
+      font-size: 1rem;
     }
   }
 
@@ -88,21 +92,27 @@
     }
 
     .nav.target {
+      margin-top: 15px;
+
       li {
         position: relative;
+
+        a {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+        }
       }
-      margin-top: 15px;
+
       .fa {
-        margin-left: 3px;
+        margin-left: 8px;
       }
-      li.mobile a {
-        padding-right: 25px;
-      }
+
       .d-icon-mobile {
-        position: absolute;
-        right: 10px;
-        top: 3px;
+        position: relative;
+        top: -3px;
         font-size: 1.5em;
+        max-height: 20px;
       }
     }
 
@@ -184,7 +194,7 @@
 
   .status-message {
     display: block;
-    font-size: 0.8em;
+    font-size: 0.857em;
     margin-top: 8px;
   }
 

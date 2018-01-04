@@ -22,12 +22,13 @@ else
   gem 'activesupport', '~> 5.1'
   gem 'railties', '~> 5.1'
   gem 'sprockets-rails'
-  gem 'seed-fu', '~> 2.3.5'
+  gem 'seed-fu'
 end
 
 gem 'mail'
 gem 'mime-types', require: 'mime/types/columnar'
 gem 'mini_mime'
+gem 'mini_suffix'
 
 gem 'hiredis'
 gem 'redis', require:  ["redis", "redis/connection/hiredis"]
@@ -35,7 +36,7 @@ gem 'redis-namespace'
 
 gem 'active_model_serializers', '~> 0.8.3'
 
-gem 'onebox', '1.8.19'
+gem 'onebox', '1.8.33'
 
 gem 'http_accept_language', '~>2.0.5', require: false
 
@@ -46,14 +47,13 @@ gem 'barber'
 
 gem 'message_bus'
 
-gem 'rails_multisite', '~> 1.1.0.rc4'
+gem 'rails_multisite'
 
 gem 'fast_xs'
 
 gem 'fast_xor'
 
-# Forked until https://github.com/sdsykes/fastimage/pull/93 is merged
-gem 'discourse_fastimage', require: 'fastimage'
+gem 'fastimage'
 
 gem 'aws-sdk-s3', require: false
 gem 'excon', require: false
@@ -165,13 +165,15 @@ gem 'gc_tracer', require: false, platform: :mri
 
 # required for feed importing and embedding
 gem 'ruby-readability', require: false
-gem 'simple-rss', require: false
 
 gem 'stackprof', require: false, platform: :mri
 gem 'memory_profiler', require: false, platform: :mri
 
 gem 'cppjieba_rb', require: false
 
+gem 'lograge', require: false
+gem 'logstash-event', require: false
+gem 'logstash-logger', require: false
 gem 'logster'
 
 gem 'sassc', require: false

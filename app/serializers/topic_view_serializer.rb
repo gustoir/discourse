@@ -37,6 +37,7 @@ class TopicViewSerializer < ApplicationSerializer
                         :user_id,
                         :pm_with_non_human_user?,
                         :featured_link,
+                        :featured_link_root_domain,
                         :pinned_globally,
                         :pinned_at,
                         :pinned_until
@@ -91,9 +92,10 @@ class TopicViewSerializer < ApplicationSerializer
     end
 
     if object.post_counts_by_user.present?
-      result[:participants] = object.post_counts_by_user.map do |pc|
+      participants = object.post_counts_by_user.reject { |p| object.participants[p].blank? }.map do |pc|
         TopicPostCountSerializer.new({ user: object.participants[pc[0]], post_count: pc[1] }, scope: scope, root: false)
       end
+      result[:participants] = participants if participants.length > 0
     end
 
     if object.links.present?
@@ -261,8 +263,12 @@ class TopicViewSerializer < ApplicationSerializer
     SiteSetting.topic_featured_link_enabled
   end
 
+  def include_featured_link_root_domain?
+    SiteSetting.topic_featured_link_enabled && object.topic.featured_link
+  end
+
   def include_unicode_title?
-    !!(object.topic.title =~ /:([\w\-+]*):/)
+    object.topic.title.match?(/:[\w\-+]+:/)
   end
 
   def unicode_title
@@ -274,7 +280,7 @@ class TopicViewSerializer < ApplicationSerializer
   end
 
   def participant_count
-    object.participants.size
+    object.participant_count
   end
 
   private

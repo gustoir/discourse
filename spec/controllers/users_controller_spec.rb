@@ -44,6 +44,14 @@ describe UsersController do
         expect(response).not_to be_success
       end
 
+      it 'returns success when show_inactive_accounts is true and user is logged in' do
+        SiteSetting.show_inactive_accounts = true
+        log_in_user(user)
+        inactive = Fabricate(:user, active: false)
+        get :show, params: { username: inactive.username }, format: :json
+        expect(response).to be_success
+      end
+
       it "raises an error on invalid access" do
         Guardian.any_instance.expects(:can_see?).with(user).returns(false)
         get :show, params: { username: user.username }, format: :json
@@ -342,7 +350,7 @@ describe UsersController do
         )
 
         expect(response).to be_success
-        expect(response.body).to include('{"is_developer":false}')
+        expect(response.body).to include('{"is_developer":false,"admin":false}')
 
         user.reload
 
@@ -487,6 +495,7 @@ describe UsersController do
 
     context 'logs in admin' do
       it 'does not log in admin with invalid token' do
+        SiteSetting.sso_url = "https://www.example.com/sso"
         SiteSetting.enable_sso = true
         get :admin_login, params: { token: "invalid" }
         expect(session[:current_user_id]).to be_blank
@@ -503,6 +512,7 @@ describe UsersController do
         end
 
         it 'logs in admin with SSO enabled' do
+          SiteSetting.sso_url = "https://www.example.com/sso"
           SiteSetting.enable_sso = true
           token = admin.email_tokens.create(email: admin.email).token
 
@@ -1026,20 +1036,6 @@ describe UsersController do
       end
     end
 
-    context "when taking over a staged account" do
-      let!(:staged) { Fabricate(:staged, email: "staged@account.com") }
-
-      it "succeeds" do
-        post :create, params: {
-          email: staged.email, username: "zogstrip", password: "P4ssw0rd$$"
-        }, format: :json
-
-        result = ::JSON.parse(response.body)
-        expect(result["success"]).to eq(true)
-        expect(User.find_by_email(staged.email).staged).to eq(false)
-      end
-    end
-
   end
 
   context '#username' do
@@ -1538,6 +1534,27 @@ describe UsersController do
               }, format: :json
 
               expect(user.user_fields[user_field.id.to_s].size).to eq(UserField.max_length)
+            end
+
+            it "should retain existing user fields" do
+              put :update, params: {
+                username: user.username, name: 'Jim Tom', user_fields: { user_field.id.to_s => 'happy', optional_field.id.to_s => 'feet' }
+              }, format: :json
+
+              expect(response).to be_success
+              expect(user.user_fields[user_field.id.to_s]).to eq('happy')
+              expect(user.user_fields[optional_field.id.to_s]).to eq('feet')
+
+              put :update, params: {
+                username: user.username, name: 'Jim Tom', user_fields: { user_field.id.to_s => 'sad' }
+              }, format: :json
+
+              expect(response).to be_success
+
+              user.reload
+
+              expect(user.user_fields[user_field.id.to_s]).to eq('sad')
+              expect(user.user_fields[optional_field.id.to_s]).to eq('feet')
             end
           end
 
@@ -2148,7 +2165,7 @@ describe UsersController do
       json = JSON.parse(response.body)
 
       expect(json["user_summary"]["topic_count"]).to eq(1)
-      expect(json["user_summary"]["post_count"]).to eq(1)
+      expect(json["user_summary"]["post_count"]).to eq(0)
     end
   end
 

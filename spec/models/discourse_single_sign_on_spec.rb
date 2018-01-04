@@ -5,8 +5,8 @@ describe DiscourseSingleSignOn do
     @sso_url = "http://somesite.com/discourse_sso"
     @sso_secret = "shjkfdhsfkjh"
 
-    SiteSetting.enable_sso = true
     SiteSetting.sso_url = @sso_url
+    SiteSetting.enable_sso = true
     SiteSetting.sso_secret = @sso_secret
   end
 
@@ -264,6 +264,23 @@ describe DiscourseSingleSignOn do
       sso.require_activation = true
       user = sso.lookup_or_create_user(ip_address)
       expect(user.active).to eq(false)
+    end
+
+    it 'does not deactivate user if email provided is capitalized' do
+      SiteSetting.email_editable = false
+      SiteSetting.sso_overrides_email = true
+      sso.require_activation = true
+
+      user = sso.lookup_or_create_user(ip_address)
+      expect(user.active).to eq(false)
+
+      user.update_columns(active: true)
+      user = sso.lookup_or_create_user(ip_address)
+      expect(user.active).to eq(true)
+
+      sso.email = "Test@example.com"
+      user = sso.lookup_or_create_user(ip_address)
+      expect(user.active).to eq(true)
     end
 
     it 'deactivates accounts that have updated email address' do

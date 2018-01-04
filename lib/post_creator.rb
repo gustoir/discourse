@@ -188,7 +188,7 @@ class PostCreator
       enqueue_jobs unless @opts[:skip_jobs]
       BadgeGranter.queue_badge_grant(Badge::Trigger::PostRevision, post: @post)
 
-      trigger_after_events(@post)
+      trigger_after_events unless opts[:skip_events]
 
       auto_close unless @opts[:import_mode]
     end
@@ -217,6 +217,11 @@ class PostCreator
       import_mode: @opts[:import_mode],
       post_alert_options: @opts[:post_alert_options]
     ).enqueue_jobs
+  end
+
+  def trigger_after_events
+    DiscourseEvent.trigger(:topic_created, @post.topic, @opts, @user) unless @opts[:topic_id]
+    DiscourseEvent.trigger(:post_created, @post, @opts, @user)
   end
 
   def self.track_post_stats
@@ -282,11 +287,6 @@ class PostCreator
         composer_open_duration_msecs: @opts[:composer_open_duration_msecs] || 0
       )
     end
-  end
-
-  def trigger_after_events(post)
-    DiscourseEvent.trigger(:topic_created, post.topic, @opts, @user) unless @opts[:topic_id]
-    DiscourseEvent.trigger(:post_created, post, @opts, @user)
   end
 
   def auto_close
@@ -412,7 +412,8 @@ class PostCreator
       attrs[:word_count] = (@topic.word_count || 0) + @post.word_count
       attrs[:excerpt] = @post.excerpt(220, strip_links: true) if new_topic?
       attrs[:bumped_at] = @post.created_at unless @post.no_bump
-      @topic.update_attributes(attrs)
+      attrs[:updated_at] = 'now()'
+      @topic.update_columns(attrs)
     end
   end
 
@@ -473,7 +474,7 @@ class PostCreator
     end
 
     unless @post.topic.private_message?
-      @user.user_stat.post_count += 1
+      @user.user_stat.post_count += 1 if @post.post_type == Post.types[:regular] && !@post.is_first_post?
       @user.user_stat.topic_count += 1 if @post.is_first_post?
     end
 

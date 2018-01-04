@@ -70,7 +70,7 @@ en:
         no_body_detected_error: "Happens when we couldn't extract a body and there were no attachments."
         no_sender_detected_error: "Happens when we couldn't find a valid email address in the From header."
         inactive_user_error: "Happens when the sender is not active."
-        blocked_user_error: "Happens when the sender has been blocked."
+        silenced_user_error: "Happens when the sender has been silenced."
         bad_destination_address: "Happens when none of the email addresses in To/Cc/Bcc fields matched a configured incoming email address."
         strangers_not_allowed_error: "Happens when a user tried to create a new topic in a category they're not a member of."
         insufficient_trust_level_error: "Happens when a user tried to create a new topic in a category they don't have the required trust level for."
@@ -139,6 +139,7 @@ en:
       max_username_length_range: "You cannot set the maximum below the minimum."
       default_categories_already_selected: "You cannot select a category used in another list."
       s3_upload_bucket_is_required: "You cannot enable uploads to S3 unless you've provided the 's3_upload_bucket'."
+    conflicting_google_user_id: 'The Google Account ID for this account has changed; staff intervention is required for security reasons. Please contact staff and point them to <br><a href="https://meta.discourse.org/t/76575">https://meta.discourse.org/t/76575</a>'
 
   activemodel:
     errors:
@@ -264,6 +265,7 @@ en:
 
   queue:
     delete_reason: "Deleted via post moderation queue"
+    not_found: "Post not found or already updated."
 
   groups:
     success:
@@ -423,7 +425,7 @@ en:
         translation_overrides:
           attributes:
             value:
-              missing_interpolation_keys: 'The following interpolation key(s) are missing: "%{keys}"'
+              invalid_interpolation_keys: 'The following interpolation key(s) are invalid: "%{keys}"'
         watched_word:
           attributes:
             word:
@@ -524,7 +526,6 @@ en:
   post:
     image_placeholder:
       broken: "This image is broken"
-      large: "This image is too large to display here; click to view"
 
   rate_limiter:
     slow_down: "You have performed this action too many times, try again later."
@@ -742,7 +743,7 @@ en:
       email_body: "%{link}\n\n%{message}"
 
   flagging:
-    you_must_edit: '<p>Your post was flagged by the community. Please <a href="/my/messages">see your messages</a>.</p>'
+    you_must_edit: '<p>Your post was flagged by the community. Please <a href="%{path}">see your messages</a>.</p>'
     user_must_edit: '<p>This post was flagged by the community and is temporarily hidden.</p>'
 
   archetypes:
@@ -1011,7 +1012,8 @@ en:
     digest_logo_url: "The alternate logo image used at the top of your site's email summary. Should be a wide rectangle shape. Should not be an SVG image. If left blank `logo_url` will be used."
     logo_small_url: "The small logo image at the top left of your site, should be a square shape, seen when scrolling down. If left blank a home glyph will be shown."
     favicon_url: "A favicon for your site, see http://en.wikipedia.org/wiki/Favicon, to work correctly over a CDN it must be a png"
-    mobile_logo_url: "The fixed position logo image used at the top left of your mobile site. Should be a square shape. If left blank, `logo_url` will be used. eg: http://example.com/uploads/default/logo.png"
+    mobile_logo_url: "Custom logo url used on mobile version of your site. If left blank, `logo_url` will be used. eg: http://example.com/uploads/default/logo.png"
+    large_icon_url: "Image used as logo/splash image on Android. Recommended size is 512px by 512px."
     apple_touch_icon_url: "Icon used for Apple touch devices. Recommended size is 144px by 144px."
 
     notification_email: "The from: email address used when sending all essential system emails. The domain specified here must have SPF, DKIM and reverse PTR records set correctly for email to arrive."
@@ -1045,11 +1047,11 @@ en:
     tl3_additional_likes_per_day_multiplier: "Increase limit of likes per day for tl3 (regular) by multiplying with this number"
     tl4_additional_likes_per_day_multiplier: "Increase limit of likes per day for tl4 (leader) by multiplying with this number"
 
-    num_spam_flags_to_block_new_user: "If a new user's posts get this many spam flags from num_users_to_block_new_user different users, hide all their posts and prevent future posting. 0 to disable."
-    num_users_to_block_new_user: "If a new user's posts get num_spam_flags_to_block_new_user spam flags from this many different users, hide all their posts and prevent future posting. 0 to disable."
-    num_tl3_flags_to_block_new_user: "If a new user's posts get this many flags from num_tl3_users_to_block_new_user different trust level 3 users, hide all their posts and prevent future posting. 0 to disable."
-    num_tl3_users_to_block_new_user: "If a new user's posts get num_tl3_flags_to_block_new_user flags from this many different trust level 3 users, hide all their posts and prevent future posting. 0 to disable."
-    notify_mods_when_user_blocked: "If a user is automatically blocked, send a message to all moderators."
+    num_spam_flags_to_silence_new_user: "If a new user's posts get this many spam flags from num_users_to_silence_new_user different users, hide all their posts and prevent future posting. 0 to disable."
+    num_users_to_silence_new_user: "If a new user's posts get num_spam_flags_to_silence_new_user spam flags from this many different users, hide all their posts and prevent future posting. 0 to disable."
+    num_tl3_flags_to_silence_new_user: "If a new user's posts get this many flags from num_tl3_users_to_silence_new_user different trust level 3 users, hide all their posts and prevent future posting. 0 to disable."
+    num_tl3_users_to_silence_new_user: "If a new user's posts get num_tl3_flags_to_silence_new_user flags from this many different trust level 3 users, hide all their posts and prevent future posting. 0 to disable."
+    notify_mods_when_user_silenced: "If a user is automatically silenced, send a message to all moderators."
     flag_sockpuppets: "If a new user replies to a topic from the same IP address as the new user who started the topic, flag both of their posts as potential spam."
 
     traditional_markdown_linebreaks: "Use traditional linebreaks in Markdown, which require two trailing spaces for a linebreak."
@@ -1058,15 +1060,12 @@ en:
     must_approve_users: "Staff must approve all new user accounts before they are allowed to access the site. WARNING: enabling this for a live site will revoke access for existing non-staff users!"
     pending_users_reminder_delay: "Notify moderators if new users have been waiting for approval for longer than this many hours. Set to -1 to disable notifications."
     maximum_session_age: "User will remain logged in for n hours since last visit"
-    ga_tracking_code: "OBSOLETE: Google analytics (ga.js) tracking code code, eg: UA-12345678-9; see http://google.com/analytics"
-    ga_domain_name: "OBSOLETE: Google analytics (ga.js) domain name, eg: mysite.com; see http://google.com/analytics"
     ga_universal_tracking_code: "Google Universal Analytics (analytics.js) tracking code code, eg: UA-12345678-9; see http://google.com/analytics"
     ga_universal_domain_name: "Google Universal Analytics (analytics.js) domain name, eg: mysite.com; see http://google.com/analytics"
     ga_universal_auto_link_domains: "Enable Google Universal Analytics (analytics.js) cross-domain tracking. Outgoing links to these domains will have the client id added to them. See Google's Cross-Domain Tracking guide."
     gtm_container_id: "Google Tag Manager container id. eg: GTM-ABCDEF"
     enable_escaped_fragments: "Fall back to Google's Ajax-Crawling API if no webcrawler is detected. See https://developers.google.com/webmasters/ajax-crawling/docs/learn-more"
     allow_moderators_to_create_categories: "Allow moderators to create new categories"
-    crawler_user_agents: "List of user agents that are considered crawlers and served static HTML instead of JavaScript payload"
     cors_origins: "Allowed origins for cross-origin requests (CORS). Each origin must include http:// or https://. The DISCOURSE_ENABLE_CORS env variable must be set to true to enable CORS."
     use_admin_ip_whitelist: "Admins can only log in if they are at an IP address defined in the Screened IPs list (Admin > Logs > Screened Ips)."
     blacklist_ip_blocks: "A list of private IP blocks that should never be crawled by Discourse"
@@ -1089,6 +1088,7 @@ en:
     top_page_default_timeframe: "Default timeframe for the top view page."
     show_email_on_profile: "Show a user's email on their profile (only visible to themselves and staff)"
     prioritize_username_in_ux: "Show username first on user page, user card and posts (when disabled name is shown first)"
+    enable_rich_text_paste: "Enable automatic HTML to Markdown conversion when pasting text into the composer. (Experimental)"
 
     email_token_valid_hours: "Forgot password / activate account tokens are valid for (n) hours."
 
@@ -1160,6 +1160,7 @@ en:
     github_client_secret: "Client secret for Github authentication, registered at https://github.com/settings/applications"
 
     readonly_mode_during_backup: "Enable read only mode while taking a backup"
+    enable_backups: "Allow administrators to create backups of the forum"
     allow_restore: "Allow restore, which can replace ALL site data! Leave false unless you plan to restore a backup"
     maximum_backups: "The maximum amount of backups to keep on disk. Older backups are automatically deleted"
     automatic_backups_enabled: "Run automatic backups as defined in backup frequency"
@@ -1284,6 +1285,7 @@ en:
     newuser_max_replies_per_topic: "Maximum number of replies a new user can make in a single topic until someone replies to them."
     max_mentions_per_post: "Maximum number of @name notifications anyone can use in a post."
     max_users_notified_per_group_mention: "Maximum number of users that may receive a notification if a group is mentioned (if threshold is met no notifications will be raised)"
+    enable_mentions: "Allow users to mention other users."
 
     create_thumbnails: "Create thumbnails and lightbox images that are too large to fit in a post."
 
@@ -1355,9 +1357,9 @@ en:
 
     auto_respond_to_flag_actions: "Enable automatic reply when disposing a flag."
     min_first_post_typing_time: "Minimum amount of time in milliseconds a user must type during first post, if threshold is not met post will automatically enter the needs approval queue. Set to 0 to disable (not recommended)"
-    auto_block_fast_typers_on_first_post: "Automatically block users that do not meet min_first_post_typing_time"
-    auto_block_fast_typers_max_trust_level: "Maximum trust level to auto block fast typers"
-    auto_block_first_post_regex: "Case insensitive regex that if passed will cause first post by user to be blocked and sent to approval queue. Example: raging|a[bc]a , will cause all posts containing raging or aba or aca to be blocked on first. Only applies to first post."
+    auto_silence_fast_typers_on_first_post: "Automatically silence users that do not meet min_first_post_typing_time"
+    auto_silence_fast_typers_max_trust_level: "Maximum trust level to auto silence fast typers"
+    auto_silence_first_post_regex: "Case insensitive regex that if passed will cause first post by user to be silenced and sent to approval queue. Example: raging|a[bc]a , will cause all posts containing raging or aba or aca to be silenced on first. Only applies to first post."
     flags_default_topics: "Show flagged topics by default in the admin section"
 
     reply_by_email_enabled: "Enable replying to topics via email."
@@ -1418,7 +1420,7 @@ en:
     relative_date_duration: "Number of days after posting where post dates will be shown as relative (7d) instead of absolute (20 Feb)."
     delete_user_max_post_age: "Don't allow deleting users whose first post is older than (x) days."
     delete_all_posts_max: "The maximum number of posts that can be deleted at once with the Delete All Posts button. If a user has more than this many posts, the posts cannot all be deleted at once and the user can't be deleted."
-    username_change_period: "The number of days after registration that accounts can change their username (0 to disallow username change)."
+    username_change_period: "The maximum number of days after registration that accounts can change their username (0 to disallow username change)."
     email_editable: "Allow users to change their e-mail address after registration."
     logout_redirect: "Location to redirect browser to after logout (eg: http://somesite.com/logout)"
 
@@ -1449,6 +1451,8 @@ en:
     anonymous_account_duration_minutes: "To protect anonymity create a new anonymous account every N minutes for each user. Example: if set to 600, as soon as 600 minutes elapse from last post AND user switches to anon, a new anonymous account is created."
 
     hide_user_profiles_from_public: "Disable user cards, user profiles and user directory for anonymous users."
+
+    show_inactive_accounts: "Allow logged in users to browse profiles of inactive accounts."
 
     hide_suspension_reasons: "Don't display suspension reasons publically on user profiles."
     user_website_domains_whitelist: "User website will be verified against these domains. Pipe-delimited list."
@@ -1483,7 +1487,7 @@ en:
 
     share_anonymized_statistics: "Share anonymized usage statistics."
 
-    auto_handle_queued_age: "Automatically handle records that are waiting to be reviewed after this many days. Flags will be deferred. Queued posts and users will be rejected. Set to 0 to disable this feature."
+    auto_handle_queued_age: "Automatically handle records that are waiting to be reviewed after this many days. Flags will be ignored. Queued posts and users will be rejected. Set to 0 to disable this feature."
 
     max_prints_per_hour_per_user: "Maximum number of /print page impressions (set to 0 to disable)"
 
@@ -1557,8 +1561,8 @@ en:
     default_categories_muted: "List of categories that are muted by default."
     default_categories_watching_first_post: "List of categories in which first post in each new topic will be watched by default."
 
-    max_user_api_reqs_per_day: "Maximum number of user API requests per key per day"
-    max_user_api_reqs_per_minute: "Maximum number of user API requests per key per minute"
+    retain_web_hook_events_period_days: "Number of days to retain web hook event records."
+
     allow_user_api_keys: "Allow generation of user API keys"
     allow_user_api_key_scopes: "List of scopes allowed for user API keys"
     max_api_keys_per_user: "Maximum number of user API keys per user"
@@ -1611,6 +1615,7 @@ en:
       enable_sso_disabled: "You must first enable 'enable sso' before enabling this setting."
       staged_users_disabled: "You must first enable 'staged users' before enabling this setting."
       reply_by_email_disabled: "You must first enable 'reply by email' before enabling this setting."
+      sso_url_is_empty: "You must set a 'sso url' before enabling this setting."
 
   search:
     within_post: "#%{post_number} by %{username}"
@@ -1618,6 +1623,7 @@ en:
       category: 'Categories'
       topic: 'Results'
       user: 'Users'
+    results_page: "Search results for '%{term}'"
 
   sso:
     login_error: "Login Error"
@@ -1738,7 +1744,8 @@ en:
     email_too_long: "The email you provided is too long. Mailbox names must be no more than 254 characters, and domain names must be no more than 253 characters."
     reserved_username: "That username is not allowed."
     missing_user_field: "You have not completed all the user fields"
-    close_window: "Authentication is complete. Close this window to continue."
+    auth_complete: "Authentication is complete."
+    click_to_continue: "Click here to continue."
     already_logged_in: "Oops, looks like you are attempting to accept an invitation for another user. If you are not %{current_user}, please log out and try again."
 
   user:
@@ -1768,6 +1775,10 @@ en:
     website:
       domain_not_allowed: "Website is invalid. Allowed domains are: %{domains}"
     auto_rejected: "Rejected automatically due to age. See auto_handle_queued_age site setting."
+    destroy_reasons:
+      unused_staged_user: "Unused staged user"
+      fixed_primary_email: "Fixed primary email for staged user"
+      same_ip_address: "Same IP address (%{ip_address}) as other users"
 
   flags_reminder:
     flags_were_submitted:
@@ -1791,9 +1802,9 @@ en:
 
   invite_mailer:
     title: "Invite Mailer"
-    subject_template: "%{invitee_name} invited you to '%{topic_title}' on %{site_domain_name}"
+    subject_template: "%{inviter_name} invited you to '%{topic_title}' on %{site_domain_name}"
     text_body_template: |
-      %{invitee_name} invited you to a discussion
+      %{inviter_name} invited you to a discussion
 
       > **%{topic_title}**
       >
@@ -1809,9 +1820,9 @@ en:
 
   custom_invite_mailer:
     title: "Custom Invite Mailer"
-    subject_template: "%{invitee_name} invited you to '%{topic_title}' on %{site_domain_name}"
+    subject_template: "%{inviter_name} invited you to '%{topic_title}' on %{site_domain_name}"
     text_body_template: |
-      %{invitee_name} invited you to a discussion
+      %{inviter_name} invited you to a discussion
 
       > **%{topic_title}**
       >
@@ -1831,9 +1842,9 @@ en:
 
   invite_forum_mailer:
     title: "Invite Forum Mailer"
-    subject_template: "%{invitee_name} invited you to join %{site_domain_name}"
+    subject_template: "%{inviter_name} invited you to join %{site_domain_name}"
     text_body_template: |
-      %{invitee_name} invited you to join
+      %{inviter_name} invited you to join
 
       > **%{site_title}**
       >
@@ -1845,9 +1856,9 @@ en:
 
   custom_invite_forum_mailer:
     title: "Custom Invite Forum Mailer"
-    subject_template: "%{invitee_name} invited you to join %{site_domain_name}"
+    subject_template: "%{inviter_name} invited you to join %{site_domain_name}"
     text_body_template: |
-      %{invitee_name} invited you to join
+      %{inviter_name} invited you to join
 
       > **%{site_title}**
       >
@@ -1948,7 +1959,7 @@ en:
 
       - Upgrade using our easy **[one-click browser upgrade](%{base_url}/admin/upgrade)**
 
-      - See what's new in the [GitHub changelog](https://github.com/discourse/discourse/commits/master)
+      - See what's new in the [release notes](https://meta.discourse.org/tags/release-notes) or view the [raw GitHub changelog](https://github.com/discourse/discourse/commits/master)
 
       - Visit [meta.discourse.org](https://meta.discourse.org) for news, discussion, and support for Discourse
 
@@ -1963,7 +1974,7 @@ en:
 
       - Upgrade using our easy **[one-click browser upgrade](%{base_url}/admin/upgrade)**
 
-      - See what's new in the [GitHub changelog](https://github.com/discourse/discourse/commits/master)
+      - See what's new in the [release notes](https://meta.discourse.org/tags/release-notes) or view the [raw GitHub changelog](https://github.com/discourse/discourse/commits/master)
 
       - Visit [meta.discourse.org](https://meta.discourse.org) for news, discussion, and support for Discourse
 
@@ -2000,7 +2011,7 @@ en:
 
         This is an automated message from %{site_name} to let you know that your post was hidden.
 
-        %{base_url}%{url}
+        <%{base_url}%{url}>
 
         %{flag_reason}
 
@@ -2170,13 +2181,13 @@ en:
 
         Your account associated with this email address is not activated. Please activate your account before sending emails in.
 
-    email_reject_blocked_user:
-      title: "Email Reject Blocked User"
-      subject_template: "[%{email_prefix}] Email issue -- Blocked User"
+    email_reject_silenced_user:
+      title: "Email Reject Silenced User"
+      subject_template: "[%{email_prefix}] Email issue -- Silenced User"
       text_body_template: |
         We're sorry, but your email message to %{destination} (titled %{former_title}) didn't work.
 
-        Your account associated with this email address has been blocked.
+        Your account associated with this email address has been silenced.
 
     email_reject_reply_user_not_matching:
       title: "Email Reject User Not Matching"
@@ -2322,7 +2333,7 @@ en:
 
         This is an automated message from %{site_name} to let you know that your posts have been temporarily hidden because they were flagged by the community.
 
-        As a precautionary measure, your new account has been blocked from creating new replies or topics until a staff member can review your account. We apologize for the inconvenience.
+        As a precautionary measure, your new account has been silenced from creating new replies or topics until a staff member can review your account. We apologize for the inconvenience.
 
         For additional guidance, please refer to our [community guidelines](%{base_url}/guidelines).
     too_many_tl3_flags:
@@ -2333,11 +2344,11 @@ en:
 
         This is an automated message from %{site_name} to let you know you that your account has been placed on hold due to a large number of community flags.
 
-        As a precautionary measure, your new account has been blocked from creating new replies or topics until a staff member can review your account.  We apologize for the inconvenience.
+        As a precautionary measure, your new account has been silenced from creating new replies or topics until a staff member can review your account.  We apologize for the inconvenience.
 
         For additional guidance, please refer to our [community guidelines](%{base_url}/guidelines).
-    blocked_by_staff:
-      title: "Blocked by Staff"
+    silenced_by_staff:
+      title: "Silenced by Staff"
       subject_template: "Account temporarily on hold"
       text_body_template: |
         Hello,
@@ -2348,17 +2359,17 @@ en:
 
         For additional guidance, refer to our [community guidelines](%{base_url}/guidelines).
 
-    user_automatically_blocked:
-      title: "User Automatically Blocked"
-      subject_template: "New user %{username} blocked by community flags"
+    user_automatically_silenced:
+      title: "User Automatically Silenced"
+      subject_template: "New user %{username} silenced by community flags"
       text_body_template: |
         This is an automated message.
 
-        The new user [%{username}](%{user_url}) was automatically blocked because multiple users flagged %{username}'s post(s).
+        The new user [%{username}](%{user_url}) was automatically silenced because multiple users flagged %{username}'s post(s).
 
-        Please [review the flags](%{base_url}/admin/flags). If %{username} was incorrectly blocked from posting, click the unblock button on [the admin page for this user](%{user_url}).
+        Please [review the flags](%{base_url}/admin/flags). If %{username} was incorrectly silenced from posting, click the unsilence button on [the admin page for this user](%{user_url}).
 
-        This threshold can be changed via the `block_new_user` site settings.
+        This threshold can be changed via the `silence_new_user` site settings.
 
     spam_post_blocked:
       title: "Spam Post Blocked"
@@ -2372,8 +2383,8 @@ en:
 
         This can be modified via the `newuser_spam_host_threshold` and `white_listed_spam_host_domains` site settings.
 
-    unblocked:
-      title: "Unblocked"
+    unsilenced:
+      title: "Unsilenced"
       subject_template: "Account no longer on hold"
       text_body_template: |
         Hello,
@@ -2411,7 +2422,7 @@ en:
       text_body_template: |
         Congratulations, you've earned the **New User of the Month award for %{month_year}**. :trophy:
 
-        This award is only granted to two new users per month, and it will be permanently visible on [your user page](%{base_url}/my/badges).
+        This award is only granted to two new users per month, and it will be permanently visible on [the badges page](%{url}).
 
         You've quickly become a valuable member of our community. Thanks for joining, and keep up the great work!
 
@@ -2658,6 +2669,17 @@ en:
 
         %{message}
 
+    account_silenced:
+      title: "Account Silenced"
+      subject_template: "[%{email_prefix}] Your account has been silenced"
+      text_body_template: |
+        You have been silenced from the forum until %{silenced_till}.
+
+        %{reason}
+
+        %{message}
+
+
     account_exists:
       title: "Account already exists"
       subject_template: "[%{email_prefix}] Account already exists"
@@ -2687,7 +2709,8 @@ en:
       popular_posts: "Popular Posts"
       more_new: "New for you"
       subject_template: "[%{email_prefix}] Summary"
-      unsubscribe: "This summary is sent from %{site_link} when we haven't seen you in a while. Change <a href='%{email_settings_url}'>your email settings</a>, or %{unsubscribe_link} to unsubscribe."
+      unsubscribe: "This summary is sent from %{site_link} when we haven't seen you in a while. Change %{email_preferences_link}, or %{unsubscribe_link} to unsubscribe."
+      your_email_settings: "your email settings"
       click_here: "click here"
       from: "%{site_name} summary"
       preheader: "A brief summary since your last visit on %{last_seen_at}"
@@ -2826,6 +2849,10 @@ en:
     search_title: "Search this site"
     search_google: "Google"
 
+  offline:
+    title: "Cannot load app"
+    offline_page_message: "It looks like you are offline! Please check your network connection and try again."
+
   login_required:
     welcome_message: |
       ## [Welcome to %{title}](#welcome)
@@ -2846,12 +2873,15 @@ en:
     store_failure: "Failed to store upload #%{upload_id} for user #%{user_id}."
     file_missing: "Sorry, you must provide a file to upload."
     empty: "Sorry, but the file you provided is empty."
+    png_to_jpg_conversion_failure_message: "An error happened when converting from PNG to JPG."
     attachments:
       too_large: "Sorry, the file you are trying to upload is too big (maximum size is %{max_size_kb}KB)."
     images:
       too_large: "Sorry, the image you are trying to upload is too big (maximum size is %{max_size_kb}KB), please resize it and try again."
       larger_than_x_megapixels: "Sorry, the image you are trying to upload is too large (maximum dimension is %{max_image_megapixels}-megapixels), please resize it and try again."
       size_not_found: "Sorry, but we couldn't determine the size of the image. Maybe your image is corrupted?"
+    placeholders:
+      too_large: "(image larger than %{max_size_kb}KB)"
 
   avatar:
     missing: "Sorry, we can't find any avatar associated with that email address. Can you try uploading it again?"
@@ -3059,6 +3089,14 @@ en:
 
       Optional Hosting and Support services may be provided by %{company_name} under the terms and conditions for each such service. By signing up for a Hosting/Support or Support services account, you agree to abide by such terms and conditions.
 
+      ### HTTPS
+
+      We offer HTTPS as a paid add-on. By signing up and using a custom domain on %{company_domain}, you authorize us to act on the domain name registrant’s behalf (by requesting the necessary certificates, for example) for the sole purpose of providing HTTPS on your site.
+
+      ### Enterprise
+
+      Enterprise Hosting services are provided by %{company_name} under the terms and conditions for each such service, which are determined by a customer-specific contract. By signing up for an Enterprise Hosting account you agree to abide by such terms and conditions.
+
       <a name="6"></a>
 
       ## [6. Responsibility of Website Visitors](#6)
@@ -3085,59 +3123,53 @@ en:
 
       <a name="10"></a>
 
-      ## [10. Advertisements](#10)
+      ## [10. Attribution](#10)
 
-      %{company_name} reserves the right to display advertisements on your content unless you have purchased an Ad-free Upgrade or a Services account.
+      %{company_name} reserves the right to display attribution links such as ‘Powered by %{company_domain},’ theme author, and font attribution in your content footer.
 
       <a name="11"></a>
 
-      ## [11. Attribution](#11)
-
-      %{company_name} reserves the right to display attribution links such as ‘Powered by %{company_domain},’ theme author, and font attribution in your content footer or toolbar. Footer credits and the %{company_domain} toolbar may not be removed regardless of upgrades purchased.
-
-      <a name="12"></a>
-
-      ## [12. Changes](#12)
+      ## [11. Changes](#11)
 
       %{company_name} reserves the right, at its sole discretion, to modify or replace any part of this Agreement. It is your responsibility to check this Agreement periodically for changes. Your continued use of or access to the Website following the posting of any changes to this Agreement constitutes acceptance of those changes. %{company_name} may also, in the future, offer new services and/or features through the Website (including, the release of new tools and resources). Such new features and/or services shall be subject to the terms and conditions of this Agreement.
 
-      <a name="13"></a>
+      <a name="12"></a>
 
-      ## [13. Termination](#13)
+      ## [12. Termination](#12)
 
       %{company_name} may terminate your access to all or any part of the Website at any time, with or without cause, with or without notice, effective immediately. If you wish to terminate this Agreement or your %{company_domain} account (if you have one), you may simply discontinue using the Website. All provisions of this Agreement which by their nature should survive termination shall survive termination, including, without limitation, ownership provisions, warranty disclaimers, indemnity and limitations of liability.
 
-      <a name="14"></a>
+      <a name="13"></a>
 
-      ## [14. Disclaimer of Warranties](#14)
+      ## [13. Disclaimer of Warranties](#13)
 
       The Website is provided "as is". %{company_name} and its suppliers and licensors hereby disclaim all warranties of any kind, express or implied, including, without limitation, the warranties of merchantability, fitness for a particular purpose and non-infringement. Neither %{company_name} nor its suppliers and licensors, makes any warranty that the Website will be error free or that access thereto will be continuous or uninterrupted. If you’re actually reading this, here’s [a treat](http://www.newyorker.com/online/blogs/shouts/2012/12/the-hundred-best-lists-of-all-time.html). You understand that you download from, or otherwise obtain content or services through, the Website at your own discretion and risk.
 
-      <a name="15"></a>
+      <a name="14"></a>
 
-      ## [15. Limitation of Liability](#15)
+      ## [14. Limitation of Liability](#14)
 
       In no event will %{company_name}, or its suppliers or licensors, be liable with respect to any subject matter of this agreement under any contract, negligence, strict liability or other legal or equitable theory for: (i) any special, incidental or consequential damages; (ii) the cost of procurement for substitute products or services; (iii) for interruption of use or loss or corruption of data; or (iv) for any amounts that exceed the fees paid by you to %{company_name} under this agreement during the twelve (12) month period prior to the cause of action. %{company_name} shall have no liability for any failure or delay due to matters beyond their reasonable control. The foregoing shall not apply to the extent prohibited by applicable law.
 
-      <a name="16"></a>
+      <a name="15"></a>
 
-      ## [16. General Representation and Warranty](#16)
+      ## [15. General Representation and Warranty](#15)
 
       You represent and warrant that (i) your use of the Website will be in strict accordance with the %{company_name} [Privacy Policy](/privacy), [Community Guidelines](/guidelines), with this Agreement and with all applicable laws and regulations (including without limitation any local laws or regulations in your country, state, city, or other governmental area, regarding online conduct and acceptable content, and including all applicable laws regarding the transmission of technical data exported from the country in which this website resides or the country in which you reside) and (ii) your use of the Website will not infringe or misappropriate the intellectual property rights of any third party.
 
-      <a name="17"></a>
+      <a name="16"></a>
 
-      ## [17. Indemnification](#17)
+      ## [16. Indemnification](#16)
 
       You agree to indemnify and hold harmless %{company_name}, its contractors, and its licensors, and their respective directors, officers, employees and agents from and against any and all claims and expenses, including attorneys’ fees, arising out of your use of the Website, including but not limited to your violation of this Agreement.
 
-      <a name="18"></a>
+      <a name="17"></a>
 
-      ## [18. Miscellaneous](#18)
+      ## [17. Miscellaneous](#17)
 
       This Agreement constitutes the entire agreement between %{company_name} and you concerning the subject matter hereof, and they may only be modified by a written amendment signed by an authorized executive of %{company_name}, or by the posting by %{company_name} of a revised version. Except to the extent applicable law, if any, provides otherwise, this Agreement, any access to or use of the Website will be governed by the laws of the state of California, U.S.A., excluding its conflict of law provisions, and the proper venue for any disputes arising out of or relating to any of the same will be the state and federal courts located in San Francisco County, California. Except for claims for injunctive or equitable relief or claims regarding intellectual property rights (which may be brought in any competent court without the posting of a bond), any dispute arising under this Agreement shall be finally settled in accordance with the Comprehensive Arbitration Rules of the Judicial Arbitration and Mediation Service, Inc. (“JAMS”) by three arbitrators appointed in accordance with such Rules. The arbitration shall take place in San Francisco, California, in the English language and the arbitral decision may be enforced in any court. The prevailing party in any action or proceeding to enforce this Agreement shall be entitled to costs and attorneys’ fees. If any part of this Agreement is held invalid or unenforceable, that part will be construed to reflect the parties’ original intent, and the remaining portions will remain in full force and effect. A waiver by either party of any term or condition of this Agreement or any breach thereof, in any one instance, will not waive such term or condition or any subsequent breach thereof. You may assign your rights under this Agreement to any party that consents to, and agrees to be bound by, its terms and conditions; %{company_name} may assign its rights under this Agreement without condition. This Agreement will be binding upon and will inure to the benefit of the parties, their successors and permitted assigns.
 
-      This document is CC-BY-SA. It was last updated May 31, 2013.
+      This document is CC-BY-SA. It was last updated January 1, 2017.
 
       Originally adapted from the [WordPress Terms of Service](http://en.wordpress.com/tos/).
 
@@ -3259,9 +3291,9 @@ en:
         This badge is granted when you receive your first like on a post. Congratulations, you've posted something that your fellow community members found interesting, cool, or useful!
     autobiographer:
       name: Autobiographer
-      description: Filled out <a href="/my/preferences">profile</a> information
+      description: Filled out <a href="%{base_uri}/my/preferences/profile">profile</a> information
       long_description: |
-        This badge is granted for filling out <a href="/my/preferences">your user profile</a> and selecting a profile picture. Letting the community know a bit more about who you are and what you're interested in makes for a better, more connected community. Join us!
+        This badge is granted for filling out <a href="%{base_uri}/my/preferences/profile">your user profile</a> and selecting a profile picture. Letting the community know a bit more about who you are and what you're interested in makes for a better, more connected community. Join us!
     anniversary:
       name: Anniversary
       description: Active member for a year, posted at least once
@@ -3354,9 +3386,9 @@ en:
         This badge is granted the first time you quote a post in your reply. Quoting relevant sections of earlier posts in your reply helps keep discussions connected together and on topic. The easiest way to quote is to highlight a section of a post, and then press any reply button. Quote generously!
     read_guidelines:
       name: Read Guidelines
-      description: Read the <a href="/guidelines">community guidelines</a>
+      description: Read the <a href="%{base_uri}/guidelines">community guidelines</a>
       long_description: |
-        This badge is granted for <a href="/guidelines">reading the community guidelines</a>. Following and sharing these simple guidelines helps build a safe, fun, and sustainable community for everyone. Always remember there's another human being, one very much like yourself, on the other side of that screen. Be nice!
+        This badge is granted for <a href="%{base_uri}/guidelines">reading the community guidelines</a>. Following and sharing these simple guidelines helps build a safe, fun, and sustainable community for everyone. Always remember there's another human being, one very much like yourself, on the other side of that screen. Be nice!
     reader:
       name: Reader
       description: Read every reply in a topic with more than 100 replies
@@ -3496,6 +3528,7 @@ en:
     only_official: "Disable unofficial plugins"
     no_plugins: "Disable all plugins"
     enter: "Enter Safe Mode"
+    must_select: "You must select at least one option to enter safe mode."
   wizard:
     title: "Discourse Setup"
     step:
@@ -3633,3 +3666,6 @@ en:
         description: |
           <p>If you ever feel like changing these settings, visit <a href='/admin' target='_blank'>your admin section</a>; find it next to the wrench icon in the site menu.</p>
           <p>Have fun, and good luck <a href='https://blog.discourse.org/2014/08/building-a-discourse-community/' target='_blank'>building your new community!</a></p>
+
+  search_logs:
+    graph_title: "Search Count"

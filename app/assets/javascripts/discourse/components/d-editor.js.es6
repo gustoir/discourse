@@ -8,7 +8,8 @@ import { emojiSearch, isSkinTonableEmoji } from 'pretty-text/emoji';
 import { emojiUrlFor } from 'discourse/lib/text';
 import { getRegister } from 'discourse-common/lib/get-owner';
 import { findRawTemplate } from 'discourse/lib/raw-templates';
-import { determinePostReplaceSelection } from 'discourse/lib/utilities';
+import { determinePostReplaceSelection, clipboardData } from 'discourse/lib/utilities';
+import toMarkdown from 'discourse/lib/to-markdown';
 import deprecated from 'discourse-common/lib/deprecated';
 
 // Our head can be a static string or a function that returns a string
@@ -35,6 +36,11 @@ const OP = {
 const FOUR_SPACES_INDENT = '4-spaces-indent';
 
 const _createCallbacks = [];
+
+const isInside = (text, regex) => {
+  const matches = text.match(regex);
+  return matches && (matches.length % 2);
+};
 
 class Toolbar {
 
@@ -121,7 +127,8 @@ class Toolbar {
       icon: button.label ? null : button.icon || button.id,
       action: button.action || 'toolbarButton',
       perform: button.perform || function() { },
-      trimLeading: button.trimLeading
+      trimLeading: button.trimLeading,
+      popupMenu: button.popupMenu || false
     };
 
     if (button.sendAction) {
@@ -272,6 +279,7 @@ export default Ember.Component.extend({
     const markdownOptions = this.get('markdownOptions') || {};
 
     cookAsync(value, markdownOptions).then(cooked => {
+      if (this.get('isDestroyed')) { return; }
       this.set('preview', cooked);
       Ember.run.scheduleOnce('afterRender', () => {
         if (this._state !== "inDOM") { return; }
@@ -438,7 +446,9 @@ export default Ember.Component.extend({
       }
 
       if (operation !== OP.ADDED &&
-          (l.slice(0, hlen) === hval && tlen === 0 || l.slice(-tlen) === tail)) {
+          (l.slice(0, hlen) === hval && tlen === 0 ||
+          (tail.length && l.slice(-tlen) === tail))) {
+
         operation = OP.REMOVED;
         if (tlen === 0) {
           const result = l.slice(hlen);
@@ -500,6 +510,7 @@ export default Ember.Component.extend({
           tlen,
           opts
         );
+
         this.set('value', `${pre}${contents}${post}`);
         if (lines.length === 1 && tlen > 0) {
           this._selectText(sel.start + hlen, sel.value.length);
@@ -611,6 +622,79 @@ export default Ember.Component.extend({
     $textarea.prop("selectionStart", insert.length);
     $textarea.prop("selectionEnd", insert.length);
     Ember.run.scheduleOnce("afterRender", () => $textarea.focus());
+  },
+
+  _extractTable(text) {
+    if (text.endsWith("\n")) {
+      text = text.substring(0, text.length - 1);
+    }
+
+    let rows = text.split("\n");
+
+    if (rows.length > 1) {
+      const columns = rows.map(r => r.split("\t").length);
+      const isTable = columns.reduce((a, b) => a && columns[0] === b && b > 1) &&
+                      !(columns[0] === 2 && rows[0].split("\t")[0].match(/^•$|^\d+.$/)); // to skip tab delimited lists
+
+      if (isTable) {
+        const splitterRow = [...Array(columns[0])].map(() => "---").join("\t");
+        rows.splice(1, 0, splitterRow);
+
+        return "|" + rows.map(r => r.split("\t").join("|")).join("|\n|") + "|\n";
+      }
+    }
+    return null;
+  },
+
+  paste(e) {
+    if (!$(".d-editor-input").is(":focus")) {
+      return;
+    }
+
+    const isComposer = $("#reply-control .d-editor-input").is(":focus");
+    let { clipboard, canPasteHtml } = clipboardData(e, isComposer);
+
+    let plainText = clipboard.getData("text/plain");
+    let html = clipboard.getData("text/html");
+    let handled = false;
+
+    if (plainText) {
+      plainText = plainText.trim().replace(/\r/g,"");
+      const table = this._extractTable(plainText);
+      if (table) {
+        this.appEvents.trigger('composer:insert-text', table);
+        handled = true;
+      }
+    }
+
+    const { pre, lineVal } = this._getSelected(null, {lineVal: true});
+    const isInlinePasting = pre.match(/[^\n]$/);
+
+    if (canPasteHtml && plainText) {
+      if (isInlinePasting) {
+        canPasteHtml = !(lineVal.match(/^```/) || isInside(pre, /`/g) || lineVal.match(/^    /));
+      } else {
+        canPasteHtml = !isInside(pre, /(^|\n)```/g);
+      }
+    }
+
+    if (canPasteHtml && !handled) {
+      let markdown = toMarkdown(html);
+
+      if (!plainText || plainText.length < markdown.length) {
+        if(isInlinePasting) {
+          markdown = markdown.replace(/^#+/, "").trim();
+          markdown = pre.match(/\S$/) ? ` ${markdown}` : markdown;
+        }
+
+        this.appEvents.trigger('composer:insert-text', markdown);
+        handled = true;
+      }
+    }
+
+    if (handled) {
+      e.preventDefault();
+    }
   },
 
   actions: {

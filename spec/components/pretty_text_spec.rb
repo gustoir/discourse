@@ -113,6 +113,34 @@ describe PrettyText do
       end
     end
 
+    describe "with primary user group" do
+      let(:default_avatar) { "//test.localhost/uploads/default/avatars/42d/57c/46ce7ee487/{size}.png" }
+      let(:group) { Fabricate(:group) }
+      let!(:user) { Fabricate(:user, primary_group: group) }
+
+      before do
+        User.stubs(:default_template).returns(default_avatar)
+      end
+
+      it "adds primary group class to referenced users quote" do
+
+        topic = Fabricate(:topic, title: "this is a test topic")
+        expected = <<~HTML
+          <aside class="quote group-#{group.name}" data-topic="#{topic.id}" data-post="2">
+          <div class="title">
+            <div class="quote-controls"></div>
+            <img alt class='avatar' height='20' src='//test.localhost/uploads/default/avatars/42d/57c/46ce7ee487/40.png' width='20'><a href='http://test.localhost/t/this-is-a-test-topic/#{topic.id}/2'>This is a test topic</a>
+          </div>
+          <blockquote>
+            <p>ddd</p>
+          </blockquote>
+          </aside>
+        HTML
+
+        expect(cook("[quote=\"#{user.username}, post:2, topic:#{topic.id}\"]\nddd\n[/quote]", topic_id: 1)).to eq(n(expected))
+      end
+    end
+
     it "can handle inline block bbcode" do
       cooked = PrettyText.cook("[quote]te **s** t[/quote]")
 
@@ -125,6 +153,10 @@ describe PrettyText do
       HTML
 
       expect(cooked).to eq(html.strip)
+    end
+
+    it "handles bbcode edge cases" do
+      expect(PrettyText.cook "[constructor]\ntest").to eq("<p>[constructor]<br>\ntest</p>")
     end
 
     it "can handle quote edge cases" do
@@ -357,8 +389,29 @@ describe PrettyText do
         expect(PrettyText.excerpt("<span class='spoiler'>spoiler</div>", 100)).to match_html "<span class='spoiler'>spoiler</span>"
       end
 
+      it "should keep details if too long" do
+        expect(PrettyText.excerpt("<details><summary>expand</summary><p>hello</p></details>", 30)).to match_html "<details class='disabled'><summary>expand</summary></details>"
+      end
+
+      it "doesn't disable details if short enough" do
+        expect(PrettyText.excerpt("<details><summary>expand</summary><p>hello</p></details>", 60)).to match_html "<details><summary>expand</summary>hello</details>"
+      end
+
       it "should remove meta informations" do
         expect(PrettyText.excerpt(wrapped_image, 100)).to match_html "<a href='//localhost:3000/uploads/default/4399/33691397e78b4d75.png' class='lightbox' title='Screen Shot 2014-04-14 at 9.47.10 PM.png'>[image]</a>"
+      end
+
+      it "should strip images when option is set" do
+        expect(PrettyText.excerpt("<img src='http://cnn.com/a.gif'>", 100, strip_images: true)).to be_blank
+        expect(PrettyText.excerpt("<img src='http://cnn.com/a.gif'> Hello world!", 100, strip_images: true)).to eq("Hello world!")
+      end
+
+      it "should strip images, but keep emojis when option is set" do
+        emoji_image = "<img src='/images/emoji/twitter/heart.png?v=1' title=':heart:' class='emoji' alt='heart'>"
+        html = "<img src='http://cnn.com/a.gif'> Hello world #{emoji_image}"
+
+        expect(PrettyText.excerpt(html, 100, strip_images: true)).to eq("Hello world heart")
+        expect(PrettyText.excerpt(html, 100, strip_images: true, keep_emoji_images: true)).to match_html("Hello world #{emoji_image}")
       end
     end
 
@@ -937,6 +990,7 @@ HTML
     MD
 
     expected = <<~HTML
+      <div class="md-table">
       <table>
       <thead>
       <tr>
@@ -953,6 +1007,7 @@ HTML
       </tr>
       </tbody>
       </table>
+      </div>
     HTML
 
     expect(PrettyText.cook(markdown)).to eq(expected.strip)

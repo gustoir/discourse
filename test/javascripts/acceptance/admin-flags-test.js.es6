@@ -8,45 +8,44 @@ QUnit.test("flagged posts", assert => {
     assert.equal(find('.flagged-post .flag-user').length, 1, 'shows who flagged it');
     assert.equal(find('.flagged-post-response').length, 2);
     assert.equal(find('.flagged-post-response:eq(0) img.avatar').length, 1);
+    assert.equal(find('.flagged-post-user-details .username').length, 1, 'shows the flagged username');
   });
 });
 
 QUnit.test("flagged posts - agree", assert => {
+  const agreeFlag = selectKit('.agree-flag');
+
   visit("/admin/flags/active");
-  click('.agree-flag');
+
+  agreeFlag.expand().selectRowByValue('confirm-agree-keep');
+
   andThen(() => {
-    assert.equal(find('.agree-flag-modal:visible').length, 1);
-  });
-  click('.confirm-agree-keep');
-  andThen(() => {
-    assert.equal(find('.agree-flag-modal:visible').length, 0, 'modal is closed');
     assert.equal(find('.admin-flags .flagged-post').length, 0, 'post was removed');
   });
 });
 
 QUnit.test("flagged posts - agree + hide", assert => {
+  const agreeFlag = selectKit('.agree-flag');
+
   visit("/admin/flags/active");
-  click('.agree-flag');
+
+  agreeFlag.expand().selectRowByValue('confirm-agree-hide');
+
   andThen(() => {
-    assert.equal(find('.agree-flag-modal:visible').length, 1);
-  });
-  click('.confirm-agree-hide');
-  andThen(() => {
-    assert.equal(find('.agree-flag-modal:visible').length, 0, 'modal is closed');
     assert.equal(find('.admin-flags .flagged-post').length, 0, 'post was removed');
   });
 });
 
 QUnit.test("flagged posts - agree + deleteSpammer", assert => {
+  const agreeFlag = selectKit('.agree-flag');
+
   visit("/admin/flags/active");
-  click('.agree-flag');
-  andThen(() => {
-    assert.equal(find('.agree-flag-modal:visible').length, 1);
-  });
-  click('.delete-spammer');
+
+  agreeFlag.expand().selectRowByValue('delete-spammer');
+
   click('.confirm-delete');
+
   andThen(() => {
-    assert.equal(find('.agree-flag-modal:visible').length, 0, 'modal is closed');
     assert.equal(find('.admin-flags .flagged-post').length, 0, 'post was removed');
   });
 });
@@ -68,41 +67,39 @@ QUnit.test("flagged posts - defer", assert => {
 });
 
 QUnit.test("flagged posts - delete + defer", assert => {
+  const deleteFlag = selectKit('.delete-flag');
+
   visit("/admin/flags/active");
-  click('.delete-flag');
+
+  deleteFlag.expand().selectRowByValue('delete-defer');
+
   andThen(() => {
-    assert.equal(find('.delete-flag-modal:visible').length, 1);
-  });
-  click('.delete-defer');
-  andThen(() => {
-    assert.equal(find('.delete-flag-modal:visible').length, 0);
     assert.equal(find('.admin-flags .flagged-post').length, 0);
   });
 });
 
 QUnit.test("flagged posts - delete + agree", assert => {
+  const deleteFlag = selectKit('.delete-flag');
+
   visit("/admin/flags/active");
-  click('.delete-flag');
+
+  deleteFlag.expand().selectRowByValue('delete-agree');
+
   andThen(() => {
-    assert.equal(find('.delete-flag-modal:visible').length, 1);
-  });
-  click('.delete-agree');
-  andThen(() => {
-    assert.equal(find('.delete-flag-modal:visible').length, 0);
     assert.equal(find('.admin-flags .flagged-post').length, 0);
   });
 });
 
 QUnit.test("flagged posts - delete + deleteSpammer", assert => {
+  const deleteFlag = selectKit('.delete-flag');
+
   visit("/admin/flags/active");
-  click('.delete-flag');
-  andThen(() => {
-    assert.equal(find('.delete-flag-modal:visible').length, 1);
-  });
-  click('.delete-spammer');
+
+  deleteFlag.expand().selectRowByValue('delete-spammer');
+
   click('.confirm-delete');
+
   andThen(() => {
-    assert.equal(find('.delete-flag-modal:visible').length, 0);
     assert.equal(find('.admin-flags .flagged-post').length, 0);
   });
 });

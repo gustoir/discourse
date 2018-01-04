@@ -1,4 +1,5 @@
 require_dependency 'upload_creator'
+require 'base64'
 
 class Admin::ThemesController < Admin::AdminController
 
@@ -12,13 +13,16 @@ class Admin::ThemesController < Admin::AdminController
 
   def upload_asset
     path = params[:file].path
-    File.open(path) do |file|
-      filename = params[:file]&.original_filename || File.basename(path)
-      upload = UploadCreator.new(file, filename, for_theme: true).create_for(current_user.id)
-      if upload.errors.count > 0
-        render_json_error upload
-      else
-        render json: { upload_id: upload.id }, status: :created
+
+    hijack do
+      File.open(path) do |file|
+        filename = params[:file]&.original_filename || File.basename(path)
+        upload = UploadCreator.new(file, filename, for_theme: true).create_for(current_user.id)
+        if upload.errors.count > 0
+          render_json_error upload
+        else
+          render json: { upload_id: upload.id }, status: :created
+        end
       end
     end
   end
@@ -31,7 +35,28 @@ class Admin::ThemesController < Admin::AdminController
 
       @theme = Theme.new(name: theme["name"], user_id: current_user.id)
       theme["theme_fields"]&.each do |field|
-        @theme.set_field(target: field["target"], name: field["name"], value: field["value"])
+
+        if field["raw_upload"]
+          begin
+            tmp = Tempfile.new
+            tmp.binmode
+            file = Base64.decode64(field["raw_upload"])
+            tmp.write(file)
+            tmp.rewind
+            upload = UploadCreator.new(tmp, field["filename"]).create_for(current_user.id)
+            field["upload_id"] = upload.id
+          ensure
+            tmp.unlink
+          end
+        end
+
+        @theme.set_field(
+          target: field["target"],
+          name: field["name"],
+          value: field["value"],
+          type_id: field["type_id"],
+          upload_id: field["upload_id"]
+        )
       end
 
       if @theme.save
@@ -168,7 +193,7 @@ class Admin::ThemesController < Admin::AdminController
 
         response.headers['Content-Disposition'] = "attachment; filename=#{@theme.name.parameterize}.dcstyle.json"
         response.sending_file = true
-        render json: ThemeSerializer.new(@theme)
+        render json: ThemeWithEmbeddedUploadsSerializer.new(@theme, root: 'theme')
       end
     end
 

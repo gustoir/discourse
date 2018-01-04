@@ -93,7 +93,7 @@
 
 .custom-message-length {
   color: dark-light-choose($primary-low-mid, $secondary-high);
-  font-size: 85%;
+  font-size: .857em;
 }
 
 .flag-message {
@@ -218,12 +218,6 @@
   width: 400px;
   max-height: 150px;
   margin-bottom: 10px;
-}
-
-.delete-flag-modal, .agree-flag-modal {
-  .modal-inner-container {
-    width: 400px;
-  }
 }
 
 .change-timestamp {

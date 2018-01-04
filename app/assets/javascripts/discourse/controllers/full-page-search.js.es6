@@ -104,11 +104,13 @@ export default Ember.Controller.extend({
   cleanTerm(term) {
     if (term) {
       SortOrders.forEach(order => {
-        let matches = term.match(new RegExp(`${order.term}\\b`));
-        if (matches) {
-          this.set('sortOrder', order.id);
-          term = term.replace(new RegExp(`${order.term}\\b`, 'g'), "");
-          term = term.trim();
+        if (order.term) {
+          let matches = term.match(new RegExp(`${order.term}\\b`));
+          if (matches) {
+            this.set('sortOrder', order.id);
+            term = term.replace(new RegExp(`${order.term}\\b`, 'g'), "");
+            term = term.trim();
+          }
         }
       });
     }
@@ -149,6 +151,12 @@ export default Ember.Controller.extend({
     this.set("application.showFooter", !this.get("loading"));
   },
 
+  @computed('resultCount', 'noSortQ')
+  resultCountLabel(count, term) {
+    const plus = (count % 50 === 0 ? "+" : "");
+    return I18n.t('search.result_count', {count, plus, term});
+  },
+
   @observes('model.posts.length')
   resultCountChanged() {
     this.set("resultCount", this.get("model.posts.length"));
@@ -159,9 +167,9 @@ export default Ember.Controller.extend({
     return this.currentUser && this.currentUser.staff && hasResults;
   },
 
-  @computed('expanded')
-  canCreateTopic(expanded) {
-    return this.currentUser && !this.site.mobileView && !expanded;
+  @computed('expanded', 'model.grouped_search_result.can_create_topic')
+  canCreateTopic(expanded, userCanCreateTopic) {
+    return this.currentUser && userCanCreateTopic && !this.site.mobileView && !expanded;
   },
 
   @computed('expanded')
@@ -284,5 +292,18 @@ export default Ember.Controller.extend({
         this._search();
       }
     },
+
+    logClick(topicId) {
+      if (this.get('model.grouped_search_result.search_log_id') && topicId) {
+        ajax('/search/click', {
+          type: 'POST',
+          data: {
+            search_log_id: this.get('model.grouped_search_result.search_log_id'),
+            search_result_id: topicId,
+            search_result_type: 'topic'
+          }
+        });
+      }
+    }
   }
 });

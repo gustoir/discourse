@@ -17,8 +17,8 @@
   //margin-bottom: 20px;
   margin: 0 60px 10px 0;
   h1 {
-    font-size: 1.5em;
-    line-height: 1.25em;
+    font-size: 1.429em;
+    line-height: 1.25;
     a {
       color: $primary;
       vertical-align: middle;
@@ -155,8 +155,8 @@
   width: 90%;
   margin-left: auto;
   margin-right: auto;
-  font-size: 1.714em;
-  line-height: 1.1em;
+  font-size: 1.857em;
+  line-height: 1.25;
 
   .topic-retry {
     display: block;
@@ -179,31 +179,38 @@
 sup sup, sub sup, sup sub, sub sub { top: 0; }
 
 // inline editing of title on mobile
-.title-wrapper {
+#topic-title .title-wrapper {
+  position: relative;
+  float: none;
+  width: 100%;
+
   input#edit-title {
-    width: 95%;
-    padding: 5px;
     box-sizing: border-box;
+    width: 100%;
+    height: 32px;
   }
 
+  .select2-container {
+    box-sizing: border-box;
+    width: 100% !important;
+  }
   .btn-small {
     padding: 8px 12px;
     margin: 6px 6px 0 0;
   }
-  .select2-container {
-    margin-top: 8px;
-    width: 95% !important;
-  }
-  .category-chooser {
-    margin-top: 8px;
-    width: 95%;
+
+  .select-box-kit.combo-box.category-chooser {
+    width: 100%;
+    margin-top: 0;
   }
 }
 
 // make mobile timeline top and bottom dates easier to select
 .topic-timeline {
-  .start-date { font-size: 110%; padding: 5px; }
-  .now-date { font-size: 110%; padding: 5px; }
+  .start-date, .now-date { 
+    font-size: 1.143em; 
+    padding: 5px; 
+  }
 }
 
 .edit-topic-timer-modal {

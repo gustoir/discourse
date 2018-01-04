@@ -37,6 +37,7 @@ QUnit.test("Showing and hiding the edit controls", assert => {
 
   andThen(() => {
     assert.ok(exists('#edit-title'), 'it shows the editing controls');
+    assert.ok(!exists('.title-wrapper .remove-featured-link'), 'link to remove featured link is not shown');
   });
 
   fillIn('#edit-title', 'this is the new title');
@@ -47,16 +48,13 @@ QUnit.test("Showing and hiding the edit controls", assert => {
 });
 
 QUnit.test("Updating the topic title and category", assert => {
+  const categoryChooser = selectKit('.title-wrapper .category-chooser');
+
   visit("/t/internationalization-localization/280");
 
   click('#topic-title .d-icon-pencil');
-
   fillIn('#edit-title', 'this is the new title');
-
-  expandSelectBox('.title-wrapper .category-chooser');
-
-  selectBoxSelectRow(4, {selector: '.title-wrapper .category-chooser'});
-
+  categoryChooser.expand().selectRowByValue(4);
   click('#topic-title .submit-edit');
 
   andThen(() => {
@@ -103,7 +101,7 @@ QUnit.test("Reply as new topic", assert => {
       "it fills composer with the ring string"
     );
     assert.equal(
-      selectBox('.category-chooser').header.name(), "feature",
+      selectKit('.category-chooser').header().value(), "2",
       "it fills category selector with the right category"
     );
   });
@@ -173,4 +171,31 @@ QUnit.test("Updating the topic title with emojis", assert => {
   andThen(() => {
     assert.equal(find('.fancy-title').html().trim(), 'emojis title <img src=\"/images/emoji/emoji_one/bike.png?v=5\" title=\"bike\" alt=\"bike\" class=\"emoji\"> <img src=\"/images/emoji/emoji_one/blonde_woman/6.png?v=5\" title=\"blonde_woman:t6\" alt=\"blonde_woman:t6\" class=\"emoji\">', 'it displays the new title with emojis');
   });
+});
+
+acceptance("Topic featured links", {
+  loggedIn: true,
+  settings: {
+    topic_featured_link_enabled: true,
+    max_topic_title_length: 80
+  }
+});
+
+QUnit.test("remove featured link", assert => {
+  visit("/t/299/1");
+  andThen(() => {
+    assert.ok(exists('.title-wrapper .topic-featured-link'), 'link is shown with topic title');
+  });
+
+  click('.title-wrapper .edit-topic');
+  andThen(() => {
+    assert.ok(exists('.title-wrapper .remove-featured-link'), 'link to remove featured link');
+  });
+
+  // this test only works in a browser:
+  // click('.title-wrapper .remove-featured-link');
+  // click('.title-wrapper .submit-edit');
+  // andThen(() => {
+  //   assert.ok(!exists('.title-wrapper .topic-featured-link'), 'link is gone');
+  // });
 });

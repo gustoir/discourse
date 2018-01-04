@@ -29,7 +29,7 @@
       border-bottom: 1px solid $primary-low; 
 
       .number, .time-read {
-        font-size: 1.4em;
+        font-size: 1.429em;
         color: $primary-medium; 
       }
     }
@@ -39,7 +39,7 @@
         background-color: dark-light-choose($highlight-low, $highlight-medium);
 
         .username a, .name, .title, .number, .time-read {
-          color: dark-light-choose(scale-color($highlight, $lightness: -50%), $highlight-medium);
+          color: $primary-medium;           
         }
       }
     }

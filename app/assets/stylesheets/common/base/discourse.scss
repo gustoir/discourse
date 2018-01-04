@@ -47,11 +47,11 @@ body {
 }
 
 big {
-  font-size: 28px;
+  font-size: 2.286em;
 }
 
 small {
-  font-size: 9px;
+  font-size: .786em;
 }
 
 //setting a static limit on big and small prevents nesting abuse
@@ -140,6 +140,83 @@ input {
     float: left;
     margin-left: -18px;
   }
+}
+
+input,
+select,
+textarea {
+  color: $primary;
+
+  &[class*="span"] {
+    float: none;
+    margin-left: 0;
+  }
+
+  &[disabled],
+  &[readonly] {
+    cursor: not-allowed;
+    background-color: $primary-low;
+    border-color: $primary-low;
+  }
+
+  &:focus:required:invalid {
+    color: $danger;
+    border-color: $danger;
+  }
+
+  &:focus:required:invalid:focus {
+    border-color: $danger;
+    box-shadow: 0 0 6px $danger;
+  }
+}
+
+input {
+  &[type="text"],
+  &[type="password"],
+  &[type="datetime"],
+  &[type="datetime-local"],
+  &[type="date"],
+  &[type="month"],
+  &[type="time"],
+  &[type="week"],
+  &[type="number"],
+  &[type="email"],
+  &[type="url"],
+  &[type="search"],
+  &[type="tel"],
+  &[type="color"] {
+    @include appearance-none;
+    display: inline-block;
+    height: 18px;
+    padding: 4px 10px;
+    margin-bottom: 9px;
+    font-size:  1em;
+    line-height: 1.25;
+    color: $primary;
+    background-color: $secondary;
+    border: 1px solid $primary-medium;
+    border-radius: 0;
+    &:focus {
+      border-color: $tertiary;
+      box-shadow: $tertiary 0px 0px 6px 0px;
+      outline: 0;
+    }
+  }
+}
+
+textarea {
+  height: auto;
+  background-color: $secondary;
+  border: 1px solid $primary-medium;
+  &:focus {
+    border-color: $tertiary;
+    box-shadow: $tertiary 0px 0px 6px 0px;    
+    outline: 0;
+  }
+}
+
+select {
+  border: 1px solid $primary-low;  
 }
 
 // Common Classes
@@ -233,10 +310,6 @@ input {
   &.bad {
     color: $danger;
   }
-}
-
-.d-editor-input {
-  resize: none;
 }
 
 .avatar-wrapper {
@@ -350,7 +423,7 @@ input {
 .content-list {
   h3 {
     color: $primary-medium;
-    font-size: 1.071em;
+    font-size: 1.143em;
     padding-left: 5px;
     margin-bottom: 10px;
   }
@@ -401,7 +474,7 @@ input {
 
   .control-label {
     font-weight: bold;
-    font-size: 1.2em;
+    font-size: 1.286em;
     line-height: 2;
   }
 
@@ -444,7 +517,7 @@ input {
 
 #loading-message {
   position: absolute;
-  font-size: 2.143em;
+  font-size: 2.286em;
   text-align: center;
   top: 120px;
   left: 500px;

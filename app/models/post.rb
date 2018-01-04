@@ -20,7 +20,9 @@ class Post < ActiveRecord::Base
   self.permitted_create_params = Set.new
 
   # increase this number to force a system wide post rebake
-  BAKED_VERSION = 1
+  # Version 1, was the initial version
+  # Version 2 15-12-2017, introduces CommonMark and a huge number of onebox fixes
+  BAKED_VERSION = 2
 
   rate_limit
   rate_limit :limit_posts_per_day
@@ -58,7 +60,11 @@ class Post < ActiveRecord::Base
   # We can pass several creating options to a post via attributes
   attr_accessor :image_sizes, :quoted_post_numbers, :no_bump, :invalidate_oneboxes, :cooking_options, :skip_unique_check
 
-  SHORT_POST_CHARS = 1200
+  LARGE_IMAGES      ||= "large_images".freeze
+  BROKEN_IMAGES     ||= "broken_images".freeze
+  DOWNLOADED_IMAGES ||= "downloaded_images".freeze
+
+  SHORT_POST_CHARS ||= 1200
 
   scope :private_posts_for_user, ->(user) {
     where("posts.topic_id IN (SELECT topic_id
@@ -97,7 +103,7 @@ class Post < ActiveRecord::Base
     when 'string'
       where('raw ILIKE ?', "%#{pattern}%")
     when 'regex'
-      where('raw ~ ?', pattern)
+      where('raw ~ ?', "(?n)#{pattern}")
     end
   }
 
@@ -468,11 +474,23 @@ class Post < ActiveRecord::Base
   def self.rebake_old(limit)
     problems = []
     Post.where('baked_version IS NULL OR baked_version < ?', BAKED_VERSION)
+      .order('id desc')
       .limit(limit).each do |p|
       begin
         p.rebake!
       rescue => e
         problems << { post: p, ex: e }
+
+        attempts = p.custom_fields["rebake_attempts"].to_i
+
+        if attempts > 3
+          p.update_columns(baked_version: BAKED_VERSION)
+          Discourse.warn_exception(e, message: "Can not rebake post# #{p.id} after 3 attempts, giving up")
+        else
+          p.custom_fields["rebake_attempts"] = attempts + 1
+          p.save_custom_fields
+        end
+
       end
     end
     problems
@@ -622,6 +640,7 @@ class Post < ActiveRecord::Base
 
   def self.public_posts_count_per_day(start_date, end_date, category_id = nil)
     result = public_posts.where('posts.created_at >= ? AND posts.created_at <= ?', start_date, end_date)
+      .where(post_type: Post.types[:regular])
     result = result.where('topics.category_id = ?', category_id) if category_id
     result.group('date(posts.created_at)').order('date(posts.created_at)').count
   end
@@ -647,6 +666,35 @@ class Post < ActiveRecord::Base
     post_ids = (post_ids[(0 - max_replies)..-1] || post_ids)
 
     Post.secured(guardian).where(id: post_ids).includes(:user, :topic).order(:id).to_a
+  end
+
+  MAX_REPLY_LEVEL ||= 1000
+
+  def reply_ids(guardian = nil)
+    replies = Post.exec_sql("
+      WITH RECURSIVE breadcrumb(id, level) AS (
+        SELECT :post_id, 0
+        UNION
+        SELECT reply_id, level + 1
+          FROM post_replies, breadcrumb
+         WHERE post_id = id
+           AND post_id <> reply_id
+           AND level < #{MAX_REPLY_LEVEL}
+      ), breadcrumb_with_count AS (
+        SELECT id, level, COUNT(*)
+          FROM post_replies, breadcrumb
+         WHERE reply_id = id
+           AND reply_id <> post_id
+         GROUP BY id, level
+      )
+      SELECT id, level FROM breadcrumb_with_count WHERE level > 0 AND count = 1 ORDER BY id
+    ", post_id: id).to_a
+
+    replies.map! { |r| { id: r["id"].to_i, level: r["level"].to_i } }
+
+    secured_ids = Post.secured(guardian).where(id: replies.map { |r| r[:id] }).pluck(:id).to_set
+
+    replies.reject { |r| !secured_ids.include?(r[:id]) }
   end
 
   def revert_to(number)
@@ -755,7 +803,7 @@ end
 #  notify_user_count       :integer          default(0), not null
 #  like_score              :integer          default(0), not null
 #  deleted_by_id           :integer
-#  edit_reason             :string
+#  edit_reason             :string(255)
 #  word_count              :integer
 #  version                 :integer          default(1), not null
 #  cook_method             :integer          default(1), not null
@@ -768,7 +816,7 @@ end
 #  via_email               :boolean          default(FALSE), not null
 #  raw_email               :text
 #  public_version          :integer          default(1), not null
-#  action_code             :string
+#  action_code             :string(255)
 #  image_url               :string
 #
 # Indexes

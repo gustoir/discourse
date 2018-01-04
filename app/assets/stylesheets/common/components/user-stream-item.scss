@@ -36,14 +36,14 @@
     display: block;
     float: right;
     color: lighten($primary, 40%);
-    font-size: 11px;
+    font-size: .786em;
   }
 
   .delete-info i {
     font-size: 1em;
   }
 
-  .expand-item {
+  .expand-item, .collapse-item {
     float: right;
     margin-right: 0.5em;
     color: lighten($primary, 40%);
@@ -110,19 +110,9 @@
     font-size: 0.929em;
     word-wrap: break-word;
     color: $primary;
-  }
 
-  .group-member-info {
-    .name {
-      display: inline-block;
-      margin-top: 5px;
-      color: dark-light-choose($primary-medium,$secondary-medium);
-    }
-
-    .title {
-      display: inline-block;
-      margin-top: 5px;
-      color: dark-light-choose($primary-medium, $secondary-medium);
+    details.disabled {
+      color: $primary-medium;
     }
   }
 }

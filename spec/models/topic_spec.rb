@@ -11,6 +11,22 @@ describe Topic do
   context 'validations' do
     let(:topic) { Fabricate.build(:topic) }
 
+    context "#featured_link" do
+      describe 'when featured_link contains more than a URL' do
+        it 'should not be valid' do
+          topic.featured_link = 'http://meta.discourse.org TEST'
+          expect(topic).to_not be_valid
+        end
+      end
+
+      describe 'when featured_link is a valid URL' do
+        it 'should be valid' do
+          topic.featured_link = 'http://meta.discourse.org'
+          expect(topic).to be_valid
+        end
+      end
+    end
+
     context "#title" do
       it { is_expected.to validate_presence_of :title }
 
@@ -123,21 +139,25 @@ describe Topic do
   context 'slug' do
     let(:title) { "hello world topic" }
     let(:slug) { "hello-world-topic" }
+    let!(:expected_title) { title.dup }
+    let!(:expected_slug) { slug.dup }
+    let(:topic) { Fabricate.build(:topic, title: title) }
+
     context 'encoded generator' do
       before { SiteSetting.slug_generation_method = 'encoded' }
-      after { SiteSetting.slug_generation_method = 'ascii' }
 
       it "returns a Slug for a title" do
-        Slug.expects(:for).with(title).returns(slug)
-        expect(Fabricate.build(:topic, title: title).slug).to eq(slug)
+        expect(topic.title).to eq(expected_title)
+        expect(topic.slug).to eq(expected_slug)
       end
 
       context 'for cjk characters' do
         let(:title) { "熱帶風暴畫眉" }
-        let(:slug) { "熱帶風暴畫眉" }
+        let!(:expected_title) { title.dup }
+
         it "returns encoded Slug for a title" do
-          Slug.expects(:for).with(title).returns(slug)
-          expect(Fabricate.build(:topic, title: title).slug).to eq(slug)
+          expect(topic.title).to eq(expected_title)
+          expect(topic.slug).to eq(expected_title)
         end
       end
 
@@ -153,7 +173,7 @@ describe Topic do
 
     context 'none generator' do
       before { SiteSetting.slug_generation_method = 'none' }
-      after { SiteSetting.slug_generation_method = 'ascii' }
+
       let(:title) { "熱帶風暴畫眉" }
       let(:slug) { "topic" }
 
@@ -165,6 +185,7 @@ describe Topic do
 
     context '#ascii_generator' do
       before { SiteSetting.slug_generation_method = 'ascii' }
+
       it "returns a Slug for a title" do
         Slug.expects(:for).with(title).returns(slug)
         expect(Fabricate.build(:topic, title: title).slug).to eq(slug)
@@ -173,6 +194,7 @@ describe Topic do
       context 'for cjk characters' do
         let(:title) { "熱帶風暴畫眉" }
         let(:slug) { 'topic' }
+
         it "returns 'topic' when the slug is empty (say, non-latin characters)" do
           Slug.expects(:for).with(title).returns("topic")
           expect(Fabricate.build(:topic, title: title).slug).to eq("topic")
@@ -573,7 +595,7 @@ describe Topic do
 
     it "rate limits topic invitations" do
       SiteSetting.max_topic_invitations_per_day = 2
-      RateLimiter.stubs(:disabled?).returns(false)
+      RateLimiter.enable
       RateLimiter.clear_all!
 
       start = Time.now.tomorrow.beginning_of_day
@@ -671,7 +693,7 @@ describe Topic do
 
     context "when moderator post fails to be created" do
       before do
-        user.toggle!(:blocked)
+        user.update_column(:silenced_till, 1.year.from_now)
       end
 
       it "should not increment moderator_posts_count" do
@@ -827,7 +849,7 @@ describe Topic do
       it_should_behave_like 'a status that closes a topic'
 
       context 'topic was set to close when it was created' do
-        it 'puts the autoclose duration in the moderator post' do
+        it 'includes the autoclose duration in the moderator post' do
           freeze_time(Time.new(2000, 1, 1))
           @topic.created_at = 3.days.ago
           @topic.update_status(status, true, @user)
@@ -836,7 +858,7 @@ describe Topic do
       end
 
       context 'topic was set to close after it was created' do
-        it 'puts the autoclose duration in the moderator post' do
+        it 'includes the autoclose duration in the moderator post' do
           freeze_time(Time.new(2000, 1, 1))
 
           @topic.created_at = 7.days.ago
@@ -1230,21 +1252,9 @@ describe Topic do
       expect(topic.topic_timers.first.execute_at).to eq(3.days.from_now)
     end
 
-    it 'can take a number of hours as an integer, with timezone offset' do
-      freeze_time now
-      topic.set_or_create_timer(TopicTimer.types[:close], 72, by_user: admin, timezone_offset: 240)
-      expect(topic.topic_timers.first.execute_at).to eq(3.days.from_now)
-    end
-
     it 'can take a number of hours as a string' do
       freeze_time now
       topic.set_or_create_timer(TopicTimer.types[:close], '18', by_user: admin)
-      expect(topic.topic_timers.first.execute_at).to eq(18.hours.from_now)
-    end
-
-    it 'can take a number of hours as a string, with timezone offset' do
-      freeze_time now
-      topic.set_or_create_timer(TopicTimer.types[:close], '18', by_user: admin, timezone_offset: 240)
       expect(topic.topic_timers.first.execute_at).to eq(18.hours.from_now)
     end
 
@@ -1258,12 +1268,6 @@ describe Topic do
       freeze_time now
       topic.set_or_create_timer(TopicTimer.types[:close], '2013-11-22 5:00', by_user: admin)
       expect(topic.topic_timers.first.execute_at).to eq(Time.zone.local(2013, 11, 22, 5, 0))
-    end
-
-    it "can take a timestamp for a future time, with timezone offset" do
-      freeze_time now
-      topic.set_or_create_timer(TopicTimer.types[:close], '2013-11-22 5:00', by_user: admin, timezone_offset: 240)
-      expect(topic.topic_timers.first.execute_at).to eq(Time.zone.local(2013, 11, 22, 9, 0))
     end
 
     it "sets a validation error when given a timestamp in the past" do
@@ -1688,7 +1692,7 @@ describe Topic do
       SiteSetting.max_replies_in_first_day = 1
       SiteSetting.stubs(:client_settings_json).returns(SiteSetting.client_settings_json_uncached)
       RateLimiter.stubs(:rate_limit_create_topic).returns(100)
-      RateLimiter.stubs(:disabled?).returns(false)
+      RateLimiter.enable
       RateLimiter.clear_all!
     end
 
@@ -2086,6 +2090,21 @@ describe Topic do
         expect(post.user).to eq(Discourse.system_user)
         expect(post.post_type).to eq(Post.types[:small_action])
         expect(post.action_code).to eq('user_left')
+      end
+    end
+  end
+
+  describe '#featured_link_root_domain' do
+    let(:topic) { Fabricate.build(:topic) }
+
+    [
+      "https://meta.discourse.org",
+      "https://meta.discourse.org/",
+      "https://meta.discourse.org/?filter=test",
+    ].each do |featured_link|
+      it "should extract the root domain from #{featured_link} correctly" do
+        topic.featured_link = featured_link
+        expect(topic.featured_link_root_domain).to eq("discourse.org")
       end
     end
   end

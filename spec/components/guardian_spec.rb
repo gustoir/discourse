@@ -193,9 +193,9 @@ describe Guardian do
       end
     end
 
-    context "author is blocked" do
+    context "author is silenced" do
       before do
-        user.blocked = true
+        user.silenced_till = 1.year.from_now
         user.save
       end
 
@@ -211,9 +211,27 @@ describe Guardian do
       it "returns true if target is a staff group" do
         Group::STAFF_GROUPS.each do |name|
           g = Group[name]
-          g.messageable_level = Group::ALIAS_LEVELS[:everyone]
+          g.update!(messageable_level: Group::ALIAS_LEVELS[:everyone])
           expect(Guardian.new(user).can_send_private_message?(g)).to be_truthy
         end
+      end
+    end
+
+    it "respects the group's messageable_level" do
+      group = Fabricate(:group)
+
+      Group::ALIAS_LEVELS.each do |level, _|
+        group.update!(messageable_level: Group::ALIAS_LEVELS[level])
+        output = level == :everyone ? true : false
+
+        expect(Guardian.new(user).can_send_private_message?(group)).to eq(output)
+      end
+
+      admin = Fabricate(:admin)
+
+      Group::ALIAS_LEVELS.each do |level, _|
+        group.update!(messageable_level: Group::ALIAS_LEVELS[level])
+        expect(Guardian.new(admin).can_send_private_message?(group)).to eq(true)
       end
     end
 
@@ -451,6 +469,7 @@ describe Guardian do
     end
 
     it 'returns false for all users when sso is enabled' do
+      SiteSetting.sso_url = "https://www.example.com/sso"
       SiteSetting.enable_sso = true
 
       expect(Guardian.new(trust_level_2).can_invite_via_email?(topic)).to be_falsey
@@ -852,14 +871,14 @@ describe Guardian do
           expect(Guardian.new(user).can_create?(Post, private_message)).to be_falsey
         end
 
-        it "allows new posts from blocked users included in the pm" do
-          user.update_attribute(:blocked, true)
+        it "allows new posts from silenced users included in the pm" do
+          user.update_attribute(:silenced_till, 1.year.from_now)
           private_message.topic_allowed_users.create!(user_id: user.id)
           expect(Guardian.new(user).can_create?(Post, private_message)).to be_truthy
         end
 
-        it "doesn't allow new posts from blocked users not invited to the pm" do
-          user.update_attribute(:blocked, true)
+        it "doesn't allow new posts from silenced users not invited to the pm" do
+          user.update_attribute(:silenced_till, 1.year.from_now)
           expect(Guardian.new(user).can_create?(Post, private_message)).to be_falsey
         end
       end
@@ -1374,9 +1393,9 @@ describe Guardian do
       expect(Guardian.new(user).can_moderate?(nil)).to be_falsey
     end
 
-    context 'when user is blocked' do
+    context 'when user is silenced' do
       it 'returns false' do
-        user.toggle!(:blocked)
+        user.update_column(:silenced_till, 1.year.from_now)
         expect(Guardian.new(user).can_moderate?(post)).to be(false)
         expect(Guardian.new(user).can_moderate?(topic)).to be(false)
       end
@@ -2158,6 +2177,7 @@ describe Guardian do
 
     context 'when SSO username override is active' do
       before do
+        SiteSetting.sso_url = "https://www.example.com/sso"
         SiteSetting.enable_sso = true
         SiteSetting.sso_overrides_username = true
       end
@@ -2232,6 +2252,7 @@ describe Guardian do
     context 'when SSO email override is active' do
       before do
         SiteSetting.email_editable = false
+        SiteSetting.sso_url = "https://www.example.com/sso"
         SiteSetting.enable_sso = true
         SiteSetting.sso_overrides_email = true
       end
@@ -2319,6 +2340,7 @@ describe Guardian do
 
       context 'when SSO is enabled' do
         before do
+          SiteSetting.sso_url = "https://www.example.com/sso"
           SiteSetting.enable_sso = true
         end
 

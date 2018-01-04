@@ -19,7 +19,6 @@
     width: 100%;
 
     .secondary {
-      font-size: 0.929em;
 
       .btn {
         padding: 3px 12px;
@@ -53,7 +52,7 @@
     }
 
     .details {
-      background: rgba($secondary, .85);
+      background: rgba($secondary, .8);
 
       blockquote {
         background-color: $secondary-low;
@@ -61,13 +60,13 @@
       }
 
       h1 {
-        font-size: 2.143em;
+        font-size: 2.286em;
         font-weight: normal;
         i {font-size: .8em;}
       }
 
       h2 {
-        font-size: 1.214em;
+        font-size: 1.286em;
         font-weight: normal;
         margin-top: 10px;
         max-width: 100%;
@@ -145,7 +144,7 @@
 
       .details {
         margin-top: 0;
-        background: rgba($secondary, .85);
+        background: rgba($secondary, .8);
 
         .bio {
           display: none;
@@ -168,7 +167,7 @@
           }
 
           h2 {
-            font-size: 1.071em;
+            font-size: 1.143em;
             margin-top: 4px;
           }
 
@@ -181,24 +180,24 @@
   }
 
   .staff-counters {
-    text-align: left;
     background: $primary;
-
-    > div {
+    color: $secondary;    
+    display: flex;
+    padding: 10px;    
+    > div, > div a {
+      display: flex;
+      align-items: baseline;
+      flex: 0 1 auto;
       margin: 0 10px 0 0;
-      display: inline-block;
-      padding: 5px 0;
-      &:first-of-type {
-        padding-left: 10px;
-      }
       span {
-        padding: 1px 5px;
+        padding: 1px 6px;
         border-radius: 10px;
+        margin-right: 5px;        
       }
-    }
+    }  
 
     a {
-      color: dark-light-choose($primary-medium, $secondary-high);
+      color: $secondary;
     }
 
     .active {
@@ -256,7 +255,7 @@
       color: dark-light-choose($primary-medium, $secondary-medium);
         margin-top: 5px;
         margin-bottom: 10px;
-        font-size: 80%;
+        font-size: .857em;
         line-height: 1.4em;
       }
     }
@@ -268,7 +267,7 @@
     text-align: top;
     color: $danger;
     font-weight: bold;
-    font-size: 1.3em;
+    font-size: 1.286em;
   }
 }
 
@@ -320,6 +319,13 @@
 }
 
 .avatar-selector {
+  padding-bottom: 0 !important;
+  label.radio {
+    padding-left: 10px;
+  }
+  .avatar-choice {
+    min-height: 40px;
+  }
   label {
     display: inline-block;
     margin-right: 10px;
@@ -331,6 +337,9 @@
   }
   .avatar {
     margin: 5px 10px 5px 0;
+  }
+  p.error {
+    color: $danger;
   }
 }
 
@@ -378,7 +387,7 @@
     &.linked-stat { // This makes the entire "box" (the li) clickable instead of a narrow area.
       padding: 0;
       a {
-        padding: 10px 14px;
+        padding: 10px 14px;        
         width: 100%;
         height: 100%;
         display: block;
@@ -393,7 +402,7 @@
 
   .value {
     font-weight: bold;
-    font-size: 1.2em;
+    font-size: 1.286em;
   }
 
   .label {
@@ -440,7 +449,7 @@
 
 .links-section {
   .domain {
-    font-size: 0.714em;
+    font-size: 0.786em;
     color: dark-light-choose($primary-medium, $secondary-high);
   }
 }
@@ -470,7 +479,7 @@
   .instructions {
     color: dark-light-choose($primary-medium, $secondary-medium);
     margin-bottom: 10px;
-    font-size: 80%;
+    font-size: .857em;
     line-height: 1.4em;
 
     a[href] {
