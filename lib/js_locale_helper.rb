@@ -148,6 +148,7 @@ module JsLocaleHelper
     result << moment_formats
 
     result << File.read("#{Rails.root}/lib/javascripts/moment-jalaali.js")
+    result << "moment.loadPersian({usePersianDigits: true, dialect: 'persian-modern'})"
 
     result
   end

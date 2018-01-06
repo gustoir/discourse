@@ -1,6 +1,11 @@
 @font-face {
-  font-family: SDF;
-  src: font_url('iransans.eot'), font_url('iransans.eot?#iefix') format('embedded-opentype'), font_url('iransans.woff') format('woff'), font_url('iransans.woff2') format('woff2'), font_url('iransans.ttf') format('truetype'), font_url('iransans.svg#svgbmifont') format('svg');
+  font-family: IranSans;
+  src: url('/assets/iransans.eot');
+  src: url('/assets/iransans.eot?#iefix') format('embedded-opentype'),
+  url('/assets/iransans.woff2') format('woff2'),
+  url('/assets/iransans.woff') format('woff'),
+  url('/assets/iransans.ttf') format('truetype'),
+  url('/assets/iransans.svg#svgbmifont') format('svg');
   font-style: normal;
   font-weight: normal;
 }
