@@ -10,7 +10,7 @@
 
 html {
 
-  font-family: SDF,sans-serif; /* 1 */
+  font-family: IranSans,sans-serif; /* 1 */
   -ms-text-size-adjust: 100%; /* 2 */
 
   line-height: 1.15; /* 1 */
@@ -75,7 +75,20 @@ pre {
    ========================================================================== */
 
 /**
+<<<<<<< HEAD
  * Remove the gray background on active links in IE 10.
+=======
+ * Address styling not present in IE 8/9/10/11 & Edge
+ */
+
+ abbr[title], acronym[title] {
+  text-decoration: underline;
+  text-decoration-style: dotted;
+}
+
+/**
+ * Address style set to `bolder` in Firefox 4+, Safari, and Chrome.
+>>>>>>> eeca794fc2889fd400208a6fd3a3646c1e2574a4
  */
 
 a {

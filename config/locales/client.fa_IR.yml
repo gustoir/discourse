@@ -2716,11 +2716,8 @@ fa_IR:
         this_month: "ماه"
         this_week: "هفته"
         today: "امروز"
-<<<<<<< HEAD
         other_periods: "نمایش بالاترین‌های:"
     browser_update: 'متاسفانه,<a href="http://www.discourse.org/faq/#browser">مرورگر شما خیلی قدیمی است برای ادامه کار در این وب سایت</a>. لطفا <a href="http://browsehappy.com">مرورگر خود را بروز رسانی نمایید</a>.'
-=======
->>>>>>> 363170513e7be3e7fa1500ac640561e0e3c45e78
     permission_types:
       full: "ساختن / پاسخ دادن / دیدن"
       create_post: "پاسخ دادن / دیدن"

@@ -110,14 +110,11 @@ branding:
     type: upload
 
 basic:
-<<<<<<< HEAD
   default_locale:
     default: 'fa_IR'
-=======
   display_local_time_in_user_card:
     client: true
     default: false
->>>>>>> 363170513e7be3e7fa1500ac640561e0e3c45e78
   allow_user_locale:
     client: true
     default: false

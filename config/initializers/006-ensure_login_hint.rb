@@ -18,7 +18,7 @@ begin
           emails = emails[0..-2].join(', ') << " or #{emails[-1]} "
         else
           emails = emails[0]
-        end
+        end 
         "Congratulations, you installed Discourse! Register a new admin account with #{emails} to finalize configuration."
       end
       "مبارکه، شما دیسکورس را نصب کردید! یک حساب کاربری با ایمیل بسازید و تنظیمات را تکمیل کنید."
