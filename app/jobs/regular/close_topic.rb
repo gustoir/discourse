@@ -1,12 +1,29 @@
+# frozen_string_literal: true
 
 module Jobs
-  class CloseTopic < Jobs::Base
+  class CloseTopic < ::Jobs::TopicTimerBase
+    def execute_timer_action(topic_timer, topic)
+      silent = @args[:silent]
+      user = topic_timer.user
 
-    def execute(args)
-      # This file is back temporarily to handle jobs that are enqueued
-      # far in the future that haven't been migrated to the ToggleTopicClosed
-      # job.
+      if topic.closed?
+        topic_timer.destroy!
+        return
+      end
+
+      if !Guardian.new(user).can_close_topic?(topic)
+        topic_timer.destroy!
+        topic.reload
+
+        if topic_timer.based_on_last_post
+          topic.inherit_auto_close_from_category(timer_type: silent ? :silent_close : :close)
+        end
+
+        return
+      end
+
+      # this handles deleting the topic timer as wel, see TopicStatusUpdater
+      topic.update_status('autoclosed', true, user, { silent: silent })
     end
-
   end
 end

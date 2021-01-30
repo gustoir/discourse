@@ -3,7 +3,7 @@
   <br/>
 
   <%- unless @confirmed %>
-    <%=raw (t('activation.admin_confirm.description', target_username: @confirmation.target_user.username)) %>
+    <%=raw (t('activation.admin_confirm.description', target_email: @confirmation.target_user.email, target_username: @confirmation.target_user.username)) %>
     <br/>
     <br/>
 
@@ -14,7 +14,7 @@
     <%=raw (t('activation.admin_confirm.complete', target_username: @confirmation.target_user.username)) %>
     <br/>
     <br/>
-    <%= link_to t("activation.admin_confirm.back_to", title: SiteSetting.title), "/", class: 'btn btn-primary' %>
+    <%= link_to t("activation.admin_confirm.back_to", title: SiteSetting.title), Discourse.base_url, class: 'btn btn-primary' %>
   <% end %>
 
 </div>

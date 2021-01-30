@@ -1,18 +1,18 @@
-# encoding: utf-8
-#
-# Never edit this file. It will be overwritten when translations are pulled from Transifex.
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
 #
 # To work with us on translations, join this project:
-# https://www.transifex.com/projects/p/discourse-org/
+# https://translate.discourse.org/
 
 zh_CN:
   site_settings:
-    discourse_narrative_bot_enabled: '启用 Discourse 代表机器人'
+    discourse_narrative_bot_enabled: "启用 Discourse 代表机器人（discobot）"
     disable_discourse_narrative_bot_welcome_post: "禁止 Discourse 代表机器人发送欢迎帖子"
     discourse_narrative_bot_ignored_usernames: "Discourse 代表机器人应该忽略的用户名"
     discourse_narrative_bot_disable_public_replies: "禁止 Discourse 代表机器人发布公开回复"
     discourse_narrative_bot_welcome_post_type: "Discourse 代表机器人应该发送的欢迎帖子类型"
     discourse_narrative_bot_welcome_post_delay: "在 Discourse 代表机器人发送欢迎帖子前等待 (n) 秒。"
+    discourse_narrative_bot_skip_tutorials: "跳过Discourse叙事机器人教程"
   badges:
     certified:
       name: 已合格
@@ -23,12 +23,16 @@ zh_CN:
       name: 已证明
       description: "完成了我们的高级用户教程"
       long_description: |
-        该徽章授予完成我们交互式高级用户教程的你。你已经掌握了讨论的高级工具——你已经收到了证明！
+        该徽章授予给完成交互式高级用户教程的你。你已经掌握了讨论的高级工具——本徽章就是你的证明！
   discourse_narrative_bot:
-    bio: "你好，我不是真实的人。我是一个教你如何使用站点的机器人。你可以给我发消息或在任意地方提及 **`%{discobot_username}`** 与我交互。"
+    bio: "你好，我不是一个真实存在的人类。我是一个可以带你了解这个站点的机器人。你可以通过给我发消息或提及我来与我交互。"
+    tl2_promotion_message:
+      subject_template: "现在你已经晋升了，是时候学习高级功能了！"
+      text_body_template: |
+        使用`@%{discobot_username} %{reset_trigger}`回复本消息可以找出更多功能。
     timeout:
       message: |-
-        你好，@%{username}。好久没见到你了，一切可好？
+        你好， @%{username}。好久没见到你了，一切可好？
 
         - 你可以在任意时候回复我。
 
@@ -38,92 +42,92 @@ zh_CN:
 
         如果你不想的话也没问题。我是个机器人。你不会伤害到我。 :sob:
     dice:
-      trigger: "投"
+      trigger: "骰子"
       invalid: |-
         我很抱歉，数学上证明了不可能投出这种色子组合。 :confounded:
-      not_enough_dice: |-
-        我只有 %{num_of_dice} 个色子。我知道，[太不像话了](http://www.therobotsvoice.com/2009/04/the_10_most_shameful_rpg_dice.php)。
+      not_enough_dice:
+        other: "我只有 %{count} 骰子。 [Shameful]\n(https://www.toplessrobot.com/2009/04/the_10_most_shameful_rpg_dice.php)，我知道！"
       out_of_range: |-
         你知道数学上[面最多](https://www.wired.com/2016/05/mathematical-challenge-of-designing-the-worlds-most-complex-120-sided-dice)的公平色子有 120 面么？
       results: |-
         > :game_die: %{results}
     quote:
       trigger: "引用"
-      '1':
+      "1":
         quote: "每一个困难中存在着机会"
         author: "阿尔伯特·爱因斯坦"
-      '2':
-        quote: "成为你想在世界看到的改变。"
+      "2":
+        quote: "如果自由不包括犯错的自由，那么这个自由就不值得拥有。"
         author: "默罕默德·甘地"
-      '3':
+      "3":
         quote: "不必为结束而哭泣，而要为曾经拥有而微笑。"
         author: "苏斯博士"
-      '4':
+      "4":
         quote: "自己动手，丰衣足食。"
         author: "查尔斯·纪尧姆·西安娜"
-      '5':
+      "5":
         quote: "相信自己能成功，你就已经成功了一半。"
         author: "西奥多·罗斯福"
-      '6':
+      "6":
         quote: "生命就像一盒巧克力。你永远也不会知道你将拿到什么。"
         author: "福雷斯特·甘普的妈妈"
-      '7':
+      "7":
         quote: "这是我个人的一小步，却是全人类的一大步。"
         author: "尼尔·阿姆斯特朗"
-      '8':
+      "8":
         quote: "每天做一件让你有畏难情绪的事情。"
         author: "埃莉诺·罗斯福"
-      '9':
+      "9":
         quote: "如果一个人敢于承认错误，那么一切的错误都会被原谅。"
         author: "李小龙"
-      '10':
+      "10":
         quote: "心想事成。"
         author: "拿破仑·希尔"
       results: |-
         > :left_speech_bubble: _%{quote}_ &mdash; %{author}
     magic_8_ball:
-      trigger: '财富'
+      trigger: "财富"
       answers:
-        '1': "很可能"
-        '2': "一定是"
-        '3': "绝对是"
-        '4': "肯定是"
-        '5': "你可以相信它"
-        '6': "我觉得是"
-        '7': "很可能"
-        '8': "看起来不错"
-        '9': "是的"
-        '10': "标志指的是"
-        '11': "再随便回复试试"
-        '12': "等等再问我"
-        '13': "现在最好不告诉你"
-        '14': "现在不好说"
-        '15': "专心然后再问一次"
-        '16': "不要指望它"
-        '17': "我的回答是不"
-        '18': "我的情报告诉我说不"
-        '19': "看起来不是很好"
-        '20': "很可疑"
+        "1": "很可能"
+        "2": "一定是"
+        "3": "绝对是"
+        "4": "肯定是"
+        "5": "你可以相信它"
+        "6": "我觉得是"
+        "7": "很可能"
+        "8": "看起来不错"
+        "9": "是的"
+        "10": "标志指的是"
+        "11": "再随便回复试试"
+        "12": "等等再问我"
+        "13": "现在最好不告诉你"
+        "14": "现在不好说"
+        "15": "专心然后再问一次"
+        "16": "不要指望它"
+        "17": "我的回答是不"
+        "18": "我的代码让我不谈钱"
+        "19": "看起来不是很好"
+        "20": "很可疑"
       result: |-
         > :crystal_ball: %{result}
     track_selector:
-      reset_trigger: '开始'
-      skip_trigger: '跳过'
-      help_trigger: '显示帮助'
+      reset_trigger: "开始"
+      skip_trigger: "跳过"
+      help_trigger: "帮助"
       random_mention:
         reply: |-
-          你好！想看看我能做什么，说`@%{discobot_username} %{help_trigger}`。
+          你好！想看看我能做什么吗？说 `@%{discobot_username} %{help_trigger}`。
         tracks: |-
-          我现在知道怎么做这些：
+          我现在知道怎么办了：
 
-          `@%{discobot_username} %{reset_trigger} %{default_track}`
-          > 开始以下的交互模式：%{tracks}。
+          `@%{discobot_username}%{reset_trigger}{name-of-tutorial}`
+          > 在私信中为你开设一个交互式的教程。`{name-of-tutorial}` 可以是以下之一： `%{tracks}`。
         bot_actions: |-
           `@%{discobot_username} %{dice_trigger} 2d6`
-          > :game_die: 3，6
+          > :game_die: 3, 6
 
           `@%{discobot_username} %{quote_trigger}`
-          > :left_speech_bubble: _随手做些善举，不要期待任何的回报，肯定能懂得一个道理：总有一天有人会为你做同样的事情。_ &mdash; 戴安娜公主
+          %{quote_sample}
 
           `@%{discobot_username} %{magic_8_ball_trigger}`
           > :crystal_ball: 你可能需要它
@@ -131,38 +135,39 @@ zh_CN:
         first_response: |-
           你好，感谢回复！
 
-          不幸的是，我是别人随手写的机器人，我其实不太懂这个。:fronwing:
+          不幸的是，我是别人随手写的机器人，我其实不太懂这个。:frowning:
         track_response: 你可以再试一次，或者你想要跳过这个步骤，说`%{skip_trigger}`。不然的话，说`%{reset_trigger}`重新开始。
         second_response: |-
           啊，抱歉。我还是没懂。 :anguished:
 
-          我只是个机器人，但是如果你想要找到真人，看看[我们的联系页面](/about)。
+          我只是个机器人，但是如果你想要找到真人，看看[我们的联系页面](%{base_path}/about)。
 
-          同时，我不会再烦你。
+          同时，我不会再烦你了。
     new_user_narrative:
-      reset_trigger: "新用户"
+      reset_trigger: "教程"
+      title: "新用户教程完成证明"
       cert_title: "你已经成功完成新用户教程了"
       hello:
-        title: ":robot: 你好!"
+        title: "欢迎！"
         message: |-
-          感谢加入%{title}，  欢迎！
+          感谢加入%{title}，欢迎！
 
-          - 我只是个机器人， 但是如果你需要接触人， [我们友善的管理人员](/about) 也可以帮助你。
+          - 我只是一个机器人，但是我们[友好的管理员](%{base_uri}/about)可以提供真人帮助。
 
-          - 出于安全考虑，我们暂时限制新用户的功能。当我们了解你的时候，你会获得新的能力 (和 [徽章](/badges))。
+          - 出于安全考虑，我们暂时限制新用户能够使用的功能。当我们更了解你的时候，你就可以获得[新功能](https://blog.discourse.org/2018/06/understanding-discourse-trust-levels/) (还有 [徽章](%{base_uri}/badges))
 
-          - 我们始终相信[文明 社区 行为](/guidelines)。
+          - 我们一直坚守[社区文明守则](%{base_uri}/guidelines)。
       onebox:
         instructions: |-
           接下来，你能分享下列链接给我么？回复**单独一行的链接**，然后它会自动展开显示一个有用的摘要。
 
           要复制链接，在移动端点击并且保持，或者用你的鼠标右键：
 
-          - https://en.wikipedia.org/wiki/Inherently_funny_word
-          - https://en.wikipedia.org/wiki/Death_by_coconut
-          - https://en.wikipedia.org/wiki/Calculator_spelling
+          <https://en.wikipedia.org/wiki/Inherently_funny_word>
+          <https://en.wikipedia.org/wiki/Death_by_coconut>
+          <https://en.wikipedia.org/wiki/Calculator_spelling>
         reply: |-
-          酷！这将会对大多数<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-link.png" width="16" height="16">链接起作用。请记住，它必须是单独的一行链接，在它之前和之后都没有内容。
+          酷！这对许多<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-link.png" width="16" height="16">链接都管用。请记住，它必须占**单独的一行**，前后都没东西。
         not_found: |-
           抱歉，我没在你的回复中找到链接！ :cry:
 
@@ -181,13 +186,24 @@ zh_CN:
         reply: |-
           好赞的图片—我点了赞 :heart: ，你知道我很乐意看见它的 :heart_eyes:
         like_not_found: |-
-          你忘记赞 :heart: 我的[帖子](%{url})了吗？ :crying_cat_face:
+          你忘记点赞 :heart: 我的[帖子](%{url})了吗？ :crying_cat_face:
         not_found: |-
-          看起来你没有上传我**肯定**会喜欢的图片。
+          你还没有上传图像，因此我为你选择了一张我觉得你会喜欢的。
 
-          `%{image_url}`
+          <%{image_url}>
 
-          试试再传一个，或者复制一个占一行的链接！
+          上传另一个试试，也可以单独一行粘贴图片的链接！
+      likes:
+        instructions: |-
+          这是一只独角兽的照片：
+
+          <img src="%{base_uri}/plugins/discourse-narrative-bot/images/unicorn.png" width="520" height="520">
+
+          如果你喜欢的话（谁会不喜欢呢！）点击帖子底部的赞:heart:按钮让我知道。
+        reply: |-
+          感谢你喜欢我的帖子！
+        not_found: |-
+          你忘记赞 :heart: 我的[帖子](%{url})了吗？ :crying_cat_face:
       formatting:
         instructions: |-
           你可以在下一个回复中加粗或斜体这些词语么？
@@ -209,7 +225,7 @@ zh_CN:
           >
           > 和你自己说话一个优点是至少你知道有人在听。
           >
-          > 有些人知道怎么说话，而另一些人...啊，哦，不知道。
+          > 有些人知道怎么说话，而另一些人……啊，哦，不知道。
 
           选择你喜欢的文字，然后在旁边弹出的地方按下**引用**—或者点击帖子底下的**回复**按钮。
 
@@ -222,20 +238,20 @@ zh_CN:
           选择我帖子中的任何文字都会弹出<kbd>**引用**</kbd>按钮。然后选中文字的同时按下**回复**按钮也可以！你可以再试一次吗？
       bookmark:
         instructions: |-
-          如果你想了解更多，请选择下方<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-ellipsis.png" width="16" height="16">并<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-bookmark.png" width="16" height="16">**收藏此私信**。如果你这样做， 未来你可能会有 :gift: ！
+          如果你想了解更多，请选择下方<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-ellipsis.png" width="16" height="16">并<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-bookmark.png" width="16" height="16">**收藏此私信**。如果你这样做，你一会可能收到份 :gift: ！
         reply: |-
-          太棒了！现在你可以轻松地找到我们的私信了。它就在[你个人页面的收藏栏](%{profile_page_url}/activity/bookmarks)中。选择右上方你的个人头像  &#8599;
+          太棒了！现在你可以在任何时候轻松地找到我们的私信，[你的个人页面收藏栏](%{bookmark_url})右边。只需点击你在右上方的个人头像 &#8599;
         not_found: |-
-          啊哦，我没有在这个主题中看到任何收藏。你在每个帖子下找到了收藏按钮吗？如果需要的话，使用显示更多<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-ellipsis.png" width="16" height="16">展开更多操作。
+          啊哦，我没有在此主题中看到有任何收藏。你看到每个帖子下方的收藏按钮了吗？如果需要的话，使用显示更多来<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-ellipsis.png" width="16" height="16">展开更多操作。
       emoji:
         instructions: |-
-          你可能看到我在回复中用了些小图片 :blue_car::dash: 他们叫[emoji](https://zh.wikipedia.org/wiki/Emoji)。你能在你的回复中**添加Emoji**吗？以下任意方式都可以：
+          你可能已经看到我在回复中用了很多小图片 :blue_car::dash: 这些叫做[绘文字（Emoji）](https://zh.wikipedia.org/wiki/%E7%B9%AA%E6%96%87%E5%AD%97)。你能在回复中**使用一个 Emoji **吗？这些都可以用：
 
           - 输入 `:) ;) :D :P :O`
 
-          - 输入半角冒号 <kbd>:</kbd> 跟上 emoji 的名字 `:tada:`
+          - 输入冒号 <kbd>:</kbd> 然后输入完整的 Emoji 名字 `:tada:`
 
-          - 在编辑器中或者你移动端的键盘上按下 emoji 按钮 <img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-smile.png" width="16" height="16">
+          - 点击编辑器中的 Emoji 按钮<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-smile.png" width="16" height="16">，或者使用移动设备的键盘
         reply: |-
           这是 :sparkles: **Emoji 精神!** :sparkles:
         not_found: |-
@@ -252,33 +268,33 @@ zh_CN:
 
           你能在回复中提及**@%{discobot_username}**吗？
         reply: |-
-          **谁在找我！？** :raised_hand: 我觉得是你！ :wave:  好吧，我在这儿！感谢你提到我。 :ok_hand:
+          **谁在找我！？** :raised_hand: 我觉得是你！ :wave: 好吧，我在这儿！感谢你提到我。 :ok_hand:
         not_found: |-
-          我没有在任何地方看到我的名字 :frowning: 你可以再`@%{discobot_username}` 我试试？
+          我没有在任何地方看到我的名字 :frowning: 你可以再 `@%{discobot_username}` 我试试？
 
           （是的，我的用户名是**disco**，和 1970 年流行的舞蹈同名）
       flag:
         instructions: |-
           我们都喜欢友善的讨论，我们也需要你的帮助来[一起保持文明](%{guidelines_url})。如果你发现了问题，请用标记告诉作者，或者通知[我们友善的管理人员](%{about_url})来处理。
 
-          >  :imp: 我在这写了些脏话
+          > :imp: 我在这写了些脏话
 
-          我猜你知道要做什么了。点击**标记该贴**<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-flag.png" width="16" height="16">为不合适！
+          我猜你知道要做什么了。**标记该贴**<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-flag.png" width="16" height="16">为不恰当的发言！
         reply: |-
-          [我们的管理人员](/groups/staff)将会私下里通知关于你标记的后续。如果许多社区成员标记了帖子，出于谨慎，帖子将自动被隐藏。（我没有真的写很糟糕的帖子 :angel:，我先把这个标记删除了）
+          [我们的管理人员](%{base_uri}/groups/staff)将私下通知你的标记。如果有足够的社区成员标记帖子，作为预防措施它也会自动隐藏。（因为我实际上并没有写一篇讨厌的帖子:angel:我现在已经取消了标记。）
         not_found: |-
-          啊不，我糟糕的帖子还没被标记。 :worried: 你能**标记**<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-flag.png" width="16" height="16">其为不合适的吗？不要忘记用显示更多按钮<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-ellipsis.png" width="16" height="16">来显示每个帖子的更多操作。
+          不好，我讨厌的发帖还未被标记为不当内容。:worried:你能使用**标记**<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-flag.png" width="16" height="16">将其标记为不当内容吗？不要忘记使用显示更多的按钮<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-ellipsis.png" width="16" height="16">为每个帖子显示更多的操作选项。
       search:
         instructions: |-
-          呼…我已经在这个主题中隐藏了一个惊喜。如果你想挑战的话，点击右上角&#8599;的**搜索按钮** <img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-search.png" width="16" height="16"> 来找到它。
+          呼…我已经在这个主题中隐藏了一个惊喜。如果你想挑战的话，点击右上角&#8599;的**搜索按钮** <img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-search.png" width="16" height="16">来找到它。
 
           试试在这个主题中搜索关键词“capy&#8203;bara”
         hidden_message: |-
-          你怎么错过这个 capybara 哒 :wink:
+          你怎么错过了这只水豚？ :wink:
 
           <img src="%{base_uri}/plugins/discourse-narrative-bot/images/capybara-eating.gif"/>
 
-          注意到你回到主题开头了么？**带 `:herb:` 这个 emoji 回复** 来喂养这只可怜又饥饿的 capabara，你会自动跳转到结尾。
+          注意到你回到主题开头了么？**使用颜文字`%{search_answer}`回复**来给这只可怜又饥饿水豚投食吧，之后你就会自动回到底部。
         reply: |-
           你找到啦 :tada:
 
@@ -288,24 +304,26 @@ zh_CN:
 
           - 如果你有 :keyboard:，按下<kbd>?</kbd>查看有用的键盘快捷键列表。
         not_found: |-
-          哈...看起来你碰到了些麻烦。抱歉。你试过搜索<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-search.png" width="16" height="16">**capy&#8203;bara**了吗？
+          哈…看起来你碰到了些麻烦。抱歉。你试过搜索<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-search.png" width="16" height="16">**capy&#8203;bara**了吗？
       end:
         message: |-
-          感谢你@%{username}一直和我相处！我给你准备了一个东西，这是你应得的：
+          感谢你坚持使用 @%{username}！我为你做了这个，我想你已经赢得了它：
 
           %{certificate}
 
-          现在就是这样了！查看[**我们最新的讨论主题**](/latest)或者[**讨论分类**](/categories)。:sunglasses:
+          目前为止就这样了！查看[**我们最新的讨论主题**](%{base_uri}/latest)或[**在分类讨论**](%{base_uri}/categories)。:sunglasses:
 
-          （如果你还想我和我聊以了解更多，可以随时私信我或者提及`@%{discobot_username}`我！）
+          （如果你想再次与我交谈以了解更多信息，请随时留言或提及`@%{discobot_username}`！）
       certificate:
-        alt: '成就证明'
+        alt: "成就证明"
     advanced_user_narrative:
-      reset_trigger: '高级用户'
+      reset_trigger: "高级教程"
       cert_title: "你已经成功完成高级用户教程了"
-      title: ':arrow_up: 高级用户特性'
+      title: ":arrow_up: 高级用户特性"
       start_message: |-
-        %{username}
+        作为_advanced_用户，你是否访问过[你的偏好设置页面](%{base_uri}/my/preferences) @%{username}？ 有很多方法可以自定义你的体验，例如选择深色或浅色主题
+
+        但我离题了，让我们开始吧！
       edit:
         bot_created_post_raw: "@%{discobot_username}是目前我了解的最酷的机器人 :wink:"
         instructions: |-
@@ -332,7 +350,7 @@ zh_CN:
 
           为了讨论的连贯性，删除不会立即发生，所以帖子将在之后移除。
       recover:
-        deleted_post_raw: '为什么@%{discobot_username}删除了我的帖子？:anguished:'
+        deleted_post_raw: "为什么 @%{discobot_username}删除了我的帖子？:anguished:"
         instructions: |-
           哦不！看起来我不小心删除了我刚刚给你创建的一个新帖子。
 
@@ -342,7 +360,7 @@ zh_CN:
         reply: |-
           呼，差点啊！感谢你帮忙 :wink:
 
-          注意你只有 24 小时时间恢复一个帖子。
+          注意你只有%{deletion_after}小时的时间去恢复一个帖子。
       category_hashtag:
         instructions: |-
           你知道你可以在你的帖子中提到分类和标签么？例如，你看到过%{category}分类了吗？
@@ -360,15 +378,15 @@ zh_CN:
         instructions: |-
           每个主题都有通知等级。默认为“普通”，只有别人直接回复你的时候才会提醒你。
 
-          默认情况下，私信中的通知等级被设为最高级“监看”，即你将收到每个新回复的提醒。但是你可以覆盖任意一个主题的通知等级至“监看”、“追踪”或“静音”。
+          默认情况下，私信中的通知等级被设为最高级“监看”，即你将收到每个新回复的提醒。但是你可以改变任意一个主题的通知等级至“监看”、“追踪”或“静音”。
 
-          让我们试试改变这个主题的通知等级。在主题最下方，你可以看到一个**监看**的按钮。你可以把通知等级改到**追踪**吗？
+          让我们试试改变这个主题的通知等级。在主题最下方，你可以看到一个**监看**的按钮。你可以把通知等级改成**追踪**吗？
         not_found: |-
-          看起来你仍在监看 :eyes: 这个主题！没找到按钮？通知等级就在主题页面的最下方。
+          看起来你仍在关注 :eyes: 这个主题！不知道如何关注？通知等级按钮就在主题的下方。
         reply: |-
-          干得漂亮！我希望你没有把该主题静音。我有时话比较多 :grin:。
+          太棒了！我希望你没有把这个话题静音，因为我有时会说话有点健谈:grin:。
 
-          注意当你回复主题时，或者花了几分钟读了一个主题，它将被自动设为“追踪”。你可以在[你的用户设置](/my/preferences)中修改。
+          请注意，当你回复主题或阅读主题超过几分钟时，它会自动设置为“跟踪”的通知级别。 你可以在[你的用户首选项](%{base_uri}/my/preferences)中更改此设置。
       poll:
         instructions: |-
           你知道你可以在任何帖子中添加投票吗？试试用编辑器中的<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-gear.png" width="16" height="16">齿轮图标来**发起投票**。
@@ -404,7 +422,7 @@ zh_CN:
           3. 编辑详情概要并添加内容。
           [/details]
 
-          你可以用编辑器中的<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-gear.png" width="16" height="16">齿轮图标在下次回复中添加一节详情吗？
+          你可以用编辑器中的<img src="%{base_uri}/plugins/discourse-narrative-bot/images/font-awesome-gear.png" width="16" height="16">齿轮图标在接下来的回复中添加一节详情吗？
         not_found: |-
           添加详情控件时碰到麻烦了？试试在下个回复中包含下列文字：
 
@@ -425,4 +443,4 @@ zh_CN:
 
           再见啦！如果你想要继续和我交流，随时给我发消息 :sunglasses:
       certificate:
-        alt: '高级用户终身成就证明'
+        alt: "高级用户终身成就证明"

@@ -2,13 +2,13 @@
   {{component previewComponent field=field fieldClass=fieldClass wizard=wizard}}
 {{/if}}
 
-<label class="wizard-btn wizard-btn-upload {{if uploading 'disabled'}}">
+<label class="wizard-btn wizard-btn-upload {{if uploading "disabled"}}">
   {{#if uploading}}
     {{i18n "wizard.uploading"}}
   {{else}}
     {{i18n "wizard.upload"}}
-    {{d-icon "picture-o"}}
+    {{d-icon "far-image"}}
   {{/if}}
 
-  <input disabled={{uploading}} type="file" accept="image/*" style="visibility: hidden; position: absolute;" />
+  <input class="wizard-hidden-upload-field" disabled={{uploading}} type="file" accept="image/*">
 </label>

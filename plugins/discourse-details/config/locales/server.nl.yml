@@ -1,0 +1,11 @@
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
+#
+# To work with us on translations, join this project:
+# https://translate.discourse.org/
+
+nl:
+  site_settings:
+    details_enabled: 'De details-functie inschakelen. Als u dit wijzigt, moet u alle berichten opnieuw opbouwen met: ''rake posts:rebake''.'
+  details:
+    excerpt_details: "(klik voor meer details)"

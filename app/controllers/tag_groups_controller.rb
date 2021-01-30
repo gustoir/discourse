@@ -1,6 +1,10 @@
+# frozen_string_literal: true
+
 class TagGroupsController < ApplicationController
-  skip_before_action :check_xhr, only: [:index, :show]
-  before_action :ensure_logged_in, except: [:index, :show]
+  requires_login
+  before_action :ensure_staff
+
+  skip_before_action :check_xhr, only: [:index, :show, :new]
   before_action :fetch_tag_group, only: [:show, :update, :destroy]
 
   def index
@@ -26,13 +30,20 @@ class TagGroupsController < ApplicationController
     end
   end
 
+  def new
+    tag_groups = TagGroup.order('name ASC').includes(:parent_tag).preload(:tags).all
+    serializer = ActiveModel::ArraySerializer.new(tag_groups, each_serializer: TagGroupSerializer, root: 'tag_groups')
+    store_preloaded "tagGroup", MultiJson.dump(serializer)
+    render "default/empty"
+  end
+
   def create
     guardian.ensure_can_admin_tag_groups!
     @tag_group = TagGroup.new(tag_groups_params)
     if @tag_group.save
       render_serialized(@tag_group, TagGroupSerializer)
     else
-      return render_json_error(@tag_group)
+      render_json_error(@tag_group)
     end
   end
 
@@ -51,8 +62,7 @@ class TagGroupsController < ApplicationController
 
   def search
     matches = if params[:q].present?
-      term = params[:q].strip.downcase
-      TagGroup.where('lower(name) like ?', "%#{term}%")
+      TagGroup.where('lower(name) ILIKE ?', "%#{params[:q].strip}%")
     else
       TagGroup.all
     end
@@ -64,15 +74,27 @@ class TagGroupsController < ApplicationController
 
   private
 
-    def fetch_tag_group
-      @tag_group = TagGroup.find(params[:id])
-    end
+  def fetch_tag_group
+    @tag_group = TagGroup.find(params[:id])
+  end
 
-    def tag_groups_params
-      result = params.permit(:id, :name, :one_per_topic, tag_names: [], parent_tag_name: [])
-      result[:tag_names] ||= []
-      result[:parent_tag_name] ||= []
-      result[:one_per_topic] = (params[:one_per_topic] == "true")
-      result
-    end
+  def tag_groups_params
+    tag_group = params.delete(:tag_group)
+    params.merge!(tag_group.permit!) if tag_group
+
+    result = params.permit(
+      :id,
+      :name,
+      :one_per_topic,
+      tag_names: [],
+      parent_tag_name: [],
+      permissions: {}
+    )
+
+    result[:tag_names] ||= []
+    result[:parent_tag_name] ||= []
+    result[:one_per_topic] = params[:one_per_topic].in?([true, "true"])
+
+    result
+  end
 end

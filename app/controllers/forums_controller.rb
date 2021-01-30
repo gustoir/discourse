@@ -1,14 +1,18 @@
-class ForumsController < ApplicationController
+# frozen_string_literal: true
 
-  skip_before_action :preload_json, :check_xhr
-  skip_before_action :authorize_mini_profiler, only: [:status]
-  skip_before_action :redirect_to_login_if_required, only: [:status]
+require "read_only_header"
+
+class ForumsController < ActionController::Base
+  include ReadOnlyHeader
+
+  before_action :check_readonly_mode
+  after_action  :add_readonly_header
 
   def status
-    if $shutdown
-      render plain: 'shutting down', status: 500
+    if $shutdown # rubocop:disable Style/GlobalVars
+      render plain: "shutting down", status: (params[:shutdown_ok] ? 200 : 500)
     else
-      render plain: 'ok'
+      render plain: "ok"
     end
   end
 

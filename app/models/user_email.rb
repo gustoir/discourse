@@ -1,18 +1,20 @@
-require_dependency 'email_validator'
+# frozen_string_literal: true
 
 class UserEmail < ActiveRecord::Base
   belongs_to :user
 
-  attr_accessor :should_validate_email
+  attr_accessor :skip_validate_email
 
   before_validation :strip_downcase_email
 
-  validates :email, presence: true, uniqueness: true
+  validates :email, presence: true
+  validates :email, email: true, if: :validate_email?
 
-  validates :email, email: true, format: { with: EmailValidator.email_regex },
-                    if: :validate_email?
+  validates :primary, uniqueness: { scope: [:user_id] }, if: [:user_id, :primary]
+  validate :user_id_not_changed, if: :primary
+  validate :unique_email
 
-  validates :primary, uniqueness: { scope: [:user_id] }
+  scope :secondary, -> { where(primary: false) }
 
   private
 
@@ -24,8 +26,22 @@ class UserEmail < ActiveRecord::Base
   end
 
   def validate_email?
-    return false unless self.should_validate_email
+    return false if self.skip_validate_email
     email_changed?
+  end
+
+  def unique_email
+    if self.will_save_change_to_email? && self.class.where("lower(email) = ?", email).exists?
+      self.errors.add(:email, :taken)
+    end
+  end
+
+  def user_id_not_changed
+    if self.will_save_change_to_user_id? && self.persisted?
+      self.errors.add(:user_id, I18n.t(
+        'active_record.errors.model.user_email.attributes.user_id.reassigning_primary_email')
+      )
+    end
   end
 end
 
@@ -44,5 +60,5 @@ end
 #
 #  index_user_emails_on_email                (lower((email)::text)) UNIQUE
 #  index_user_emails_on_user_id              (user_id)
-#  index_user_emails_on_user_id_and_primary  (user_id,primary) UNIQUE
+#  index_user_emails_on_user_id_and_primary  (user_id,primary) UNIQUE WHERE "primary"
 #

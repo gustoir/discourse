@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_dependency 'file_store/base_store'
 
 module FileStore
@@ -6,7 +8,7 @@ module FileStore
 
     def store_file(file, path)
       copy_file(file, "#{public_dir}#{path}")
-      "#{Discourse.base_uri}#{path}"
+      "#{Discourse.base_path}#{path}"
     end
 
     def remove_file(url, _)
@@ -16,7 +18,9 @@ module FileStore
       destination = "#{public_dir}#{url.sub("/uploads/", "/uploads/tombstone/")}"
       dir = Pathname.new(destination).dirname
       FileUtils.mkdir_p(dir) unless Dir.exists?(dir)
+      FileUtils.remove(destination) if File.exists?(destination)
       FileUtils.move(source, destination, force: true)
+      FileUtils.touch(destination)
     end
 
     def has_been_uploaded?(url)
@@ -31,12 +35,8 @@ module FileStore
       "#{Discourse.asset_host}#{relative_base_url}"
     end
 
-    def upload_path
-      "/uploads/#{RailsMultisite::ConnectionManagement.current_db}"
-    end
-
     def relative_base_url
-      "#{Discourse.base_uri}#{upload_path}"
+      File.join(Discourse.base_path, upload_path)
     end
 
     def external?
@@ -45,12 +45,11 @@ module FileStore
 
     def download_url(upload)
       return unless upload
-      "#{relative_base_url}/#{upload.sha1}"
+      File.join(relative_base_url, upload.sha1)
     end
 
     def cdn_url(url)
-      return url if Discourse.asset_host.blank?
-      url.sub(Discourse.base_url_no_prefix, Discourse.asset_host)
+      UrlHelper.local_cdn_url(url)
     end
 
     def path_for(upload)
@@ -67,7 +66,7 @@ module FileStore
     end
 
     def get_path_for(type, upload_id, sha, extension)
-      "#{upload_path}/#{super(type, upload_id, sha, extension)}"
+      File.join("/", upload_path, super(type, upload_id, sha, extension))
     end
 
     def copy_file(file, path)
@@ -89,13 +88,51 @@ module FileStore
     end
 
     def public_dir
-      "#{Rails.root}/public"
+      File.join(Rails.root, "public")
     end
 
     def tombstone_dir
       "#{public_dir}#{relative_base_url.sub("/uploads/", "/uploads/tombstone/")}"
     end
 
-  end
+    def list_missing_uploads(skip_optimized: false)
+      list_missing(Upload)
+      list_missing(OptimizedImage) unless skip_optimized
+    end
 
+    def copy_from(source_path)
+      FileUtils.mkdir_p(File.join(public_dir, upload_path))
+
+      Discourse::Utils.execute_command(
+        'rsync', '-a', '--safe-links', "#{source_path}/", "#{upload_path}/",
+        failure_message: "Failed to copy uploads.",
+        chdir: public_dir
+      )
+    end
+
+    private
+
+    def list_missing(model)
+      count = 0
+      model.find_each do |upload|
+
+        # could be a remote image
+        next unless upload.url =~ /^\/[^\/]/
+
+        path = "#{public_dir}#{upload.url}"
+        bad = true
+        begin
+          bad = false if File.size(path) != 0
+        rescue
+          # something is messed up
+        end
+        if bad
+          count += 1
+          puts path
+        end
+      end
+      puts "#{count} of #{model.count} #{model.name.underscore.pluralize} are missing" if count > 0
+    end
+
+  end
 end

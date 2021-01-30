@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module DiscourseNarrativeBot
   class Base
     include Actions
@@ -28,7 +30,12 @@ module DiscourseNarrativeBot
             next_opts = self.class::TRANSITION_TABLE.fetch(next_state)
             prerequisite = next_opts[:prerequisite]
 
-            break if !prerequisite || instance_eval(&prerequisite)
+            if (!prerequisite || instance_eval(&prerequisite)) && !(
+              SiteSetting.discourse_narrative_bot_skip_tutorials.present? &&
+              SiteSetting.discourse_narrative_bot_skip_tutorials.split("|").include?(next_state.to_s))
+
+              break
+            end
 
             [:next_state, :next_instructions].each do |key|
               opts[key] = next_opts[key]
@@ -48,7 +55,13 @@ module DiscourseNarrativeBot
 
         begin
           old_data = @data.dup
-          new_post = (@skip && @state != :end) ? skip_tutorial(next_state) : self.send(action)
+
+          new_post =
+            if (@skip && @state != :end)
+              skip_tutorial(next_state)
+            else
+              self.send(action)
+            end
 
           if new_post
             old_state = old_data[:state]
@@ -66,7 +79,7 @@ module DiscourseNarrativeBot
               cancel_timeout_job(user)
 
               BadgeGranter.grant(
-                Badge.find_by(name: self.class::BADGE_NAME),
+                Badge.find_by(name: self.class.badge_name),
                 user
               )
 
@@ -119,10 +132,12 @@ module DiscourseNarrativeBot
         date: Time.zone.now.strftime('%b %d %Y'),
         format: :svg
       }
-
       options.merge!(type: type) if type
+
       src = Discourse.base_url + DiscourseNarrativeBot::Engine.routes.url_helpers.certificate_path(options)
-      "<img class='discobot-certificate' src='#{src}' width='650' height='464' alt='#{I18n.t("#{self.class::I18N_KEY}.certificate.alt")}'>"
+      alt = CGI.escapeHTML(I18n.t("#{self.class::I18N_KEY}.certificate.alt"))
+
+      "<img class='discobot-certificate' src='#{src}' width='650' height='464' alt='#{alt}'>"
     end
 
     protected
@@ -169,7 +184,7 @@ module DiscourseNarrativeBot
     end
 
     def i18n_post_args(extra = {})
-      { base_uri: Discourse.base_uri }.merge(extra)
+      { base_uri: Discourse.base_path }.merge(extra)
     end
 
     def valid_topic?(topic_id)

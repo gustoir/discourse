@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class GlobalSetting
 
   def self.register(key, default)
@@ -24,9 +26,9 @@ class GlobalSetting
 
     if @safe_secret_key_base && @token_in_redis && (@token_last_validated + REDIS_VALIDATE_SECONDS) < Time.now
       @token_last_validated = Time.now
-      token = $redis.without_namespace.get(REDIS_SECRET_KEY)
+      token = Discourse.redis.without_namespace.get(REDIS_SECRET_KEY)
       if token.nil?
-        $redis.without_namespace.set(REDIS_SECRET_KEY, @safe_secret_key_base)
+        Discourse.redis.without_namespace.set(REDIS_SECRET_KEY, @safe_secret_key_base)
       end
     end
 
@@ -37,10 +39,10 @@ class GlobalSetting
         @token_in_redis = true
         @token_last_validated = Time.now
 
-        token = $redis.without_namespace.get(REDIS_SECRET_KEY)
+        token = Discourse.redis.without_namespace.get(REDIS_SECRET_KEY)
         unless token && token =~ VALID_SECRET_KEY
           token = SecureRandom.hex(64)
-          $redis.without_namespace.set(REDIS_SECRET_KEY, token)
+          Discourse.redis.without_namespace.set(REDIS_SECRET_KEY, token)
         end
       end
       if !secret_key_base.blank? && token != secret_key_base
@@ -75,6 +77,22 @@ class GlobalSetting
     end
   end
 
+  def self.skip_db=(v)
+    @skip_db = v
+  end
+
+  def self.skip_db?
+    @skip_db
+  end
+
+  def self.skip_redis=(v)
+    @skip_redis = v
+  end
+
+  def self.skip_redis?
+    @skip_redis
+  end
+
   def self.use_s3?
     (@use_s3 ||=
       begin
@@ -85,28 +103,56 @@ class GlobalSetting
       end) == :true
   end
 
+  def self.s3_bucket_name
+    @s3_bucket_name ||= s3_bucket.downcase.split("/")[0]
+  end
+
   # for testing
   def self.reset_s3_cache!
     @use_s3 = nil
   end
 
+  def self.cdn_hostnames
+    hostnames = []
+    hostnames << URI.parse(cdn_url).host if cdn_url.present?
+    hostnames << cdn_origin_hostname if cdn_origin_hostname.present?
+    hostnames
+  end
+
   def self.database_config
     hash = { "adapter" => "postgresql" }
-    %w{pool connect_timeout timeout socket host port username password replica_host replica_port}.each do |s|
-      if val = self.send("db_#{s}")
+
+    %w{
+      pool
+      connect_timeout
+      timeout
+      socket
+      host
+      backup_host
+      port
+      backup_port
+      username
+      password
+      replica_host
+      replica_port
+    }.each do |s|
+      if val = self.public_send("db_#{s}")
         hash[s] = val
       end
     end
 
-    hash["adapter"] = "postgresql_fallback" if hash["replica_host"]
-
     hostnames = [ hostname ]
     hostnames << backup_hostname if backup_hostname.present?
 
+    hostnames << URI.parse(cdn_url).host if cdn_url.present?
+    hostnames << cdn_origin_hostname if cdn_origin_hostname.present?
+
     hash["host_names"] = hostnames
     hash["database"] = db_name
-
     hash["prepared_statements"] = !!self.db_prepared_statements
+    hash["idle_timeout"] = connection_reaper_age if connection_reaper_age.present?
+    hash["reaping_frequency"] = connection_reaper_interval if connection_reaper_interval.present?
+    hash["advisory_locks"] = !!self.db_advisory_locks
 
     { "production" => hash }
   end
@@ -114,6 +160,27 @@ class GlobalSetting
   # For testing purposes
   def self.reset_redis_config!
     @config = nil
+    @message_bus_config = nil
+  end
+
+  def self.get_redis_replica_host
+    return redis_replica_host if redis_replica_host.present?
+    redis_slave_host if respond_to?(:redis_slave_host) && redis_slave_host.present?
+  end
+
+  def self.get_redis_replica_port
+    return redis_replica_port if redis_replica_port.present?
+    redis_slave_port if respond_to?(:redis_slave_port) && redis_slave_port.present?
+  end
+
+  def self.get_message_bus_redis_replica_host
+    return message_bus_redis_replica_host if message_bus_redis_replica_host.present?
+    message_bus_redis_slave_host if respond_to?(:message_bus_redis_slave_host) && message_bus_redis_slave_host.present?
+  end
+
+  def self.get_message_bus_redis_replica_port
+    return message_bus_redis_replica_port if message_bus_redis_replica_port.present?
+    message_bus_redis_slave_port if respond_to?(:message_bus_redis_slave_port) && message_bus_redis_slave_port.present?
   end
 
   def self.redis_config
@@ -123,18 +190,69 @@ class GlobalSetting
         c[:host] = redis_host if redis_host
         c[:port] = redis_port if redis_port
 
-        if redis_slave_host && redis_slave_port
-          c[:slave_host] = redis_slave_host
-          c[:slave_port] = redis_slave_port
-          c[:connector] = DiscourseRedis::Connector
+        if get_redis_replica_host && get_redis_replica_port && defined?(RailsFailover)
+          c[:replica_host] = get_redis_replica_host
+          c[:replica_port] = get_redis_replica_port
+          c[:connector] = RailsFailover::Redis::Connector
         end
 
         c[:password] = redis_password if redis_password.present?
         c[:db] = redis_db if redis_db != 0
         c[:db] = 1 if Rails.env == "test"
+        c[:id] = nil if redis_skip_client_commands
+        c[:ssl] = true if redis_use_ssl
 
         c.freeze
       end
+  end
+
+  def self.message_bus_redis_config
+    return redis_config unless message_bus_redis_enabled
+    @message_bus_config ||=
+      begin
+        c = {}
+        c[:host] = message_bus_redis_host if message_bus_redis_host
+        c[:port] = message_bus_redis_port if message_bus_redis_port
+
+        if get_message_bus_redis_replica_host && get_message_bus_redis_replica_port
+          c[:replica_host] = get_message_bus_redis_replica_host
+          c[:replica_port] = get_message_bus_redis_replica_port
+          c[:connector] = RailsFailover::Redis::Connector
+        end
+
+        c[:password] = message_bus_redis_password if message_bus_redis_password.present?
+        c[:db] = message_bus_redis_db if message_bus_redis_db != 0
+        c[:db] = 1 if Rails.env == "test"
+        c[:id] = nil if message_bus_redis_skip_client_commands
+        c[:ssl] = true if redis_use_ssl
+
+        c.freeze
+      end
+  end
+
+  # test only
+  def self.reset_allowed_theme_ids!
+    @allowed_theme_ids = nil
+  end
+
+  def self.allowed_theme_ids
+    return nil if allowed_theme_repos.blank?
+
+    @allowed_theme_ids ||= begin
+      urls = allowed_theme_repos.split(",").map(&:strip)
+      Theme
+        .joins(:remote_theme)
+        .where('remote_themes.remote_url in (?)', urls)
+        .pluck(:id)
+    end
+  end
+
+  def self.add_default(name, default)
+    unless self.respond_to? name
+      define_singleton_method(name) do
+        default
+      end
+    end
   end
 
   class BaseProvider
@@ -196,7 +314,7 @@ class GlobalSetting
 
   class EnvProvider < BaseProvider
     def lookup(key, default)
-      var = ENV["DISCOURSE_" << key.to_s.upcase]
+      var = ENV["DISCOURSE_" + key.to_s.upcase]
       resolve(var , var.nil? ? default : nil)
     end
 
@@ -207,6 +325,10 @@ class GlobalSetting
 
   class BlankProvider < BaseProvider
     def lookup(key, default)
+
+      if key == :redis_port
+        return ENV["DISCOURSE_REDIS_PORT"] if ENV["DISCOURSE_REDIS_PORT"]
+      end
       default
     end
 

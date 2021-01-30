@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 module Jobs
 
-  class GrantOnebox < Jobs::Onceoff
+  class GrantOnebox < ::Jobs::Onceoff
     sidekiq_options queue: 'low'
 
     def execute_onceoff(args)
@@ -17,7 +19,7 @@ module Jobs
           begin
             # Note we can't use `p.cooked` here because oneboxes have been cooked out
             cooked = PrettyText.cook(p.raw)
-            doc = Nokogiri::HTML::fragment(cooked)
+            doc = Nokogiri::HTML5::fragment(cooked)
             if doc.search('a.onebox').size > 0
               to_award[p.user_id] ||= { post_id: p.id, created_at: p.created_at }
             end

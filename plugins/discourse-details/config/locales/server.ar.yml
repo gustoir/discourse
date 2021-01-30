@@ -1,0 +1,11 @@
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
+#
+# To work with us on translations, join this project:
+# https://translate.discourse.org/
+
+ar:
+  site_settings:
+    details_enabled: 'فعّل ميزة التفاصيل. إن غيّرت هذا فيمكنك إعادة خبز (rebake) كلّ المشاركات بالأمر: ”rake posts:rebake“.'
+  details:
+    excerpt_details: "(انقر لتفاصيل أكثر)"

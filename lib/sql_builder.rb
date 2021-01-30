@@ -1,6 +1,11 @@
+# frozen_string_literal: true
+
 class SqlBuilder
 
   def initialize(template, klass = nil)
+
+    Discourse.deprecate("SqlBuilder is deprecated and will be removed, please use DB.build instead!")
+
     @args = {}
     @sql = template
     @sections = {}
@@ -59,7 +64,7 @@ class SqlBuilder
 
     sql = to_sql
     if @klass
-      @klass.find_by_sql(ActiveRecord::Base.send(:sanitize_sql_array, [sql, @args]))
+      @klass.find_by_sql(ActiveRecord::Base.public_send(:sanitize_sql_array, [sql, @args]))
     else
       if @args == {}
         ActiveRecord::Base.exec_sql(sql)
@@ -75,12 +80,8 @@ class SqlBuilder
 
   class RailsDateTimeDecoder < PG::SimpleDecoder
     def decode(string, tuple = nil, field = nil)
-      if Rails.version >= "4.2.0"
-        @caster ||= ActiveRecord::Type::DateTime.new
-        @caster.cast(string)
-      else
-        ActiveRecord::ConnectionAdapters::Column.string_to_time string
-      end
+      @caster ||= ActiveRecord::Type::DateTime.new
+      @caster.cast(string)
     end
   end
 
@@ -111,16 +112,10 @@ class SqlBuilder
     values.map! do |row|
       mapped = klass.new
       setters.each_with_index do |name, index|
-        mapped.send name, row[index]
+        mapped.public_send name, row[index]
       end
       mapped
     end
   end
 
-end
-
-class ActiveRecord::Base
-  def self.sql_builder(template)
-    SqlBuilder.new(template, self)
-  end
 end

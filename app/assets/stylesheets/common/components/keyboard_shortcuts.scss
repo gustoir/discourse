@@ -1,9 +1,22 @@
-.topic-list-item td:first-child, .topic-post {
+.topic-list-item td:first-child,
+.topic-post {
   border-left: 1px solid transparent;
 }
 
-.topic-list tr.selected td:first-child, .topic-list-item.selected td:first-child, .topic-post.selected {
-  box-shadow: -3px 0 0 $danger;
+.topic-list tr.selected td:first-child,
+.topic-list-item.selected td:first-child,
+.latest-topic-list-item.selected,
+.search-results .fps-result.selected {
+  box-shadow: inset 3px 0 0 var(--danger); // needs to be inset for Edge
+}
+
+.featured-topic.selected,
+.topic-post.selected {
+  box-shadow: -3px 0 0 var(--danger);
+}
+
+.latest .featured-topic {
+  padding-left: 4px;
 }
 
 .topic-list-item.selected {
@@ -14,28 +27,44 @@
   max-height: 560px;
 }
 
+.keyboard-shortcuts-modal .modal-inner-container {
+  max-width: 880px;
+}
+
 #keyboard-shortcuts-help {
-  .span6 {
-    width:32%;
+  display: flex;
+
+  .column {
+    width: 33.3%;
   }
+
   ul {
     list-style: none;
+    margin-bottom: 2rem;
     margin-left: 0;
 
     li {
-      margin: 5px 0
+      align-items: center;
+      display: flex;
+      flex-wrap: wrap;
+      margin-bottom: 6px;
     }
 
-    b {
-      padding: 2px 6px;
-      border-radius: 4px;
-      box-shadow: 0 2px 0 rgba(0,0,0,0.2),0 0 0 1px dark-light-choose(#fff,#000) inset;
-      background: dark-light-choose(#fafafa, #333);
-      border: 1px solid dark-light-choose(#ccc, #555);
-      border-bottom: medium none dark-light-choose(#fff, #000);
-      color: dark-light-choose(#444, #aaa);
-      white-space: nowrap;
-      display: inline-block;
+    span {
+      background: var(--primary-very-low);
+      border-radius: 3px;
+      display: inline-flex;
+      margin: 0 6px;
+      padding: 2px 1px 4px;
+    }
+
+    span:first-child {
+      margin-left: 0;
+    }
+
+    kbd {
+      font-family: $base-font-family;
+      font-weight: bold;
     }
   }
 }

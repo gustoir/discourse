@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The most basic attributes of a topic that we need to create a link for it.
 class BasicPostSerializer < ApplicationSerializer
   attributes :id,
@@ -7,6 +9,8 @@ class BasicPostSerializer < ApplicationSerializer
              :created_at,
              :cooked,
              :cooked_hidden
+
+  attr_accessor :topic_view
 
   def name
     object.user && object.user.name
@@ -31,7 +35,7 @@ class BasicPostSerializer < ApplicationSerializer
   def cooked
     if cooked_hidden
       if scope.current_user && object.user_id == scope.current_user.id
-        I18n.t('flagging.you_must_edit')
+        I18n.t('flagging.you_must_edit', path: "/my/messages")
       else
         I18n.t('flagging.user_must_edit')
       end
@@ -42,6 +46,14 @@ class BasicPostSerializer < ApplicationSerializer
 
   def include_name?
     SiteSetting.enable_names?
+  end
+
+  def post_custom_fields
+    @post_custom_fields ||= if @topic_view
+      (@topic_view.post_custom_fields || {})[object.id] || {}
+    else
+      object.custom_fields
+    end
   end
 
 end

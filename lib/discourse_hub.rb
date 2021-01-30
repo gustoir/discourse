@@ -1,5 +1,4 @@
-require_dependency 'version'
-require_dependency 'site_setting'
+# frozen_string_literal: true
 
 module DiscourseHub
 
@@ -15,10 +14,8 @@ module DiscourseHub
   end
 
   def self.stats_fetched_at=(time_with_zone)
-    $redis.set STATS_FETCHED_AT_KEY, time_with_zone.to_i
+    Discourse.redis.set STATS_FETCHED_AT_KEY, time_with_zone.to_i
   end
-
-  private
 
   def self.get_payload
     SiteSetting.share_anonymized_statistics && stats_fetched_at < 7.days.ago ? About.fetch_cached_stats.symbolize_keys : {}
@@ -41,21 +38,51 @@ module DiscourseHub
   end
 
   def self.singular_action(action, rel_url, params = {})
-    JSON.parse(Excon.send(action,
+    connect_opts = connect_opts(params)
+
+    JSON.parse(Excon.public_send(action,
       "#{hub_base_url}#{rel_url}",
-      headers: { 'Referer' => referer, 'Accept' => accepts.join(', ') },
-      query: params,
-      omit_default_port: true
+      {
+        headers: { 'Referer' => referer, 'Accept' => accepts.join(', ') },
+        query: params,
+        omit_default_port: true
+      }.merge(connect_opts)
     ).body)
   end
 
   def self.collection_action(action, rel_url, params = {})
-    JSON.parse(Excon.send(action,
+    connect_opts = connect_opts(params)
+
+    response = Excon.public_send(action,
       "#{hub_base_url}#{rel_url}",
-      body: JSON[params],
-      headers: { 'Referer' => referer, 'Accept' => accepts.join(', '), "Content-Type" => "application/json" },
-      omit_default_port: true
-    ).body)
+      {
+        body: JSON[params],
+        headers: { 'Referer' => referer, 'Accept' => accepts.join(', '), "Content-Type" => "application/json" },
+        omit_default_port: true
+      }.merge(connect_opts)
+    )
+
+    if (status = response.status) != 200
+      Rails.logger.warn(response_status_log_message(rel_url, status))
+    end
+
+    begin
+      JSON.parse(response.body)
+    rescue JSON::ParserError
+      Rails.logger.error(response_body_log_message(response.body))
+    end
+  end
+
+  def self.response_status_log_message(rel_url, status)
+    "Discourse Hub (#{hub_base_url}#{rel_url}) returned a bad status #{status}."
+  end
+
+  def self.response_body_log_message(body)
+    "Discourse Hub returned a bad response body: #{body}"
+  end
+
+  def self.connect_opts(params = {})
+    params.delete(:connect_opts)&.except(:body, :headers, :query) || {}
   end
 
   def self.hub_base_url
@@ -75,7 +102,7 @@ module DiscourseHub
   end
 
   def self.stats_fetched_at
-    t = $redis.get(STATS_FETCHED_AT_KEY)
+    t = Discourse.redis.get(STATS_FETCHED_AT_KEY)
     t ? Time.zone.at(t.to_i) : 1.year.ago
   end
 

@@ -1,19 +1,19 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'wizard'
-require_dependency 'wizard/builder'
-require_dependency 'wizard/step_updater'
 
 describe Wizard::StepUpdater do
   before do
     SiteSetting.wizard_enabled = true
   end
 
-  let(:user) { Fabricate(:admin) }
+  fab!(:user) { Fabricate(:admin) }
   let(:wizard) { Wizard::Builder.new(user).build }
 
   context "locale" do
     it "does not require refresh when the language stays the same" do
-      updater = wizard.create_updater('locale', default_locale: 'en')
+      locale = SiteSettings::DefaultsProvider::DEFAULT_LOCALE
+      updater = wizard.create_updater('locale', default_locale: locale)
       updater.update
       expect(updater.refresh_required?).to eq(false)
       expect(wizard.completed_steps?('locale')).to eq(true)
@@ -29,12 +29,13 @@ describe Wizard::StepUpdater do
   end
 
   it "updates the forum title step" do
-    updater = wizard.create_updater('forum_title', title: 'new forum title', site_description: 'neat place')
+    updater = wizard.create_updater('forum_title', title: 'new forum title', site_description: 'neat place', short_site_description: 'best community')
     updater.update
 
     expect(updater.success?).to eq(true)
     expect(SiteSetting.title).to eq("new forum title")
     expect(SiteSetting.site_description).to eq("neat place")
+    expect(SiteSetting.short_site_description).to eq("best community")
     expect(wizard.completed_steps?('forum-title')).to eq(true)
   end
 
@@ -62,7 +63,7 @@ describe Wizard::StepUpdater do
 
   context "privacy settings" do
     it "updates to open correctly" do
-      updater = wizard.create_updater('privacy', privacy: 'open')
+      updater = wizard.create_updater('privacy', privacy: 'open', privacy_options: 'open')
       updater.update
       expect(updater.success?).to eq(true)
       expect(SiteSetting.login_required?).to eq(false)
@@ -71,7 +72,7 @@ describe Wizard::StepUpdater do
     end
 
     it "updates to private correctly" do
-      updater = wizard.create_updater('privacy', privacy: 'restricted')
+      updater = wizard.create_updater('privacy', privacy: 'restricted', privacy_options: 'invite_only')
       updater.update
       expect(updater.success?).to eq(true)
       expect(SiteSetting.login_required?).to eq(true)
@@ -82,6 +83,9 @@ describe Wizard::StepUpdater do
 
   context "contact step" do
     it "updates the fields correctly" do
+      p = Fabricate(:post, raw: '<contact_email> template')
+      SiteSetting.tos_topic_id = p.topic_id
+
       updater = wizard.create_updater('contact',
                                       contact_email: 'eviltrout@example.com',
                                       contact_url: 'http://example.com/custom-contact-url',
@@ -92,6 +96,23 @@ describe Wizard::StepUpdater do
       expect(SiteSetting.contact_email).to eq("eviltrout@example.com")
       expect(SiteSetting.contact_url).to eq("http://example.com/custom-contact-url")
       expect(SiteSetting.site_contact_username).to eq(user.username)
+
+      # Should update the TOS topic
+      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck_first(:raw)
+      expect(raw).to eq("<eviltrout@example.com> template")
+
+      # Can update the TOS topic again
+      updater = wizard.create_updater('contact', contact_email: 'alice@example.com')
+      updater.update
+      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck_first(:raw)
+      expect(raw).to eq("<alice@example.com> template")
+
+      # Can update the TOS to nothing
+      updater = wizard.create_updater('contact', {})
+      updater.update
+      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck_first(:raw)
+      expect(raw).to eq("<contact_email> template")
+
       expect(wizard.completed_steps?('contact')).to eq(true)
     end
 
@@ -110,53 +131,85 @@ describe Wizard::StepUpdater do
 
     it "updates the fields properly" do
 
-      p = Fabricate(:post, raw: 'company_domain - company_full_name - company_short_name template')
+      p = Fabricate(:post, raw: 'company_name - governing_law - city_for_disputes template')
       SiteSetting.tos_topic_id = p.topic_id
 
       updater = wizard.create_updater('corporate',
-                                      company_short_name: 'ACME',
-                                      company_full_name: 'ACME, Inc.',
-                                      company_domain: 'acme.com')
+                                      company_name: 'ACME, Inc.',
+                                      governing_law: 'New Jersey law',
+                                      city_for_disputes: 'Fairfield, New Jersey')
       updater.update
       expect(updater).to be_success
-      expect(SiteSetting.company_short_name).to eq("ACME")
-      expect(SiteSetting.company_full_name).to eq("ACME, Inc.")
-      expect(SiteSetting.company_domain).to eq("acme.com")
+      expect(SiteSetting.company_name).to eq("ACME, Inc.")
+      expect(SiteSetting.governing_law).to eq("New Jersey law")
+      expect(SiteSetting.city_for_disputes).to eq("Fairfield, New Jersey")
 
       # Should update the TOS topic
-      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck(:raw).first
-      expect(raw).to eq("acme.com - ACME, Inc. - ACME template")
+      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck_first(:raw)
+      expect(raw).to eq("ACME, Inc. - New Jersey law - Fairfield, New Jersey template")
 
       # Can update the TOS topic again
       updater = wizard.create_updater('corporate',
-                                      company_short_name: 'PPI',
-                                      company_full_name: 'Pied Piper Inc',
-                                      company_domain: 'piedpiper.com')
+                                      company_name: 'Pied Piper Inc',
+                                      governing_law: 'California law',
+                                      city_for_disputes: 'San Francisco, California')
       updater.update
-      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck(:raw).first
-      expect(raw).to eq("piedpiper.com - Pied Piper Inc - PPI template")
+      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck_first(:raw)
+      expect(raw).to eq("Pied Piper Inc - California law - San Francisco, California template")
 
       # Can update the TOS to nothing
       updater = wizard.create_updater('corporate', {})
       updater.update
-      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck(:raw).first
-      expect(raw).to eq("company_domain - company_full_name - company_short_name template")
+      raw = Post.where(topic_id: SiteSetting.tos_topic_id, post_number: 1).pluck_first(:raw)
+      expect(raw).to eq("company_name - governing_law - city_for_disputes template")
 
       expect(wizard.completed_steps?('corporate')).to eq(true)
     end
   end
 
+  context "fonts step" do
+    it "updates fonts" do
+      updater = wizard.create_updater('fonts', body_font: 'open_sans', heading_font: 'oswald')
+      updater.update
+      expect(updater.success?).to eq(true)
+      expect(wizard.completed_steps?('fonts')).to eq(true)
+      expect(SiteSetting.base_font).to eq('open_sans')
+      expect(SiteSetting.heading_font).to eq('oswald')
+    end
+  end
+
   context "colors step" do
     context "with an existing color scheme" do
-      let!(:color_scheme) { Fabricate(:color_scheme, name: 'existing', via_wizard: true) }
+      fab!(:color_scheme) { Fabricate(:color_scheme, name: 'existing', via_wizard: true) }
 
       it "updates the scheme" do
-        updater = wizard.create_updater('colors', base_scheme_id: 'dark')
+        updater = wizard.create_updater('colors', theme_previews: 'Dark')
         updater.update
         expect(updater.success?).to eq(true)
         expect(wizard.completed_steps?('colors')).to eq(true)
-        theme = Theme.find_by(key: SiteSetting.default_theme_key)
-        expect(theme.color_scheme.base_scheme_id).to eq('dark')
+        theme = Theme.find_by(id: SiteSetting.default_theme_id)
+        expect(theme.color_scheme.base_scheme_id).to eq('Dark')
+      end
+    end
+
+    context "with an existing default theme" do
+      fab!(:theme) { Fabricate(:theme) }
+
+      before do
+        theme.set_default!
+      end
+
+      it "should not update the default theme when no option has been selected" do
+        expect do
+          wizard.create_updater('colors', {}).update
+        end.to_not change { SiteSetting.default_theme_id }
+      end
+
+      it "should update the color scheme of the default theme" do
+        updater = wizard.create_updater('colors', theme_previews: 'Neutral')
+        expect { updater.update }.not_to change { Theme.count }
+        theme.reload
+        expect(theme.color_scheme.base_scheme_id).to eq('Neutral')
       end
     end
 
@@ -167,34 +220,40 @@ describe Wizard::StepUpdater do
 
       context 'dark theme' do
         it "creates the theme" do
-          updater = wizard.create_updater('colors', base_scheme_id: 'dark', allow_dark_light_selection: true)
+          updater = wizard.create_updater('colors', theme_previews: 'Dark')
 
           expect { updater.update }.to change { Theme.count }.by(1)
 
           theme = Theme.last
 
           expect(theme.user_id).to eq(wizard.user.id)
-          expect(theme.color_scheme.base_scheme_id).to eq('dark')
+          expect(theme.color_scheme.base_scheme_id).to eq('Dark')
         end
       end
 
       context 'light theme' do
         it "creates the theme" do
-          updater = wizard.create_updater('colors', allow_dark_light_selection: true)
+          updater = wizard.create_updater('colors',
+            theme_previews: ColorScheme::LIGHT_THEME_ID
+          )
 
           expect { updater.update }.to change { Theme.count }.by(1)
 
           theme = Theme.last
 
           expect(theme.user_id).to eq(wizard.user.id)
-          expect(theme.color_scheme).to eq(nil)
+
+          expect(theme.color_scheme).to eq(ColorScheme.find_by(name:
+            ColorScheme::LIGHT_THEME_ID
+          ))
         end
       end
     end
 
     context "without an existing scheme" do
       it "creates the scheme" do
-        updater = wizard.create_updater('colors', base_scheme_id: 'dark', allow_dark_light_selection: true)
+        ColorScheme.destroy_all
+        updater = wizard.create_updater('colors', theme_previews: 'Dark')
         updater.update
         expect(updater.success?).to eq(true)
         expect(wizard.completed_steps?('colors')).to eq(true)
@@ -203,39 +262,48 @@ describe Wizard::StepUpdater do
         expect(color_scheme).to be_present
         expect(color_scheme.colors).to be_present
 
-        theme = Theme.find_by(key: SiteSetting.default_theme_key)
+        theme = Theme.find_by(id: SiteSetting.default_theme_id)
         expect(theme.color_scheme_id).to eq(color_scheme.id)
-
-        expect(Theme.where(user_selectable: true).count).to eq(2)
       end
     end
   end
 
   context "logos step" do
     it "updates the fields correctly" do
-      updater = wizard.create_updater('logos',
-                                      logo_url: '/uploads/logo.png',
-                                      logo_small_url: '/uploads/logo-small.png')
+      upload = Fabricate(:upload)
+      upload2 = Fabricate(:upload)
+
+      updater = wizard.create_updater(
+        'logos',
+        logo: upload.url,
+        logo_small: upload2.url
+      )
+
       updater.update
 
       expect(updater).to be_success
       expect(wizard.completed_steps?('logos')).to eq(true)
-      expect(SiteSetting.logo_url).to eq('/uploads/logo.png')
-      expect(SiteSetting.logo_small_url).to eq('/uploads/logo-small.png')
+      expect(SiteSetting.logo).to eq(upload)
+      expect(SiteSetting.logo_small).to eq(upload2)
     end
   end
 
   context "icons step" do
     it "updates the fields correctly" do
+      upload = Fabricate(:upload)
+      upload2 = Fabricate(:upload)
+
       updater = wizard.create_updater('icons',
-                                      favicon_url: "/uploads/favicon.png",
-                                      apple_touch_icon_url: "/uploads/apple.png")
+        favicon: upload.url,
+        large_icon: upload2.url
+      )
+
       updater.update
 
       expect(updater).to be_success
       expect(wizard.completed_steps?('icons')).to eq(true)
-      expect(SiteSetting.favicon_url).to eq('/uploads/favicon.png')
-      expect(SiteSetting.apple_touch_icon_url).to eq('/uploads/apple.png')
+      expect(SiteSetting.favicon).to eq(upload)
+      expect(SiteSetting.large_icon).to eq(upload2)
     end
   end
 
@@ -252,12 +320,13 @@ describe Wizard::StepUpdater do
 
   context "homepage step" do
     it "updates the fields correctly" do
-      updater = wizard.create_updater('homepage', homepage_style: "categories")
+      updater = wizard.create_updater('homepage', homepage_style: "categories_and_top_topics")
       updater.update
 
       expect(updater).to be_success
       expect(wizard.completed_steps?('homepage')).to eq(true)
       expect(SiteSetting.top_menu).to eq('categories|latest|new|unread|top')
+      expect(SiteSetting.desktop_category_page_style).to eq('categories_and_top_topics')
 
       updater = wizard.create_updater('homepage', homepage_style: "latest")
       updater.update

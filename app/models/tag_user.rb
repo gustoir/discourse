@@ -1,4 +1,4 @@
-require_dependency 'notification_levels'
+# frozen_string_literal: true
 
 class TagUser < ActiveRecord::Base
   belongs_to :tag
@@ -19,7 +19,28 @@ class TagUser < ActiveRecord::Base
     records = TagUser.where(user: user, notification_level: notification_levels[level])
     old_ids = records.pluck(:tag_id)
 
-    tag_ids = tags.empty? ? [] : Tag.where('name in (?)', tags).pluck(:id)
+    tag_ids = if tags.empty?
+      []
+    elsif tags.first&.is_a?(String)
+      Tag.where_name(tags).pluck(:id)
+    else
+      tags
+    end
+
+    Tag.where(id: tag_ids).joins(:target_tag).each do |tag|
+      tag_ids[tag_ids.index(tag.id)] = tag.target_tag_id
+    end
+
+    tag_ids.uniq!
+
+    if tag_ids.present? &&
+        TagUser.where(user_id: user.id, tag_id: tag_ids)
+            .where
+            .not(notification_level: notification_levels[level])
+            .update_all(notification_level: notification_levels[level]) > 0
+
+      changed = true
+    end
 
     remove = (old_ids - tag_ids)
     if remove.present?
@@ -27,9 +48,21 @@ class TagUser < ActiveRecord::Base
       changed = true
     end
 
-    (tag_ids - old_ids).each do |id|
-      TagUser.create!(user: user, tag_id: id, notification_level: notification_levels[level])
-      changed = true
+    now = Time.zone.now
+
+    new_records_attrs = (tag_ids - old_ids).map do |tag_id|
+      {
+        user_id: user.id,
+        tag_id: tag_id,
+        notification_level: notification_levels[level],
+        created_at: now,
+        updated_at: now
+      }
+    end
+
+    unless new_records_attrs.empty?
+      result = TagUser.insert_all(new_records_attrs)
+      changed = true if result.rows.length > 0
     end
 
     if changed
@@ -41,7 +74,17 @@ class TagUser < ActiveRecord::Base
   end
 
   def self.change(user_id, tag_id, level)
-    tag_id = tag_id.id if tag_id.is_a?(::Tag)
+    if tag_id.is_a?(::Tag)
+      tag = tag_id
+      tag_id = tag.id
+    else
+      tag = Tag.find_by_id(tag_id)
+    end
+
+    if tag.synonym?
+      tag_id = tag.target_tag_id
+    end
+
     user_id = user_id.id if user_id.is_a?(::User)
 
     tag_id = tag_id.to_i
@@ -66,40 +109,39 @@ class TagUser < ActiveRecord::Base
   end
 
   def self.auto_watch(opts)
-    builder = SqlBuilder.new <<SQL
+    builder = DB.build <<~SQL
+      UPDATE topic_users
+      SET notification_level = CASE WHEN should_watch THEN :watching ELSE :tracking END,
+          notifications_reason_id = CASE WHEN should_watch THEN :auto_watch_tag ELSE NULL END
+      FROM
+      (
+      SELECT tu.topic_id, tu.user_id, CASE
+          WHEN MAX(tag_users.notification_level) = :watching THEN true
+          ELSE false
+          END
+        should_watch,
 
-    UPDATE topic_users
-    SET notification_level = CASE WHEN should_watch THEN :watching ELSE :tracking END,
-        notifications_reason_id = CASE WHEN should_watch THEN :auto_watch_tag ELSE NULL END
-    FROM
-    (
-    SELECT tu.topic_id, tu.user_id, CASE
-        WHEN MAX(tag_users.notification_level) = :watching THEN true
-        ELSE false
-        END
-      should_watch,
+          CASE WHEN MAX(tag_users.notification_level) IS NULL AND
+            tu.notification_level = :watching AND
+            tu.notifications_reason_id = :auto_watch_tag
+          THEN true
+          ELSE false
+          END
+        should_track
 
-        CASE WHEN MAX(tag_users.notification_level) IS NULL AND
-          tu.notification_level = :watching AND
-          tu.notifications_reason_id = :auto_watch_tag
-        THEN true
-        ELSE false
-        END
-      should_track
+      FROM topic_users tu
+      LEFT JOIN topic_tags ON tu.topic_id = topic_tags.topic_id
+      LEFT JOIN tag_users ON tag_users.user_id = tu.user_id
+                          AND topic_tags.tag_id = tag_users.tag_id
+                          AND tag_users.notification_level = :watching
+      /*where*/
+      GROUP BY tu.topic_id, tu.user_id, tu.notification_level, tu.notifications_reason_id
+      ) AS X
+      WHERE X.topic_id = topic_users.topic_id AND
+            X.user_id = topic_users.user_id AND
+            (should_track OR should_watch)
 
-    FROM topic_users tu
-    LEFT JOIN topic_tags ON tu.topic_id = topic_tags.topic_id
-    LEFT JOIN tag_users ON tag_users.user_id = tu.user_id
-                        AND topic_tags.tag_id = tag_users.tag_id
-                        AND tag_users.notification_level = :watching
-    /*where*/
-    GROUP BY tu.topic_id, tu.user_id, tu.notification_level, tu.notifications_reason_id
-    ) AS X
-    WHERE X.topic_id = topic_users.topic_id AND
-          X.user_id = topic_users.user_id AND
-          (should_track OR should_watch)
-
-SQL
+    SQL
 
     builder.where("tu.notification_level in (:tracking, :regular, :watching)")
 
@@ -114,29 +156,28 @@ SQL
     builder.exec(watching: notification_levels[:watching],
                  tracking: notification_levels[:tracking],
                  regular: notification_levels[:regular],
-                 auto_watch_tag:  TopicUser.notification_reasons[:auto_watch_tag])
+                 auto_watch_tag: TopicUser.notification_reasons[:auto_watch_tag])
 
   end
 
   def self.auto_track(opts)
-
-    builder = SqlBuilder.new <<SQL
-  UPDATE topic_users
-  SET notification_level = :tracking, notifications_reason_id = :auto_track_tag
-  FROM (
-      SELECT DISTINCT tu.topic_id, tu.user_id
-      FROM topic_users tu
-      JOIN topic_tags ON tu.topic_id = topic_tags.topic_id
-      JOIN tag_users ON tag_users.user_id = tu.user_id
-                          AND topic_tags.tag_id = tag_users.tag_id
-                          AND tag_users.notification_level = :tracking
-      /*where*/
-  ) as X
-  WHERE
-    topic_users.notification_level = :regular AND
-    topic_users.topic_id = X.topic_id AND
-    topic_users.user_id = X.user_id
-SQL
+    builder = DB.build <<~SQL
+      UPDATE topic_users
+      SET notification_level = :tracking, notifications_reason_id = :auto_track_tag
+      FROM (
+          SELECT DISTINCT tu.topic_id, tu.user_id
+          FROM topic_users tu
+          JOIN topic_tags ON tu.topic_id = topic_tags.topic_id
+          JOIN tag_users ON tag_users.user_id = tu.user_id
+                              AND topic_tags.tag_id = tag_users.tag_id
+                              AND tag_users.notification_level = :tracking
+          /*where*/
+      ) as X
+      WHERE
+        topic_users.notification_level = :regular AND
+        topic_users.topic_id = X.topic_id AND
+        topic_users.user_id = X.user_id
+    SQL
 
     if topic_id = opts[:topic_id]
       builder.where("tu.topic_id = :topic_id", topic_id: topic_id)
@@ -148,7 +189,7 @@ SQL
 
     builder.exec(tracking: notification_levels[:tracking],
                  regular: notification_levels[:regular],
-                 auto_track_tag:  TopicUser.notification_reasons[:auto_track_tag])
+                 auto_track_tag: TopicUser.notification_reasons[:auto_track_tag])
   end
 
 end

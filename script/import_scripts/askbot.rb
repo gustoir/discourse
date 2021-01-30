@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require File.expand_path(File.dirname(__FILE__) + "/base.rb")
 require 'pg'
 
@@ -114,15 +116,15 @@ class ImportScripts::MyAskBot < ImportScripts::Base
 
       create_users(users, total: total_count, offset: offset) do |user|
         {
-          id:           user["id"],
-          username:     user["username"],
-          email:        user["email"] || (SecureRandom.hex << "@domain.com"),
-          admin:        user["is_staff"],
-          created_at:   Time.zone.at(@td.decode(user["date_joined"])),
+          id: user["id"],
+          username: user["username"],
+          email: user["email"] || fake_email,
+          admin: user["is_staff"],
+          created_at: Time.zone.at(@td.decode(user["date_joined"])),
           last_seen_at: Time.zone.at(@td.decode(user["last_seen"])),
-          name:         user["real_name"],
-          website:      user["website"],
-          location:     user["location"],
+          name: user["real_name"],
+          website: user["website"],
+          location: user["location"],
         }
       end
     end
@@ -237,7 +239,7 @@ class ImportScripts::MyAskBot < ImportScripts::Base
     # ask.cvxr.com/question/(\d+)/[^'"}]*
     # I am sure this is incomplete, but we didn't make heavy use of internal
     # links on our site.
-    tmp = Regexp.quote("http://" << OLD_SITE)
+    tmp = Regexp.quote("http://#{OLD_SITE}")
     r1 = /"(#{tmp})?\/question\/(\d+)\/[a-zA-Z-]*\/?"/
     r2 = /\((#{tmp})?\/question\/(\d+)\/[a-zA-Z-]*\/?\)/
     r3 = /<?#tmp\/question\/(\d+)\/[a-zA-Z-]*\/?>?/

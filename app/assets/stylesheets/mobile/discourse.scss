@@ -4,12 +4,40 @@
 // throughout the Discourse application
 
 // Base Elements
+
 body {
-  background-color: $secondary;
+  background-color: var(--secondary);
 }
 
-textarea {
-  background-color:$secondary;
+.ios-device {
+  textarea {
+    background-color: var(--secondary);
+    font-size: $font-size-ios-input;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  input {
+    &[type="text"],
+    &[type="password"],
+    &[type="datetime"],
+    &[type="datetime-local"],
+    &[type="date"],
+    &[type="month"],
+    &[type="time"],
+    &[type="week"],
+    &[type="number"],
+    &[type="email"],
+    &[type="url"],
+    &[type="search"],
+    &[type="tel"],
+    &[type="color"] {
+      font-size: $font-size-ios-input;
+    }
+  }
+
+  input#reply-title {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 blockquote {
@@ -20,26 +48,8 @@ blockquote {
     margin: 0 0 10px 0;
 
     &:last-of-type {
-      margin-bottom:0;
+      margin-bottom: 0;
     }
-  }
-
-}
-
-h1.page-not-found {
-  line-height: 24px;
-  margin: 5px 0 -5px 0;
-}
-
-h2 {
-  &.popular-topics-title {
-    margin-bottom: 6px;
-    font-size: 1.2em;
-  }
-
-  &.recent-topics-title {
-    margin-bottom: 6px;
-    font-size: 1.2em;
   }
 }
 
@@ -58,63 +68,41 @@ h2 {
   margin-bottom: 9px;
 }
 
-.topic-statuses {
-  display: inline-block;
-
-  .topic-status {
-    i {
-      color: $secondary-high;
-    }
-  }
-
-  &:empty {
-    display: none;
-  }
-}
-
-// categories should not be bold on mobile; they fight with the topic title too much
-.badge-wrapper {
-  font-weight: normal;
-}
-
-.mobile-view .mobile-nav {
+.mobile-nav {
   margin: 0;
   padding: 0;
-  background: $primary-low;
   list-style: none;
   overflow: visible;
   position: relative;
-  width: 45%;
-
-  &.messages-nav,
-  &.notifications-nav,
-  &.activity-nav,
-  &.preferences-nav {
-    position: absolute;
-    right: 0px;
-    top: -55px;
-  }
+  border: 1px solid var(--primary-medium);
+  // Prevents the dropdowns from collapsing while content loads, so they look more like placeholders and less like dark 2px lines
+  min-height: 37px;
 
   a {
-    color: $primary;
-
-    .fa {
-      margin-right: 8px;
-      color: dark-light-choose($primary-medium, $secondary-medium);
+    color: var(--primary);
+    .d-icon {
+      margin-right: 0.25em;
+      color: var(--primary-medium);
     }
   }
 
   > li > a {
+    display: flex;
+    align-items: center;
     padding: 8px 10px;
     height: 100%;
-    width: 100%;
     box-sizing: border-box;
-    display: block;
   }
 
-  .d-icon-caret-down {
-    position: absolute;
-    right: 0px;
+  .expander .selection {
+    @include ellipsis;
+  }
+
+  .expander > .d-icon {
+    &:last-of-type {
+      margin-left: auto;
+      margin-right: 0;
+    }
   }
 
   .drop {
@@ -123,13 +111,13 @@ h2 {
       left: 0;
       display: block;
       position: absolute;
-      z-index: 10000000;
-      background-color: $secondary;
+      z-index: z("dropdown");
+      background-color: var(--secondary);
       width: 100%;
       list-style: none;
       margin: 0;
       padding: 5px;
-      border: 1px solid #eaeaea;
+      border: 1px solid var(--primary-low);
       box-sizing: border-box;
 
       li {
@@ -140,20 +128,10 @@ h2 {
           height: 100%;
           display: block;
           padding: 5px 8px;
+          @include ellipsis;
         }
       }
     }
-  }
-}
-
-/* page not found styles */
-.page-not-found {
-  &-topics a.badge-wrapper {
-    margin-left: 8px;
-  }
-
-  &-search h2 {
-    font-size: 1.2em;
   }
 }
 
@@ -164,6 +142,11 @@ h2 {
 }
 
 // Special elements
+
+#main-outlet {
+  padding-top: 0.25em;
+}
+
 #main {
   position: relative;
 }
@@ -172,10 +155,4 @@ h2 {
 // their account or changing their email.
 #simple-container {
   width: 90%;
-}
-
-// somehow the image logo assumption inherits margins from earlier in the CSS
-// stack we must remove margins for text site titles
-h2#site-text-logo {
-  margin: 0 0 0 10px;
 }

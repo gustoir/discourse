@@ -1,8 +1,10 @@
-require_dependency 'inline_oneboxer'
+# frozen_string_literal: true
 
 module PrettyText
   module Helpers
     extend self
+
+    TAG_HASHTAG_POSTFIX = "::tag"
 
     # functions here are available to v8
     def t(key, opts)
@@ -25,21 +27,29 @@ module PrettyText
       UrlHelper.schemaless(UrlHelper.absolute(user.avatar_template))
     end
 
-    def mention_lookup(name)
-      return false   if name.blank?
-      return "group" if Group.exists?(name: name)
-      return "user"  if User.exists?(username_lower: name.downcase)
+    def lookup_primary_user_group(username)
+      return "" unless username
+      user = User.find_by(username_lower: username.downcase)
+      return "" unless user.present?
+
+      user.primary_group.try(:name) || ""
+    end
+
+    # Overwrite this in a plugin to change how markdown can format
+    # usernames on the server side
+    def format_username(username)
+      username
     end
 
     def category_hashtag_lookup(category_slug)
       if category = Category.query_from_hashtag_slug(category_slug)
-        [category.url_with_id, category_slug]
+        [category.url, category_slug]
       else
         nil
       end
     end
 
-    def lookup_image_urls(urls)
+    def lookup_upload_urls(urls)
       map = {}
       result = {}
 
@@ -49,22 +59,31 @@ module PrettyText
       end
 
       if map.length > 0
-        reverse_map = map.invert
+        reverse_map = {}
 
-        Upload.where(sha1: map.values).pluck(:sha1, :url).each do |row|
-          sha1, url = row
+        map.each do |key, value|
+          reverse_map[value] ||= []
+          reverse_map[value] << key
+        end
 
-          if short_url = reverse_map[sha1]
-            result[short_url] = url
+        Upload.where(sha1: map.values).pluck(:sha1, :url, :extension, :original_filename, :secure).each do |row|
+          sha1, url, extension, original_filename, secure = row
+
+          if short_urls = reverse_map[sha1]
+            secure_media = SiteSetting.secure_media? && secure
+
+            short_urls.each do |short_url|
+              result[short_url] = {
+                url: secure_media ? Upload.secure_media_url_from_upload_url(url) : Discourse.store.cdn_url(url),
+                short_path: Upload.short_path(sha1: sha1, extension: extension),
+                base62_sha1: Upload.base62_sha1(sha1)
+              }
+            end
           end
         end
       end
 
       result
-    end
-
-    def lookup_inline_onebox(url)
-      InlineOneboxer.lookup(url)
     end
 
     def get_topic_info(topic_id)
@@ -76,18 +95,22 @@ module PrettyText
           title: Rack::Utils.escape_html(topic.title),
           href: topic.url
         }
+      elsif topic
+        {
+          title: I18n.t("on_another_topic"),
+          href: Discourse.base_url + topic.slugless_url
+        }
       end
     end
 
     def category_tag_hashtag_lookup(text)
-      tag_postfix = '::tag'
-      is_tag = text =~ /#{tag_postfix}$/
+      is_tag = text =~ /#{TAG_HASHTAG_POSTFIX}$/
 
       if !is_tag && category = Category.query_from_hashtag_slug(text)
-        [category.url_with_id, text]
+        [category.url, text]
       elsif (!is_tag && tag = Tag.find_by(name: text)) ||
-            (is_tag && tag = Tag.find_by(name: text.gsub!("#{tag_postfix}", '')))
-        ["#{Discourse.base_url}/tags/#{tag.name}", text]
+            (is_tag && tag = Tag.find_by(name: text.gsub!(TAG_HASHTAG_POSTFIX, '')))
+        ["#{Discourse.base_url}/tag/#{tag.name}", text]
       else
         nil
       end

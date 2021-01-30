@@ -1,18 +1,61 @@
-require_dependency 'site_settings/deprecated_settings'
-require_dependency 'site_settings/type_supervisor'
-require_dependency 'site_settings/defaults_provider'
-require_dependency 'site_settings/db_provider'
+# frozen_string_literal: true
 
 module SiteSettingExtension
   include SiteSettings::DeprecatedSettings
-  extend Forwardable
 
-  def_delegator :defaults, :site_locale, :default_locale
-  def_delegator :defaults, :site_locale=, :default_locale=
-  def_delegator :defaults, :has_setting?
-  def_delegators 'SiteSettings::TypeSupervisor', :types, :supported_types
+  # support default_locale being set via global settings
+  # this also adds support for testing the extension and global settings
+  # for site locale
+  def self.extended(klass)
+    if GlobalSetting.respond_to?(:default_locale) && GlobalSetting.default_locale.present?
+      # protected
+      klass.send :setup_shadowed_methods, :default_locale, GlobalSetting.default_locale
+    end
+  end
 
-  # part 1 of refactor, centralizing the dependency here
+  # we need a default here to support defaults per locale
+  def default_locale=(val)
+    val = val.to_s
+    raise Discourse::InvalidParameters.new(:value) unless LocaleSiteSetting.valid_value?(val)
+    if val != self.default_locale
+      add_override!(:default_locale, val)
+      refresh!
+      Discourse.request_refresh!
+    end
+  end
+
+  def default_locale?
+    true
+  end
+
+  # set up some sort of default so we can look stuff up
+  def default_locale
+    # note optimised cause this is called a lot so avoiding .presence which
+    # adds 2 method calls
+    locale = current[:default_locale]
+    if locale && !locale.blank?
+      locale
+    else
+      SiteSettings::DefaultsProvider::DEFAULT_LOCALE
+    end
+  end
+
+  def has_setting?(v)
+    defaults.has_setting?(v)
+  end
+
+  def supported_types
+    SiteSettings::TypeSupervisor.supported_types
+  end
+
+  def types
+    SiteSettings::TypeSupervisor.types
+  end
+
+  def listen_for_changes=(val)
+    @listen_for_changes = val
+  end
+
   def provider=(val)
     @provider = val
     refresh!
@@ -52,24 +95,39 @@ module SiteSettingExtension
   end
 
   def refresh_settings
-    @refresh_settings ||= []
+    @refresh_settings ||= [:default_locale]
   end
 
   def client_settings
-    @client_settings ||= []
+    @client_settings ||= [:default_locale]
   end
 
   def previews
     @previews ||= {}
   end
 
+  def secret_settings
+    @secret_settings ||= []
+  end
+
+  def plugins
+    @plugins ||= {}
+  end
+
   def setting(name_arg, default = nil, opts = {})
     name = name_arg.to_sym
+
+    if name == :default_locale
+      raise Discourse::InvalidParameters.new("Other settings depend on default locale, you can not configure it like this")
+    end
+
+    shadowed_val = nil
+
     mutex.synchronize do
       defaults.load_setting(
         name,
         default,
-        opts.extract!(*SiteSettings::DefaultsProvider::CONSUMED_OPTS)
+        opts.delete(:locale_default)
       )
 
       categories[name] = opts[:category] || :uncategorized
@@ -78,10 +136,11 @@ module SiteSettingExtension
         hidden_settings << name
       end
 
-      if opts[:shadowed_by_global] && GlobalSetting.respond_to?(name)
-        val = GlobalSetting.send(name)
+      if GlobalSetting.respond_to?(name)
+        val = GlobalSetting.public_send(name)
 
-        unless val.nil? || (val == ''.freeze)
+        unless val.nil? || (val == '')
+          shadowed_val = val
           hidden_settings << name
           shadowed_settings << name
         end
@@ -99,54 +158,121 @@ module SiteSettingExtension
         previews[name] = opts[:preview]
       end
 
+      if opts[:secret]
+        secret_settings << name
+      end
+
+      if opts[:plugin]
+        plugins[name] = opts[:plugin]
+      end
+
       type_supervisor.load_setting(
         name,
         opts.extract!(*SiteSettings::TypeSupervisor::CONSUMED_OPTS)
       )
 
-      setup_methods(name)
+      if !shadowed_val.nil?
+        setup_shadowed_methods(name, shadowed_val)
+      else
+        setup_methods(name)
+      end
     end
   end
 
   def settings_hash
     result = {}
-    defaults.each_key do |s|
-      result[s] = send(s).to_s
+    deprecated_settings = Set.new
+
+    SiteSettings::DeprecatedSettings::SETTINGS.each do |s|
+      deprecated_settings << s[0]
     end
+
+    defaults.all.keys.each do |s|
+      result[s] =
+        if deprecated_settings.include?(s.to_s)
+          public_send(s, warn: false).to_s
+        else
+          public_send(s).to_s
+        end
+    end
+
     result
   end
 
   def client_settings_json
-    Rails.cache.fetch(SiteSettingExtension.client_settings_cache_key, expires_in: 30.minutes) do
+    Discourse.cache.fetch(SiteSettingExtension.client_settings_cache_key, expires_in: 30.minutes) do
       client_settings_json_uncached
     end
   end
 
   def client_settings_json_uncached
-    MultiJson.dump(Hash[*@client_settings.map { |n| [n, self.send(n)] }.flatten])
+    MultiJson.dump(Hash[*@client_settings.map do |name|
+      value = self.public_send(name)
+      value = value.to_s if type_supervisor.get_type(name) == :upload
+      value = value.map(&:to_s).join("|") if type_supervisor.get_type(name) == :uploaded_image_list
+      [name, value]
+    end.flatten])
   end
 
   # Retrieve all settings
   def all_settings(include_hidden = false)
-    defaults
+
+    locale_setting_hash =
+    {
+      setting: 'default_locale',
+      default: SiteSettings::DefaultsProvider::DEFAULT_LOCALE,
+      category: 'required',
+      description: description('default_locale'),
+      type: SiteSetting.types[SiteSetting.types[:enum]],
+      preview: nil,
+      value: self.default_locale,
+      valid_values: LocaleSiteSetting.values,
+      translate_names: LocaleSiteSetting.translate_names?
+    }
+
+    defaults.all(default_locale)
       .reject { |s, _| !include_hidden && hidden_settings.include?(s) }
       .map do |s, v|
-      value = send(s)
+
+      type_hash = type_supervisor.type_hash(s)
+      default = defaults.get(s, default_locale).to_s
+
+      value = public_send(s)
+      value = value.map(&:to_s).join("|") if type_hash[:type].to_s == "uploaded_image_list"
+
+      if type_hash[:type].to_s == "upload" &&
+         default.to_i < Upload::SEEDED_ID_THRESHOLD
+
+        default = default_uploads[default.to_i]
+      end
+
       opts = {
         setting: s,
         description: description(s),
-        default: defaults[s].to_s,
+        default: default,
         value: value.to_s,
         category: categories[s],
-        preview: previews[s]
-      }.merge(type_supervisor.type_hash(s))
+        preview: previews[s],
+        secret: secret_settings.include?(s),
+        placeholder: placeholder(s)
+      }.merge!(type_hash)
+
+      opts[:plugin] = plugins[s] if plugins[s]
 
       opts
-    end.unshift(defaults.locale_setting_hash)
+    end.unshift(locale_setting_hash)
   end
 
   def description(setting)
-    I18n.t("site_settings.#{setting}")
+    I18n.t("site_settings.#{setting}", base_path: Discourse.base_path)
+  end
+
+  def placeholder(setting)
+    if !I18n.t("site_settings.placeholder.#{setting}", default: "").empty?
+      I18n.t("site_settings.placeholder.#{setting}")
+    elsif SiteIconManager.respond_to?("#{setting}_url")
+      SiteIconManager.public_send("#{setting}_url")
+    end
   end
 
   def self.client_settings_cache_key
@@ -165,41 +291,45 @@ module SiteSettingExtension
         [s.name.to_sym, type_supervisor.to_rb_value(s.name, s.value, s.data_type)]
       }.to_a.flatten)]
 
-      defaults_view = defaults.all
+      defaults_view = defaults.all(new_hash[:default_locale])
 
       # add locale default and defaults based on default_locale, cause they are cached
       new_hash = defaults_view.merge!(new_hash)
 
       # add shadowed
-      shadowed_settings.each { |ss| new_hash[ss] = GlobalSetting.send(ss) }
+      shadowed_settings.each { |ss| new_hash[ss] = GlobalSetting.public_send(ss) }
 
       changes, deletions = diff_hash(new_hash, current)
-      changes.each   { |name, val| current[name] = val }
-      deletions.each { |name, _|   current[name] = defaults_view[name] }
+
+      changes.each { |name, val| current[name] = val }
+      deletions.each { |name, _| current[name] = defaults_view[name] }
+      uploads.clear
 
       clear_cache!
     end
   end
 
   def ensure_listen_for_changes
+    return if @listen_for_changes == false
+
     unless @subscribed
       MessageBus.subscribe("/site_settings") do |message|
-        process_message(message)
+        if message.data["process"] != process_id
+          process_message(message)
+        end
       end
+
       @subscribed = true
     end
   end
 
   def process_message(message)
-    data = message.data
-    if data["process"] != process_id
-      begin
-        @last_message_processed = message.global_id
-        MessageBus.on_connect.call(message.site_id)
-        refresh!
-      ensure
-        MessageBus.on_disconnect.call(message.site_id)
-      end
+    begin
+      @last_message_processed = message.global_id
+      MessageBus.on_connect.call(message.site_id)
+      refresh!
+    ensure
+      MessageBus.on_disconnect.call(message.site_id)
     end
   end
 
@@ -219,17 +349,23 @@ module SiteSettingExtension
   end
 
   def remove_override!(name)
+    old_val = current[name]
     provider.destroy(name)
-    current[name] = defaults[name]
+    current[name] = defaults.get(name, default_locale)
+    clear_uploads_cache(name)
     clear_cache!
+    DiscourseEvent.trigger(:site_setting_changed, name, old_val, current[name]) if old_val != current[name]
   end
 
   def add_override!(name, val)
+    old_val = current[name]
     val, type = type_supervisor.to_db_value(name, val)
     provider.save(name, val, type)
     current[name] = type_supervisor.to_rb_value(name, val)
+    clear_uploads_cache(name)
     notify_clients!(name) if client_settings.include? name
     clear_cache!
+    DiscourseEvent.trigger(:site_setting_changed, name, old_val, current[name]) if old_val != current[name]
   end
 
   def notify_changed!
@@ -237,42 +373,79 @@ module SiteSettingExtension
   end
 
   def notify_clients!(name)
-    MessageBus.publish('/client_settings', name: name, value: self.send(name))
+    MessageBus.publish('/client_settings', name: name, value: self.public_send(name))
   end
 
   def requires_refresh?(name)
     refresh_settings.include?(name.to_sym)
   end
 
+  HOSTNAME_SETTINGS ||= %w{
+    disabled_image_download_domains blocked_onebox_domains exclude_rel_nofollow_domains
+    blocked_email_domains allowed_email_domains allowed_spam_host_domains
+  }
+
   def filter_value(name, value)
-    if %w[disabled_image_download_domains onebox_domains_blacklist exclude_rel_nofollow_domains email_domains_blacklist email_domains_whitelist white_listed_spam_host_domains].include? name
-      domain_array = []
-      value.split('|').each { |url| domain_array << get_hostname(url) }
-      value = domain_array.join("|")
+    if HOSTNAME_SETTINGS.include?(name)
+      value.split("|").map { |url| url.strip!; get_hostname(url) }.compact.uniq.join("|")
+    else
+      value
     end
-    value
   end
 
-  def set(name, value)
+  def set(name, value, options = nil)
     if has_setting?(name)
       value = filter_value(name, value)
-      self.send("#{name}=", value)
+      if options
+        self.public_send("#{name}=", value, options)
+      else
+        self.public_send("#{name}=", value)
+      end
       Discourse.request_refresh! if requires_refresh?(name)
     else
-      raise ArgumentError.new("Either no setting named '#{name}' exists or value provided is invalid")
+      raise Discourse::InvalidParameters.new("Either no setting named '#{name}' exists or value provided is invalid")
     end
   end
 
   def set_and_log(name, value, user = Discourse.system_user)
-    prev_value = send(name)
-    set(name, value)
-    StaffActionLogger.new(user).log_site_setting_change(name, prev_value, value) if has_setting?(name)
+    if has_setting?(name)
+      prev_value = public_send(name)
+      set(name, value)
+      value = prev_value = "[FILTERED]" if secret_settings.include?(name.to_sym)
+      StaffActionLogger.new(user).log_site_setting_change(name, prev_value, value)
+    else
+      raise Discourse::InvalidParameters.new("No setting named '#{name}' exists")
+    end
+  end
+
+  def get(name)
+    if has_setting?(name)
+      self.public_send(name)
+    else
+      raise Discourse::InvalidParameters.new("No setting named '#{name}' exists")
+    end
+  end
+
+  if defined?(Rails::Console)
+    # Convenience method for debugging site setting issues
+    # Returns a hash with information about a specific setting
+    def info(name)
+      {
+        resolved_value: get(name),
+        default_value: defaults[name],
+        global_override: GlobalSetting.respond_to?(name) ? GlobalSetting.public_send(name) : nil,
+        database_value: provider.find(name)&.value,
+        refresh?: refresh_settings.include?(name),
+        client?: client_settings.include?(name),
+        secret?: secret_settings.include?(name),
+      }
+    end
   end
 
   protected
 
   def clear_cache!
-    Rails.cache.delete(SiteSettingExtension.client_settings_cache_key)
+    Discourse.cache.delete(SiteSettingExtension.client_settings_cache_key)
     Site.clear_anon_cache!
   end
 
@@ -291,20 +464,71 @@ module SiteSettingExtension
     [changes, deletions]
   end
 
-  def setup_methods(name)
+  def setup_shadowed_methods(name, value)
     clean_name = name.to_s.sub("?", "").to_sym
 
     define_singleton_method clean_name do
-      if (c = current[name]).nil?
-        refresh!
-        current[name]
-      else
-        c
+      value
+    end
+
+    define_singleton_method "#{clean_name}?" do
+      value
+    end
+
+    define_singleton_method "#{clean_name}=" do |val|
+      Rails.logger.warn("An attempt was to change #{clean_name} SiteSetting to #{val} however it is shadowed so this will be ignored!")
+      nil
+    end
+
+  end
+
+  def setup_methods(name)
+    clean_name = name.to_s.sub("?", "").to_sym
+
+    if type_supervisor.get_type(name) == :uploaded_image_list
+      define_singleton_method clean_name do
+        uploads_list = uploads[name]
+        return uploads_list if uploads_list
+
+        if (value = current[name]).nil?
+          refresh!
+          value = current[name]
+        end
+
+        value = value.split("|").map(&:to_i)
+        uploads_list = Upload.where(id: value).to_a
+        uploads[name] = uploads_list if uploads_list
+      end
+    elsif type_supervisor.get_type(name) == :upload
+      define_singleton_method clean_name do
+        upload = uploads[name]
+        return upload if upload
+
+        if (value = current[name]).nil?
+          refresh!
+          value = current[name]
+        end
+
+        value = value.to_i
+
+        if value != Upload::SEEDED_ID_THRESHOLD
+          upload = Upload.find_by(id: value)
+          uploads[name] = upload if upload
+        end
+      end
+    else
+      define_singleton_method clean_name do
+        if (c = current[name]).nil?
+          refresh!
+          current[name]
+        else
+          c
+        end
       end
     end
 
     define_singleton_method "#{clean_name}?" do
-      self.send clean_name
+      self.public_send clean_name
     end
 
     define_singleton_method "#{clean_name}=" do |val|
@@ -313,14 +537,42 @@ module SiteSettingExtension
   end
 
   def get_hostname(url)
-    unless (URI.parse(url).scheme rescue nil).nil?
-      url = "http://#{url}" if URI.parse(url).scheme.nil?
-      url = URI.parse(url).host
+
+    host = begin
+      URI.parse(url)&.host
+    rescue URI::Error
+      nil
     end
-    url
+
+    host ||= begin
+      URI.parse("http://#{url}")&.host
+    rescue URI::Error
+      nil
+    end
+
+    host.presence || url
   end
 
   private
+
+  def default_uploads
+    @default_uploads ||= {}
+
+    @default_uploads[provider.current_site] ||= begin
+      Upload.where("id < ?", Upload::SEEDED_ID_THRESHOLD).pluck(:id, :url).to_h
+    end
+  end
+
+  def uploads
+    @uploads ||= {}
+    @uploads[provider.current_site] ||= {}
+  end
+
+  def clear_uploads_cache(name)
+    if (type_supervisor.get_type(name) == :upload || type_supervisor.get_type(name) == :uploaded_image_list) && uploads.has_key?(name)
+      uploads.delete(name)
+    end
+  end
 
   def logger
     Rails.logger

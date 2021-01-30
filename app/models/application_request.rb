@@ -1,5 +1,6 @@
 # frozen_string_literal: true
 class ApplicationRequest < ActiveRecord::Base
+
   enum req_type: %i(http_total
                     http_2xx
                     http_background
@@ -12,40 +13,20 @@ class ApplicationRequest < ActiveRecord::Base
                     page_view_logged_in_mobile
                     page_view_anon_mobile)
 
-  cattr_accessor :autoflush, :autoflush_seconds, :last_flush
-  # auto flush if backlog is larger than this
-  self.autoflush = 2000
+  include CachedCounting
 
-  # auto flush if older than this
-  self.autoflush_seconds = 5.minutes
-  self.last_flush = Time.now.utc
-
-  def self.increment!(type, opts = nil)
-    key = redis_key(type)
-    val = $redis.incr(key).to_i
-
-    # readonly mode it is going to be 0, skip
-    return if val == 0
-
-    # 3.days, see: https://github.com/rails/rails/issues/21296
-    $redis.expire(key, 259200)
-
-    autoflush = (opts && opts[:autoflush]) || self.autoflush
-    if autoflush > 0 && val >= autoflush
-      write_cache!
-      return
-    end
-
-    if (Time.now.utc - last_flush).to_i > autoflush_seconds
-      write_cache!
-    end
+  def self.disable
+    @disabled = true
   end
 
-  GET_AND_RESET = <<~LUA
-    local val = redis.call('get', KEYS[1])
-    redis.call('set', KEYS[1], '0')
-    return val
-  LUA
+  def self.enable
+    @disabled = false
+  end
+
+  def self.increment!(type, opts = nil)
+    return if @disabled
+    perform_increment!(redis_key(type), opts)
+  end
 
   def self.write_cache!(date = nil)
     if date.nil?
@@ -58,13 +39,9 @@ class ApplicationRequest < ActiveRecord::Base
 
     date = date.to_date
 
-    # this may seem a bit fancy but in so it allows
-    # for concurrent calls without double counting
     req_types.each do |req_type, _|
-      key = redis_key(req_type, date)
+      val = get_and_reset(redis_key(req_type, date))
 
-      namespaced_key = $redis.namespace_key(key)
-      val = $redis.without_namespace.eval(GET_AND_RESET, keys: [namespaced_key]).to_i
       next if val == 0
 
       id = req_id(date, req_type)
@@ -84,7 +61,7 @@ class ApplicationRequest < ActiveRecord::Base
 
     req_types.each do |req_type, _|
       key = redis_key(req_type, date)
-      $redis.del key
+      Discourse.redis.del key
     end
   end
 
@@ -95,7 +72,7 @@ class ApplicationRequest < ActiveRecord::Base
     req_type_id = req_types[req_type]
 
     # a poor man's upsert
-    id = where(date: date, req_type: req_type_id).pluck(:id).first
+    id = where(date: date, req_type: req_type_id).pluck_first(:id)
     id ||= create!(date: date, req_type: req_type_id, count: 0).id
 
   rescue # primary key violation

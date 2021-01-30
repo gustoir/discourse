@@ -1,10 +1,21 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe User do
   let(:user) { Fabricate(:user) }
   let(:profile_page_url) { "#{Discourse.base_url}/users/#{user.username}" }
 
+  def i18n_post_args(extra = {})
+    { base_uri: "" }.merge(extra)
+  end
+
+  def i18n_t(key, params = {})
+    I18n.t(key, i18n_post_args.merge(params))
+  end
+
   before do
+    Jobs.run_immediately!
     SiteSetting.discourse_narrative_bot_enabled = true
   end
 
@@ -14,7 +25,7 @@ describe User do
 
       user
 
-      expected_raw = I18n.t('discourse_narrative_bot.new_user_narrative.hello.message',
+      expected_raw = i18n_t('discourse_narrative_bot.new_user_narrative.hello.message',
         username: user.username, title: SiteSetting.title
       )
 
@@ -32,6 +43,21 @@ describe User do
         end
       end
 
+      context 'with title emoji disabled' do
+        before do
+          SiteSetting.disable_discourse_narrative_bot_welcome_post = false
+          SiteSetting.max_emojis_in_title = 0
+        end
+
+        it 'initiates the bot' do
+          expect { user }.to change { Topic.count }.by(1)
+
+          expect(Topic.last.title).to eq(i18n_t(
+            'discourse_narrative_bot.new_user_narrative.hello.title'
+          ).gsub(/:robot:/, '').strip)
+        end
+      end
+
       context 'enabled' do
         before do
           SiteSetting.disable_discourse_narrative_bot_welcome_post = false
@@ -40,7 +66,7 @@ describe User do
         it 'initiate the bot' do
           expect { user }.to change { Topic.count }.by(1)
 
-          expect(Topic.last.title).to eq(I18n.t(
+          expect(Topic.last.title).to eq(i18n_t(
             'discourse_narrative_bot.new_user_narrative.hello.title'
           ))
         end
@@ -53,7 +79,7 @@ describe User do
           it 'should send the right welcome message' do
             expect { user }.to change { Topic.count }.by(1)
 
-            expect(Topic.last.title).to eq(I18n.t(
+            expect(Topic.last.title).to eq(i18n_t(
               "system_messages.welcome_user.subject_template",
               site_name: SiteSetting.title
             ))
@@ -63,7 +89,6 @@ describe User do
         describe 'when welcome message is configured to be delayed' do
           before do
             SiteSetting.discourse_narrative_bot_welcome_post_delay = 100
-            SiteSetting.queue_jobs = true
           end
 
           it 'should delay the welcome post until user logs in' do
@@ -83,13 +108,38 @@ describe User do
       end
     end
 
-    context 'when user is anonymous?' do
-      let(:anonymous_user) { Fabricate(:anonymous) }
+    context 'when user skipped the new user tips' do
+      let(:user) { Fabricate(:user) }
 
       it 'should not initiate the bot' do
-        SiteSetting.allow_anonymous_posting = true
+        SiteSetting.default_other_skip_new_user_tips = true
+        expect { user }.to_not change { Post.count }
+      end
 
-        expect { anonymous_user }.to_not change { Post.count }
+      it 'should delete the existing PM' do
+        user.user_option.skip_new_user_tips = true
+
+        expect {
+          user.user_option.save!
+        }.to change { Topic.count }.by(-1)
+          .and change { UserHistory.count }.by(0)
+          .and change { user.unread_high_priority_notifications }.by(-1)
+          .and change { user.notifications.count }.by(-1)
+      end
+    end
+
+    context 'when user is anonymous?' do
+      before do
+        SiteSetting.allow_anonymous_posting = true
+      end
+
+      it 'should initiate bot for real user only' do
+
+        user = Fabricate(:user, trust_level: 1)
+        shadow = AnonymousShadowCreator.get(user)
+
+        expect(TopicAllowedUser.where(user_id: shadow.id).count).to eq(0)
+        expect(TopicAllowedUser.where(user_id: user.id).count).to eq(1)
       end
     end
 

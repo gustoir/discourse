@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'post_item_excerpt'
 
 class GroupPostSerializer < ApplicationSerializer
@@ -9,7 +11,8 @@ class GroupPostSerializer < ApplicationSerializer
              :url,
              :category_id,
              :post_number,
-             :topic_id
+             :topic_id,
+             :post_type
 
   has_one :user, serializer: GroupPostUserSerializer, embed: :object
   has_one :topic, serializer: BasicTopicSerializer, embed: :object

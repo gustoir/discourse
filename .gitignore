@@ -19,8 +19,6 @@ public/tombstone/*
 
 # Ignore bundler config
 /.bundle
-/.vagrant
-/.vagrantfile
 /cache
 /coverage/*
 
@@ -34,6 +32,7 @@ config/discourse.conf
 # Ignore the default SQLite database and db dumps
 *.sql
 *.sql.gz
+!/spec/fixtures/**/*.sql
 /db/*.sqlite3
 /db/structure.sql
 /db/schema.rb
@@ -48,13 +47,14 @@ bootsnap-compile-cache/
 
 # Ignore plugins except for the bundled ones.
 /plugins/*
-!/plugins/emoji/
-!/plugins/lazyYT/
+!/plugins/lazy-yt/
 !/plugins/poll/
 !/plugins/discourse-details/
 !/plugins/discourse-nginx-performance-report
 !/plugins/discourse-narrative-bot
 !/plugins/discourse-presence
+!/plugins/styleguide
+!/plugins/discourse-local-dates
 /plugins/*/auto_generated/
 
 /spec/fixtures/plugins/my_plugin/auto_generated
@@ -80,6 +80,7 @@ discourse.sublime-workspace
 *~
 *.swp
 *.swo
+*.swm
 
 # don't check in multisite config
 config/multisite.yml
@@ -87,6 +88,7 @@ config/multisite.yml
 config/multisite1.yml
 config/fog_credentials.yml
 
+/public/fonts
 /public/uploads
 /public/backups
 /public/stylesheet-cache/*
@@ -94,9 +96,6 @@ config/fog_credentials.yml
 # Scripts used for downloading/refreshing db
 script/download_db
 script/refresh_db
-
-# temp directory for chef (used to configure vagrant VM)
-chef/tmp/*
 
 # .procfile
 .procfile
@@ -119,9 +118,39 @@ Gemfile.lock
 =======
 *.db
 
-#ignore jetbrains ide file
+# ignore jetbrains ide file
 *.iml
 
+# vim swap
+*.swn
+
 # ignore nodejs files
-/node_modules
+node_modules
 /package-lock.json
+
+/vendor/data/GeoLite2-City.mmdb
+
+# Vagrant
+.vagrant
+
+# ignore auto-generated plugin js assets
+/app/assets/javascripts/plugins/*
+
+# ignore generated api documentation files
+openapi/*
+
+# ignore custom VSCode config files
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+
+# ignore direnv
+.envrc
+
+# ember-cli generated
+dist
+
+# Copyright Deposits
+copyright
+
+yarn-error.log

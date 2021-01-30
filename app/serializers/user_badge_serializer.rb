@@ -1,10 +1,16 @@
+# frozen_string_literal: true
+
 class UserBadgeSerializer < ApplicationSerializer
 
   class UserSerializer < BasicUserSerializer
-    attributes :name, :moderator, :admin
+    include UserPrimaryGroupMixin
+
+    attributes :name,
+               :moderator,
+               :admin
   end
 
-  attributes :id, :granted_at, :count, :post_id, :post_number
+  attributes :id, :granted_at, :created_at, :count, :post_id, :post_number
 
   has_one :badge
   has_one :user, serializer: UserSerializer, root: :users

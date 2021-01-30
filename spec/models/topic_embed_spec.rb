@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 require 'stringio'
 
@@ -9,11 +11,11 @@ describe TopicEmbed do
 
   context '.import' do
 
-    let(:user) { Fabricate(:user) }
+    fab!(:user) { Fabricate(:user) }
     let(:title) { "How to turn a fish from good to evil in 30 seconds" }
     let(:url) { 'http://eviltrout.com/123' }
-    let(:contents) { "hello world new post <a href='/hello'>hello</a> <img src='/images/wat.jpg'>" }
-    let!(:embeddable_host) { Fabricate(:embeddable_host) }
+    let(:contents) { "<p>hello world new post <a href='/hello'>hello</a> <img src='/images/wat.jpg'></p>" }
+    fab!(:embeddable_host) { Fabricate(:embeddable_host) }
 
     it "returns nil when the URL is malformed" do
       expect(TopicEmbed.import(user, "invalid url", title, contents)).to eq(nil)
@@ -22,6 +24,7 @@ describe TopicEmbed do
 
     context 'creation of a post' do
       let!(:post) { TopicEmbed.import(user, url, title, contents) }
+      let(:topic_embed) { TopicEmbed.find_by(post: post) }
 
       it "works as expected with a new URL" do
         expect(post).to be_present
@@ -38,11 +41,25 @@ describe TopicEmbed do
         expect(TopicEmbed.where(topic_id: post.topic_id)).to be_present
 
         expect(post.topic.category).to eq(embeddable_host.category)
+        expect(post.topic).not_to be_visible
       end
 
-      it "Supports updating the post" do
-        post = TopicEmbed.import(user, url, title, "muhahaha new contents!")
-        expect(post.cooked).to match(/new contents/)
+      it "Supports updating the post content" do
+        expect do
+          TopicEmbed.import(user, url, "New title received", "<p>muhahaha new contents!</p>")
+        end.to change { topic_embed.reload.content_sha1 }
+        expect(topic_embed.topic.title).to eq("New title received")
+
+        expect(topic_embed.post.cooked).to match(/new contents/)
+      end
+
+      it "Supports updating the post author" do
+        new_user = Fabricate(:user)
+        TopicEmbed.import(new_user, url, title, contents)
+
+        topic_embed.reload
+        expect(topic_embed.post.user).to eq(new_user)
+        expect(topic_embed.post.topic.user).to eq(new_user)
       end
 
       it "Should leave uppercase Feed Entry URL untouched in content" do
@@ -56,8 +73,92 @@ describe TopicEmbed do
         post = TopicEmbed.import(user, cased_url, title, "some random content")
         expect(post.cooked).to match(/#{cased_url}/)
       end
+
+      it "will make the topic unlisted if `embed_unlisted` is set until someone replies" do
+        Jobs.run_immediately!
+        SiteSetting.embed_unlisted = true
+        imported_post = TopicEmbed.import(user, "http://eviltrout.com/abcd", title, "some random content")
+        expect(imported_post.topic).not_to be_visible
+        pc = PostCreator.new(
+          Fabricate(:user),
+          raw: "this is a reply that will make the topic visible",
+          topic_id: imported_post.topic_id,
+          reply_to_post_number: 1
+        )
+        pc.create
+        expect(imported_post.topic.reload).to be_visible
+      end
+
+      it "won't be invisible if `embed_unlisted` is set to false" do
+        Jobs.run_immediately!
+        SiteSetting.embed_unlisted = false
+        imported_post = TopicEmbed.import(user, "http://eviltrout.com/abcd", title, "some random content")
+        expect(imported_post.topic).to be_visible
+      end
     end
 
+    context "post creation supports markdown rendering" do
+      before do
+        SiteSetting.embed_support_markdown = true
+      end
+
+      it "works as expected" do
+        post = TopicEmbed.import(user, url, title, "some random content")
+        expect(post).to be_present
+
+        # It uses regular rendering
+        expect(post.cook_method).to eq(Post.cook_methods[:regular])
+      end
+    end
+
+    describe 'embedded content truncation' do
+      MAX_LENGTH_BEFORE_TRUNCATION = 100
+
+      let(:long_content) { "<p>#{'a' * MAX_LENGTH_BEFORE_TRUNCATION}</p>\n<p>more</p>" }
+
+      it 'truncates the imported post when truncation is enabled' do
+        SiteSetting.embed_truncate = true
+        post = TopicEmbed.import(user, url, title, long_content)
+
+        expect(post.raw).not_to include(long_content)
+      end
+
+      it 'keeps everything in the imported post when truncation is disabled' do
+        SiteSetting.embed_truncate = false
+        post = TopicEmbed.import(user, url, title, long_content)
+
+        expect(post.raw).to include(long_content)
+      end
+
+      it 'looks at first div when there is no paragraph' do
+
+        no_para = "<div><h>testing it</h></div>"
+
+        SiteSetting.embed_truncate = true
+        post = TopicEmbed.import(user, url, title, no_para)
+
+        expect(post.raw).to include("testing it")
+      end
+    end
+  end
+
+  context '.topic_id_for_embed' do
+    it "returns correct topic id irrespective of url protocol" do
+      topic_embed = Fabricate(:topic_embed, embed_url: "http://example.com/post/248")
+
+      expect(TopicEmbed.topic_id_for_embed('http://exAMPle.com/post/248')).to eq(topic_embed.topic_id)
+      expect(TopicEmbed.topic_id_for_embed('https://example.com/post/248/')).to eq(topic_embed.topic_id)
+
+      expect(TopicEmbed.topic_id_for_embed('http://example.com/post/248/2')).to eq(nil)
+      expect(TopicEmbed.topic_id_for_embed('http://examples.com/post/248')).to eq(nil)
+      expect(TopicEmbed.topic_id_for_embed('http://example.com/post/24')).to eq(nil)
+      expect(TopicEmbed.topic_id_for_embed('http://example.com/post')).to eq(nil)
+    end
+
+    it "finds the topic id when the embed_url contains a query string" do
+      topic_embed = Fabricate(:topic_embed, embed_url: "http://example.com/post/248?key=foo")
+      expect(TopicEmbed.topic_id_for_embed('http://example.com/post/248?key=foo')).to eq(topic_embed.topic_id)
+    end
   end
 
   describe '.find_remote' do
@@ -66,12 +167,13 @@ describe TopicEmbed do
 
       let(:url) { 'http://eviltrout.com/123' }
       let(:contents) { "<title>Through the Looking Glass - Classic Books</title><body>some content here</body>" }
-      let!(:embeddable_host) { Fabricate(:embeddable_host) }
+      fab!(:embeddable_host) { Fabricate(:embeddable_host) }
       let!(:file) { StringIO.new }
 
       before do
         file.stubs(:read).returns contents
         TopicEmbed.stubs(:open).returns file
+        stub_request(:head, url)
       end
 
       it "doesn't scrub the title by default" do
@@ -88,18 +190,19 @@ describe TopicEmbed do
     end
 
     context 'post with allowed classes "foo" and "emoji"' do
-      let(:user) { Fabricate(:user) }
+      fab!(:user) { Fabricate(:user) }
       let(:url) { 'http://eviltrout.com/123' }
       let(:contents) { "my normal size emoji <p class='foo'>Hi</p> <img class='emoji other foo' src='/images/smiley.jpg'>" }
-      let!(:embeddable_host) { Fabricate(:embeddable_host) }
+      fab!(:embeddable_host) { Fabricate(:embeddable_host) }
       let!(:file) { StringIO.new }
 
       response = nil
 
       before do
-        SiteSetting.embed_classname_whitelist = 'emoji, foo'
+        SiteSetting.allowed_embed_classnames = 'emoji, foo'
         file.stubs(:read).returns contents
         TopicEmbed.stubs(:open).returns file
+        stub_request(:head, url)
         response = TopicEmbed.find_remote(url)
       end
 
@@ -125,10 +228,10 @@ describe TopicEmbed do
     end
 
     context 'post with author metadata' do
-      let!(:user) { Fabricate(:user, username: 'eviltrout') }
+      fab!(:user) { Fabricate(:user, username: 'eviltrout') }
       let(:url) { 'http://eviltrout.com/321' }
       let(:contents) { '<html><head><meta name="author" content="eviltrout"></head><body>rich and morty</body></html>' }
-      let!(:embeddable_host) { Fabricate(:embeddable_host) }
+      fab!(:embeddable_host) { Fabricate(:embeddable_host) }
       let!(:file) { StringIO.new }
 
       response = nil
@@ -136,6 +239,7 @@ describe TopicEmbed do
       before(:each) do
         file.stubs(:read).returns contents
         TopicEmbed.stubs(:open).returns file
+        stub_request(:head, url)
         response = TopicEmbed.find_remote(url)
       end
 
@@ -146,18 +250,19 @@ describe TopicEmbed do
 
     context 'post with no allowed classes' do
 
-      let(:user) { Fabricate(:user) }
+      fab!(:user) { Fabricate(:user) }
       let(:url) { 'http://eviltrout.com/123' }
       let(:contents) { "my normal size emoji <p class='foo'>Hi</p> <img class='emoji other foo' src='/images/smiley.jpg'>" }
-      let!(:embeddable_host) { Fabricate(:embeddable_host) }
+      fab!(:embeddable_host) { Fabricate(:embeddable_host) }
       let!(:file) { StringIO.new }
 
       response = nil
 
       before(:each) do
-        SiteSetting.embed_classname_whitelist = ''
+        SiteSetting.allowed_embed_classnames = ''
         file.stubs(:read).returns contents
         TopicEmbed.stubs(:open).returns file
+        stub_request(:head, url)
         response = TopicEmbed.find_remote(url)
       end
 
@@ -181,13 +286,12 @@ describe TopicEmbed do
     context "non-ascii URL" do
       let(:url) { 'http://eviltrout.com/test/ماهی' }
       let(:contents) { "<title>سلام</title><body>این یک پاراگراف آزمون است.</body>" }
-      let!(:embeddable_host) { Fabricate(:embeddable_host) }
+      fab!(:embeddable_host) { Fabricate(:embeddable_host) }
       let!(:file) { StringIO.new }
 
       before do
-        file.stubs(:read).returns contents
-        TopicEmbed.stubs(:open)
-          .with('http://eviltrout.com/test/%D9%85%D8%A7%D9%87%DB%8C', allow_redirections: :safe).returns file
+        stub_request(:head, url)
+        stub_request(:get, url).to_return(body: contents).then.to_raise
       end
 
       it "doesn't throw an error" do
@@ -199,13 +303,12 @@ describe TopicEmbed do
     context "encoded URL" do
       let(:url) { 'http://example.com/hello%20world' }
       let(:contents) { "<title>Hello World!</title><body></body>" }
-      let!(:embeddable_host) { Fabricate(:embeddable_host) }
+      fab!(:embeddable_host) { Fabricate(:embeddable_host) }
       let!(:file) { StringIO.new }
 
       before do
-        file.stubs(:read).returns contents
-        TopicEmbed.stubs(:open)
-          .with('http://example.com/hello%20world', allow_redirections: :safe).returns file
+        stub_request(:head, url)
+        stub_request(:get, url).to_return(body: contents).then.to_raise
       end
 
       it "doesn't throw an error" do
@@ -214,10 +317,18 @@ describe TopicEmbed do
       end
     end
 
+    context "non-http URL" do
+      it "throws an error" do
+        url = '/test.txt'
+
+        expect(TopicEmbed.find_remote(url)).to be_nil
+      end
+    end
+
     context "emails" do
       let(:url) { 'http://example.com/foo' }
       let(:contents) { '<p><a href="mailto:foo%40example.com">URL encoded @ symbol</a></p><p><a href="mailto:bar@example.com">normal mailto link</a></p>' }
-      let!(:embeddable_host) { Fabricate(:embeddable_host) }
+      fab!(:embeddable_host) { Fabricate(:embeddable_host) }
       let!(:file) { StringIO.new }
 
       before do
@@ -226,6 +337,7 @@ describe TopicEmbed do
       end
 
       it "handles mailto links" do
+        stub_request(:head, url)
         response = TopicEmbed.find_remote(url)
         expect(response.body).to have_tag('a', with: { href: 'mailto:foo%40example.com' })
         expect(response.body).to have_tag('a', with: { href: 'mailto:bar@example.com' })
@@ -233,25 +345,14 @@ describe TopicEmbed do
     end
   end
 
-  context ".escape_uri" do
-    it "doesn't escape simple URL" do
-      url = TopicEmbed.escape_uri('http://example.com/foo/bar')
-      expect(url).to eq('http://example.com/foo/bar')
-    end
+  describe '.absolutize_urls' do
+    let(:invalid_url) { 'http://source.com/#double#anchor' }
+    let(:contents) { "hello world new post <a href='/hello'>hello</a>" }
 
-    it "escapes unsafe chars" do
-      url = TopicEmbed.escape_uri("http://example.com/?a=\11\15")
-      expect(url).to eq('http://example.com/?a=%09%0D')
-    end
-
-    it "escapes non-ascii chars" do
-      url = TopicEmbed.escape_uri('http://example.com/ماهی')
-      expect(url).to eq('http://example.com/%D9%85%D8%A7%D9%87%DB%8C')
-    end
-
-    it "doesn't escape already escaped chars" do
-      url = TopicEmbed.escape_uri('http://example.com/foo%20bar/foo bar/')
-      expect(url).to eq('http://example.com/foo%20bar/foo%20bar/')
+    it "handles badly formed URIs" do
+      raw = TopicEmbed.absolutize_urls(invalid_url, contents)
+      expect(raw).to eq("hello world new post <a href=\"http://source.com/hello\">hello</a>")
     end
   end
+
 end

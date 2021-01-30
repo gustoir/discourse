@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module ImportScripts::PhpBB3
   class PermalinkImporter
     CATEGORY_LINK_NORMALIZATION = '/(viewforum.php\?)(?:.*&)?(f=\d+).*/\1\2'
@@ -37,7 +39,7 @@ module ImportScripts::PhpBB3
     end
 
     def create_for_post(post, import_id)
-      return unless @settings.create_topic_links && post
+      return unless @settings.create_post_links && post
 
       url = "viewtopic.php?p=#{import_id}"
 
@@ -47,6 +49,11 @@ module ImportScripts::PhpBB3
     protected
 
     def add_normalization(normalizations, normalization)
+      if @settings.normalization_prefix.present?
+        prefix = @settings.normalization_prefix[%r|^/?(.*?)/?$|, 1]
+        normalization = "/#{prefix.gsub('/', '\/')}\\#{normalization}"
+      end
+
       normalizations << normalization unless normalizations.include?(normalization)
     end
 

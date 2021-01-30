@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # This patch performs 2 functions
 #
 # 1. It caches all translations which drastically improves
@@ -15,23 +17,21 @@ module I18n
     alias_method :translate_no_cache, :translate
     alias_method :exists_no_cache?, :exists?
     alias_method :reload_no_cache!, :reload!
-    LRU_CACHE_SIZE = 300
+    alias_method :locale_no_cache=, :locale=
 
-    def init_accelerator!
-      @overrides_enabled = true
-      reload!
+    LRU_CACHE_SIZE = 400
+
+    def init_accelerator!(overrides_enabled: true)
+      @overrides_enabled = overrides_enabled
+      execute_reload
     end
 
     def reload!
-      @loaded_locales = []
-      @cache = nil
-      @overrides_by_site = {}
-
-      reload_no_cache!
-      ensure_all_loaded!
+      @requires_reload = true
     end
 
     LOAD_MUTEX = Mutex.new
+
     def load_locale(locale)
       LOAD_MUTEX.synchronize do
         return if @loaded_locales.include?(locale)
@@ -39,6 +39,16 @@ module I18n
         if @loaded_locales.empty?
           # load all rb files
           I18n.backend.load_translations(I18n.load_path.grep(/\.rb$/))
+
+          # load plural rules from plugins
+          DiscoursePluginRegistry.locales.each do |plugin_locale, options|
+            if options[:plural]
+              I18n.backend.store_translations(
+                plugin_locale,
+                i18n: { plural: options[:plural] }
+              )
+            end
+          end
         end
 
         # load it
@@ -49,19 +59,21 @@ module I18n
     end
 
     def ensure_all_loaded!
-      backend.fallbacks(locale).each { |l| ensure_loaded!(l) }
+      I18n.fallbacks[locale].each { |l| ensure_loaded!(l) }
     end
 
-    def search(query, opts = nil)
+    def search(query, opts = {})
+      execute_reload if @requires_reload
+
       locale = opts[:locale] || config.locale
 
       load_locale(locale) unless @loaded_locales.include?(locale)
       opts ||= {}
 
       target = opts[:backend] || backend
-      results = opts[:overridden] ? {} : target.search(config.locale, query)
+      results = opts[:overridden] ? {} : target.search(locale, query)
 
-      regexp = /#{query}/i
+      regexp = I18n::Backend::DiscourseI18n.create_search_regexp(query)
       (overrides_by_locale(locale) || {}).each do |k, v|
         results.delete(k)
         results[k] = v if (k =~ regexp || v =~ regexp)
@@ -83,23 +95,51 @@ module I18n
       @overrides_enabled = true
     end
 
-    def translate_no_override(*args)
-      return translate_no_cache(*args) if args.length > 1 && args[1].present?
+    class MissingTranslation; end
 
-      options  = args.last.is_a?(Hash) ? args.pop.dup : {}
-      key      = args.shift
-      locale   = options[:locale] || config.locale
+    def translate_no_override(key, options)
+      # note we skip cache for :format and :count
+      should_raise = false
+      locale = nil
+
+      dup_options = nil
+      if options
+        dup_options = options.dup
+        should_raise = dup_options.delete(:raise)
+        locale = dup_options.delete(:locale)
+      end
+
+      if dup_options.present?
+        return translate_no_cache(key, **options)
+      end
+
+      locale ||= config.locale
 
       @cache ||= LruRedux::ThreadSafeCache.new(LRU_CACHE_SIZE)
       k = "#{key}#{locale}#{config.backend.object_id}"
 
-      @cache.getset(k) do
-        translate_no_cache(key, options).freeze
+      val = @cache.getset(k) do
+        begin
+          translate_no_cache(key, locale: locale, raise: true).freeze
+        rescue I18n::MissingTranslationData
+          MissingTranslation
+        end
+      end
+
+      if val != MissingTranslation
+        val
+      elsif should_raise
+        raise I18n::MissingTranslationData.new(locale, key)
+      else
+        -"translation missing: #{locale}.#{key}"
       end
     end
 
     def overrides_by_locale(locale)
       return unless @overrides_enabled
+      return {} if GlobalSetting.skip_db?
+
+      execute_reload if @requires_reload
 
       site = RailsMultisite::ConnectionManagement.current_db
 
@@ -123,14 +163,17 @@ module I18n
       end
 
       by_site[locale].with_indifferent_access
-    end
-
-    def client_overrides_json(locale)
-      client_json = (overrides_by_locale(locale) || {}).select { |k, _| k[/^(admin_js|js)\./] }
-      MultiJson.dump(client_json)
+    rescue ActiveRecord::StatementInvalid => e
+      if PG::UndefinedTable === e.cause || PG::UndefinedColumn === e.cause
+        {}
+      else
+        raise
+      end
     end
 
     def translate(*args)
+      execute_reload if @requires_reload
+
       options  = args.last.is_a?(Hash) ? args.pop.dup : {}
       key      = args.shift
       locale   = options[:locale] || config.locale
@@ -140,11 +183,16 @@ module I18n
       if @overrides_enabled
         overrides = {}
 
-        backend.fallbacks(locale).each do |l|
-          overrides[l] = overrides_by_locale(l)
+        # for now lets do all the expensive work for keys with count
+        # no choice really
+        has_override = !!options[:count]
+
+        I18n.fallbacks[locale].each do |l|
+          override = overrides[l] = overrides_by_locale(l)
+          has_override ||= override.key?(key)
         end
 
-        if overrides.present?
+        if has_override && overrides.present?
           if options.present?
             options[:overrides] = overrides
 
@@ -168,10 +216,35 @@ module I18n
     alias_method :t, :translate
 
     def exists?(key, locale = nil)
+      execute_reload if @requires_reload
+
       locale ||= config.locale
       load_locale(locale) unless @loaded_locales.include?(locale)
       exists_no_cache?(key, locale)
     end
 
+    def locale=(value)
+      execute_reload if @requires_reload
+      self.locale_no_cache = value
+    end
+
+    private
+
+    RELOAD_MUTEX = Mutex.new
+
+    def execute_reload
+      RELOAD_MUTEX.synchronize do
+        return unless @requires_reload
+
+        @loaded_locales = []
+        @cache = nil
+        @overrides_by_site = {}
+
+        reload_no_cache!
+        ensure_all_loaded!
+
+        @requires_reload = false
+      end
+    end
   end
 end

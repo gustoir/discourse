@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 module IntegrationHelpers
   def create_user
-    get "/u/hp.json"
+    get "/session/hp.json"
 
-    expect(response).to be_success
+    expect(response.status).to eq(200)
 
-    body = JSON.parse(response.body)
+    body = response.parsed_body
     honeypot = body["value"]
     challenge = body["challenge"]
     user = Fabricate.build(:user)
@@ -17,17 +19,22 @@ module IntegrationHelpers
       challenge: challenge.reverse
     }
 
-    expect(response).to be_success
+    expect(response.status).to eq(200)
 
-    body = JSON.parse(response.body)
+    body = response.parsed_body
     User.find(body["user_id"])
   end
 
   def sign_in(user)
-    password = 'somecomplicatedpassword'
-    user.update!(password: password)
-    Fabricate(:email_token, confirmed: true, user: user)
-    post "/session.json", params: { login: user.username, password: password }
-    expect(response).to be_success
+    get "/session/#{user.encoded_username}/become"
+    user
+  end
+
+  def sign_out
+    delete "/session"
+  end
+
+  def read_secure_session
+    SecureSession.new(session[:secure_session_id])
   end
 end

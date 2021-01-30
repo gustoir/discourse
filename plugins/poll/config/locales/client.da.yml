@@ -1,9 +1,8 @@
-# encoding: utf-8
-#
-# Never edit this file. It will be overwritten when translations are pulled from Transifex.
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
 #
 # To work with us on translations, join this project:
-# https://www.transifex.com/projects/p/discourse-org/
+# https://translate.discourse.org/
 
 da:
   js:
@@ -15,20 +14,6 @@ da:
         one: "afgiven stemme"
         other: "afgivne stemmer"
       average_rating: "Gennemsnitlig rating: <strong>%{average}</strong>."
-      public:
-        title: "Stemmer er offentlige."
-      multiple:
-        help:
-          at_least_min_options:
-            one: "Vælg mindst <strong>1</strong> mulighed"
-            other: "Vælg mindst <strong>%{count}</strong> muligheder"
-          up_to_max_options:
-            one: "Vælg op til <strong>1</strong> mulighed"
-            other: "Vælg op til <strong>%{count}</strong> muligheder"
-          x_options:
-            one: "Vælg <strong>1</strong> mulighed"
-            other: "Vælg <strong>%{count}</strong> muligheder"
-          between_min_and_max_options: "Vælg imellem <strong>%{min}</strong> og <strong>%{max}</strong> valgmuligheder"
       cast-votes:
         title: "Afgiv dine stemmer"
         label: "Stem nu!"
@@ -37,7 +22,8 @@ da:
         label: "Vis resultat"
       hide-results:
         title: "Tilbage til dine stemmer"
-        label: "Skjul resultat"
+      export-results:
+        label: "Eksporter"
       open:
         title: "Åbn afstemningen"
         label: "Åbn"
@@ -53,13 +39,14 @@ da:
         title: Opret afstemning
         insert: Indsæt afstemning
         help:
-          options_count: Vælg mindst 2 muligheder
           invalid_values: Minimumsværdien skal være mindre end maksimumværdien.
         poll_type:
           label: Type
           regular: Enkelt valg
           multiple: Flere valg
           number: Nummerbedømmelse
+        poll_result:
+          label: Resultater
         poll_config:
           max: Maks
           min: Min

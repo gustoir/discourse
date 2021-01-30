@@ -1,8 +1,8 @@
-require_dependency 'embedding'
+# frozen_string_literal: true
 
 class Admin::EmbeddingController < Admin::AdminController
 
-  before_action :ensure_logged_in, :ensure_staff, :fetch_embedding
+  before_action :fetch_embedding
 
   def show
     render_serialized(@embedding, EmbeddingSerializer, root: 'embedding', rest_serializer: true)
@@ -14,7 +14,7 @@ class Admin::EmbeddingController < Admin::AdminController
     end
 
     Embedding.settings.each do |s|
-      @embedding.send("#{s}=", params[:embedding][s])
+      @embedding.public_send("#{s}=", params[:embedding][s])
     end
 
     if @embedding.save
@@ -27,7 +27,7 @@ class Admin::EmbeddingController < Admin::AdminController
 
   protected
 
-    def fetch_embedding
-      @embedding = Embedding.find
-    end
+  def fetch_embedding
+    @embedding = Embedding.find
+  end
 end

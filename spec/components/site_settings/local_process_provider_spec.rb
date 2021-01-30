@@ -1,5 +1,6 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'site_settings/local_process_provider'
 
 describe SiteSettings::LocalProcessProvider do
 
@@ -9,16 +10,10 @@ describe SiteSettings::LocalProcessProvider do
     expect(actual.data_type).to eq(expected.data_type)
   end
 
-  let :provider do
-    SiteSettings::LocalProcessProvider.new
-  end
+  let(:provider) { described_class.new }
 
   def setting(name, value, data_type)
-    OpenStruct.new.tap do |setting|
-      setting.name = name
-      setting.value = value
-      setting.data_type = data_type
-    end
+    described_class::Setting.new(name, data_type).tap { |s| s.value = value }
   end
 
   describe "all" do
@@ -64,6 +59,27 @@ describe SiteSettings::LocalProcessProvider do
   end
 
   it "returns the correct site name" do
-    expect(provider.current_site).to eq("test")
+    expect(provider.current_site).to eq("default")
+  end
+
+  describe "multisite", type: :multisite do
+    it "loads the correct settings" do
+      test_multisite_connection("default") { provider.save("test", "bla-default", 2) }
+      test_multisite_connection("second") { provider.save("test", "bla-second", 2) }
+
+      test_multisite_connection("default") do
+        expect_same_setting(provider.find("test"), setting("test", "bla-default", 2))
+      end
+
+      test_multisite_connection("second") do
+        expect_same_setting(provider.find("test"), setting("test", "bla-second", 2))
+      end
+    end
+
+    it "returns the correct site name" do
+      test_multisite_connection("second") do
+        expect(provider.current_site).to eq("second")
+      end
+    end
   end
 end

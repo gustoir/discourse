@@ -1,30 +1,29 @@
-require_dependency 'stylesheet/common'
-require_dependency 'stylesheet/importer'
-require_dependency 'stylesheet/functions'
+# frozen_string_literal: true
+
+require 'stylesheet/common'
+require 'stylesheet/importer'
+require 'stylesheet/functions'
 
 module Stylesheet
 
   class Compiler
 
-    def self.error_as_css(error, label)
-      error = error.message
-      error.gsub!("\n", '\A ')
-      error.gsub!("'", '\27 ')
-
-      "#main { display: none; }
-      body { white-space: pre; }
-      body:before { font-family: monospace; content: '#{error}' }"
-    end
-
     def self.compile_asset(asset, options = {})
+      file = "@import \"common/foundation/variables\"; @import \"common/foundation/mixins\";"
 
       if Importer.special_imports[asset.to_s]
-        filename = "theme.scss"
-        file = "@import \"theme_variables\"; @import \"#{asset}\";"
+        filename = "theme_#{options[:theme_id]}.scss"
+        file += " @import \"theme_variables\";" if Importer::THEME_TARGETS.include?(asset.to_s)
+        file += " @import \"#{asset}\";"
       else
         filename = "#{asset}.scss"
-        path = "#{ASSET_ROOT}/#{filename}"
-        file = File.read path
+        path = "#{Stylesheet::Common::ASSET_ROOT}/#{filename}"
+        file += File.read path
+
+        if asset.to_s == Stylesheet::Manager::COLOR_SCHEME_STYLESHEET
+          file += Stylesheet::Importer.import_color_definitions(options[:theme_id])
+          file += Stylesheet::Importer.import_wcag_overrides(options[:color_scheme_id])
+        end
       end
 
       compile(file, filename, options)
@@ -32,7 +31,7 @@ module Stylesheet
     end
 
     def self.compile(stylesheet, filename, options = {})
-      source_map_file = options[:source_map_file] || "#{filename.sub(".scss", "")}.css.map";
+      source_map_file = options[:source_map_file] || "#{filename.sub(".scss", "")}.css.map"
 
       engine = SassC::Engine.new(stylesheet,
                                  importer: Importer,
@@ -43,7 +42,8 @@ module Stylesheet
                                  theme_id: options[:theme_id],
                                  theme: options[:theme],
                                  theme_field: options[:theme_field],
-                                 load_paths: [ASSET_ROOT])
+                                 color_scheme_id: options[:color_scheme_id],
+                                 load_paths: [Stylesheet::Common::ASSET_ROOT])
 
       result = engine.render
 

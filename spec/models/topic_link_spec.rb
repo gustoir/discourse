@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe TopicLink do
@@ -8,15 +10,15 @@ describe TopicLink do
     URI.parse(Discourse.base_url)
   end
 
-  let(:topic) do
+  fab!(:topic) do
     Fabricate(:topic, title: 'unique topic name')
   end
 
-  let(:user) do
+  fab!(:user) do
     topic.user
   end
 
-  let(:post) { Fabricate(:post) }
+  fab!(:post) { Fabricate(:post) }
 
   it "can't link to the same topic" do
     ftl = TopicLink.new(url: "/t/#{topic.id}",
@@ -26,26 +28,53 @@ describe TopicLink do
   end
 
   describe 'external links' do
-    before do
-      post = Fabricate(:post, raw: "
-http://a.com/
-http://b.com/b
-http://#{'a' * 200}.com/invalid
-http://b.com/#{'a' * 500}
-                        ", user: user, topic: topic)
+    it 'correctly handles links' do
+
+      non_png = "https://b.com/#{SecureRandom.hex}"
+
+      # prepare a title for one of the links
+      stub_request(:get, non_png).
+        with(headers: {
+          'Accept' => '*/*',
+          'Accept-Encoding' => 'gzip',
+          'Host' => 'b.com',
+        }).
+        to_return(status: 200, body: "<html><head><title>amazing</title></head></html>", headers: {})
+
+      # so we run crawl_topic_links
+      Jobs.run_immediately!
+
+      png_title = "#{SecureRandom.hex}.png"
+      png = "https://awesome.com/#{png_title}"
+
+      post = Fabricate(:post, raw: <<~RAW, user: user, topic: topic)
+        http://a.com/
+        #{non_png}
+        http://#{'a' * 200}.com/invalid
+        //b.com/#{'a' * 500}
+        #{png}
+      RAW
 
       TopicLink.extract_from(post)
-    end
 
-    it 'works' do
-      # has the forum topic links
-      expect(topic.topic_links.count).to eq(3)
+      # we have a special rule for images title where we pull them out of the filename
+      expect(topic.topic_links.where(url: png).pluck(:title).first).to eq(png_title)
+      expect(topic.topic_links.where(url: non_png).pluck(:title).first).to eq("amazing")
 
-      # works with markdown links
-      expect(topic.topic_links.exists?(url: "http://a.com/")).to eq(true)
+      expect(topic.topic_links.pluck(:url)).to contain_exactly(
+        png,
+        non_png,
+        "http://a.com/",
+        "//b.com/#{'a' * 500}"[0...TopicLink.max_url_length]
+      )
 
-      #works with markdown links followed by a period
-      expect(topic.topic_links.exists?(url: "http://b.com/b")).to eq(true)
+      old_ids = topic.topic_links.pluck(:id)
+
+      TopicLink.extract_from(post)
+
+      new_ids = topic.topic_links.pluck(:id)
+
+      expect(new_ids).to contain_exactly(*old_ids)
     end
 
   end
@@ -75,7 +104,7 @@ http://b.com/#{'a' * 500}
 
     context 'topic link' do
 
-      let(:other_topic) do
+      fab!(:other_topic) do
         Fabricate(:topic, user: user)
       end
 
@@ -96,15 +125,17 @@ http://b.com/#{'a' * 500}
         # this is subtle, but we had a bug were second time
         # TopicLink.extract_from was called a reflection was nuked
         2.times do
-          topic.reload
           TopicLink.extract_from(linked_post)
+
+          topic.reload
+          other_topic.reload
 
           link = topic.topic_links.first
           expect(link).to be_present
           expect(link).to be_internal
           expect(link.url).to eq(url)
           expect(link.domain).to eq(test_uri.host)
-          link.link_topic_id == other_topic.id
+          expect(link.link_topic_id). to eq(other_topic.id)
           expect(link).not_to be_reflection
 
           reflection = other_topic.topic_links.first
@@ -132,6 +163,27 @@ http://b.com/#{'a' * 500}
 
         linked_post.revise(post.user, raw: "no more linkies https://eviltrout.com")
         expect(other_topic.reload.topic_links.where(link_post_id: linked_post.id)).to be_blank
+      end
+
+      it 'works without id' do
+        post
+        url = "http://#{test_uri.host}/t/#{other_topic.slug}"
+        topic.posts.create(user: user, raw: 'initial post')
+        linked_post = topic.posts.create(user: user, raw: "Link to another topic: #{url}")
+
+        TopicLink.extract_from(linked_post)
+        link = topic.topic_links.first
+
+        reflection = other_topic.topic_links.first
+
+        expect(reflection).to be_present
+        expect(reflection).to be_reflection
+        expect(reflection.post_id).to be_present
+        expect(reflection.domain).to eq(test_uri.host)
+        expect(reflection.url).to eq("http://#{test_uri.host}/t/unique-topic-name/#{topic.id}/#{linked_post.post_number}")
+        expect(reflection.link_topic_id).to eq(topic.id)
+        expect(reflection.link_post_id).to eq(linked_post.id)
+        expect(reflection.user_id).to eq(link.user_id)
       end
     end
 
@@ -165,6 +217,14 @@ http://b.com/#{'a' * 500}
       end
 
       it 'does not extract a link' do
+        expect(topic.topic_links).to be_blank
+      end
+    end
+
+    context "email address" do
+      it "does not extract a link" do
+        post = topic.posts.create(user: user, raw: "Valid email: foo@bar.com\n\nInvalid email: rfc822;name@domain.com")
+        TopicLink.extract_from(post)
         expect(topic.topic_links).to be_blank
       end
     end
@@ -313,16 +373,20 @@ http://b.com/#{'a' * 500}
 
       it 'has the correct results' do
         TopicLink.extract_from(post)
-        topic_link = post.topic.topic_links.first
-        TopicLinkClick.create(topic_link: topic_link, ip_address: '192.168.1.1')
+        topic_link_first = post.topic.topic_links.first
+        TopicLinkClick.create!(topic_link: topic_link_first, ip_address: '192.168.1.1')
+        TopicLinkClick.create!(topic_link: topic_link_first, ip_address: '192.168.1.2')
+        topic_link_second = post.topic.topic_links.second
+        TopicLinkClick.create!(topic_link: topic_link_second, ip_address: '192.168.1.1')
 
         expect(counts_for[post.id]).to be_present
-        expect(counts_for[post.id].find { |l| l[:url] == 'http://google.com' }[:clicks]).to eq(0)
-        expect(counts_for[post.id].first[:clicks]).to eq(1)
+        expect(counts_for[post.id].first[:clicks]).to eq(2)
+        expect(counts_for[post.id].second[:clicks]).to eq(1)
 
         array = TopicLink.topic_map(Guardian.new, post.topic_id)
-        expect(array.length).to eq(6)
-        expect(array[0]["clicks"]).to eq(1)
+        expect(array.length).to eq(2)
+        expect(array[0].clicks).to eq(2)
+        expect(array[1].clicks).to eq(1)
       end
 
       it 'secures internal links correctly' do
@@ -332,6 +396,7 @@ http://b.com/#{'a' * 500}
         url = "http://#{test_uri.host}/t/topic-slug/#{secret_topic.id}"
         post = Fabricate(:post, raw: "hello test topic #{url}")
         TopicLink.extract_from(post)
+        TopicLinkClick.create!(topic_link: post.topic.topic_links.first, ip_address: '192.168.1.1')
 
         expect(TopicLink.topic_map(Guardian.new, post.topic_id).count).to eq(1)
         expect(TopicLink.counts_for(Guardian.new, post.topic, [post]).length).to eq(1)
@@ -358,7 +423,7 @@ http://b.com/#{'a' * 500}
     end
 
     describe ".duplicate_lookup" do
-      let(:user) { Fabricate(:user, username: "junkrat") }
+      fab!(:user) { Fabricate(:user, username: "junkrat") }
 
       let(:post_with_internal_link) do
         Fabricate(:post, user: user, raw: "Check out this topic #{post.topic.url}/122131")

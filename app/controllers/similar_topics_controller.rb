@@ -1,5 +1,4 @@
-require_dependency 'similar_topic_serializer'
-require_dependency 'search/grouped_search_results'
+# frozen_string_literal: true
 
 class SimilarTopicsController < ApplicationController
 
@@ -11,7 +10,7 @@ class SimilarTopicsController < ApplicationController
     attr_reader :topic
 
     def blurb
-      Search::GroupedSearchResults.blurb_for(@topic.try(:blurb))
+      Search::GroupedSearchResults.blurb_for(cooked: @topic.try(:blurb))
     end
   end
 

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module DiscourseNarrativeBot
   class Dice
     MAXIMUM_NUM_OF_DICE = 20
@@ -8,12 +10,10 @@ module DiscourseNarrativeBot
         return I18n.t('discourse_narrative_bot.dice.invalid')
       end
 
-      output = ''
+      output = +''
 
       if num_of_dice > MAXIMUM_NUM_OF_DICE
-        output << I18n.t('discourse_narrative_bot.dice.not_enough_dice',
-          num_of_dice: MAXIMUM_NUM_OF_DICE
-        )
+        output << I18n.t('discourse_narrative_bot.dice.not_enough_dice', count: MAXIMUM_NUM_OF_DICE)
         output << "\n\n"
         num_of_dice = MAXIMUM_NUM_OF_DICE
       end

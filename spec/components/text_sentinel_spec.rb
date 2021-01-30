@@ -1,4 +1,5 @@
 # encoding: utf-8
+# frozen_string_literal: true
 
 require 'rails_helper'
 require 'text_sentinel'
@@ -95,6 +96,16 @@ describe TextSentinel do
       expect(TextSentinel.new("去年十二月，北韓不顧國際社會警告")).to be_valid
     end
 
+    it "skips uppercase text for CJK locale" do
+      SiteSetting.default_locale = 'zh_CN'
+      expect(TextSentinel.new("去年SHIER月，北韓不顧國際社會警告")).to be_valid
+    end
+
+    it "skips long words check (`seems_unpretentious`) for CJK locale" do
+      SiteSetting.default_locale = 'zh_CN'
+      expect(TextSentinel.title_sentinel("非常长的文字没有空格分割肯定会触发警告但这不应该是一个错误这个要超过五十个个字符" * 2)).to be_valid
+    end
+
     it "doesn't allow a long alphanumeric string with no spaces" do
       expect(TextSentinel.new("jfewjfoejwfojeojfoejofjeo3" * 5, max_word_length: 30)).not_to be_valid
     end
@@ -143,7 +154,7 @@ describe TextSentinel do
 
     it "uses a sensible min entropy value when min pm body length is less than min entropy" do
       SiteSetting.min_post_length = 5
-      SiteSetting.min_private_message_post_length = 3
+      SiteSetting.min_personal_message_post_length = 3
       SiteSetting.body_min_entropy = 7
       expect(TextSentinel.body_sentinel('Lol', private_message: true)).to be_valid
     end

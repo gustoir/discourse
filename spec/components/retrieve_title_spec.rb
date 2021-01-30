@@ -1,5 +1,6 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'retrieve_title'
 
 describe RetrieveTitle do
 
@@ -54,7 +55,39 @@ describe RetrieveTitle do
       )
       expect(title).to eq("Video Title")
     end
-
   end
 
+  context "crawl" do
+    it "can properly extract a title from a url" do
+      stub_request(:get, "https://brelksdjflaskfj.com/amazing")
+        .to_return(status: 200, body: "<html><title>very amazing</title>")
+
+      # we still resolve the IP address for every host
+      IPSocket.stubs(:getaddress).returns('100.2.3.4')
+
+      expect(RetrieveTitle.crawl("https://brelksdjflaskfj.com/amazing")).to eq("very amazing")
+    end
+
+    it "detects and uses encoding from Content-Type header" do
+      stub_request(:get, "https://brelksdjflaskfj.com/amazing")
+        .to_return(
+          status: 200,
+          body: "<html><title>fancy apostrophes ’’’</title>".dup.force_encoding('ASCII-8BIT'),
+          headers: { 'Content-Type' => 'text/html; charset="utf-8"' }
+        )
+
+      IPSocket.stubs(:getaddress).returns('100.2.3.4')
+      expect(RetrieveTitle.crawl("https://brelksdjflaskfj.com/amazing")).to eq("fancy apostrophes ’’’")
+
+      stub_request(:get, "https://brelksdjflaskfj.com/amazing")
+        .to_return(
+          status: 200,
+          body: "<html><title>japanese こんにちは website</title>".encode('EUC-JP').force_encoding('ASCII-8BIT'),
+          headers: { 'Content-Type' => 'text/html;charset=euc-jp' }
+        )
+
+      IPSocket.stubs(:getaddress).returns('100.2.3.4')
+      expect(RetrieveTitle.crawl("https://brelksdjflaskfj.com/amazing")).to eq("japanese こんにちは website")
+    end
+  end
 end

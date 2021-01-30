@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 require "rails_helper"
 
 describe HasSearchData do
   context "belongs to its model" do
     before do
-      Topic.exec_sql("create temporary table model_items(id SERIAL primary key)")
-      Topic.exec_sql("create temporary table model_item_search_data(model_item_id int primary key, search_data tsvector, raw_data text, locale text)")
+      DB.exec("create temporary table model_items(id SERIAL primary key)")
+      DB.exec("create temporary table model_item_search_data(model_item_id int primary key, search_data tsvector, raw_data text, locale text)")
 
       class ModelItem < ActiveRecord::Base
         has_one :model_item_search_data, dependent: :destroy
@@ -16,13 +18,13 @@ describe HasSearchData do
     end
 
     after do
-      Topic.exec_sql("drop table model_items")
-      Topic.exec_sql("drop table model_item_search_data")
+      DB.exec("drop table model_items")
+      DB.exec("drop table model_item_search_data")
 
-      # import is making my life hard, we need to nuke this out of orbit
-      des = ActiveSupport::DescendantsTracker.class_variable_get :@@direct_descendants
-      des[ActiveRecord::Base].delete(ModelItem)
-      des[ActiveRecord::Base].delete(ModelItemSearchData)
+      # this weakref in the descendant tracker should clean up the two tests
+      # if this becomes an issue we can revisit (watch out for erratic tests)
+      Object.send(:remove_const, :ModelItem)
+      Object.send(:remove_const, :ModelItemSearchData)
     end
 
     let(:item) do
@@ -35,7 +37,7 @@ describe HasSearchData do
       item
     end
 
-    it 'sets its primary key into asscoiated model' do
+    it 'sets its primary key into associated model' do
       expect(ModelItemSearchData.primary_key).to eq 'model_item_id'
     end
 

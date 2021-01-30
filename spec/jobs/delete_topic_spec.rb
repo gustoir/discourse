@@ -1,17 +1,15 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe Jobs::DeleteTopic do
-  let(:admin) { Fabricate(:admin) }
+  fab!(:admin) { Fabricate(:admin) }
 
-  let(:topic) do
+  fab!(:topic) do
     Fabricate(:topic_timer, user: admin).topic
   end
 
   let(:first_post) { create_post(topic: topic) }
-
-  before do
-    SiteSetting.queue_jobs = true
-  end
 
   it "can delete a topic" do
     first_post

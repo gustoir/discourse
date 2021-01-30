@@ -1,9 +1,17 @@
+# frozen_string_literal: true
+
 class WebHookEvent < ActiveRecord::Base
   belongs_to :web_hook
 
   after_save :update_web_hook_delivery_status
 
   default_scope { order('created_at DESC') }
+
+  def self.purge_old
+    where(
+      'created_at < ?', SiteSetting.retain_web_hook_events_period_days.days.ago
+    ).delete_all
+  end
 
   def update_web_hook_delivery_status
     web_hook.last_delivery_status =
@@ -13,7 +21,6 @@ class WebHookEvent < ActiveRecord::Base
       else
         WebHook.last_delivery_statuses[:failed]
       end
-
     web_hook.save!
   end
 end

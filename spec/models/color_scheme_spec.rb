@@ -1,8 +1,14 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe ColorScheme do
+  after do
+    ColorScheme.hex_cache.clear
+  end
 
   let(:valid_params) { { name: "Best Colors Evar", colors: valid_colors } }
+
   let(:valid_colors) { [
     { name: '$primary_background_color', hex: 'FFBB00' },
     { name: '$secondary_background_color', hex: '888888' }
@@ -10,17 +16,20 @@ describe ColorScheme do
 
   it "correctly invalidates theme css when changed" do
     scheme = ColorScheme.create_from_base(name: 'Bob')
-    theme = Theme.new(name: 'Amazing Theme', color_scheme_id: scheme.id, user_id: -1)
+    theme = Fabricate(:theme, color_scheme_id: scheme.id)
     theme.set_field(name: :scss, target: :desktop, value: '.bob {color: $primary;}')
     theme.save!
 
-    href = Stylesheet::Manager.stylesheet_href(:desktop_theme, theme.key)
+    href = Stylesheet::Manager.stylesheet_data(:desktop_theme, theme.id)[0][:new_href]
+    colors_href = Stylesheet::Manager.color_scheme_stylesheet_details(scheme.id, "all", nil)
 
     ColorSchemeRevisor.revise(scheme, colors: [{ name: 'primary', hex: 'bbb' }])
 
-    href2 = Stylesheet::Manager.stylesheet_href(:desktop_theme, theme.key)
+    href2 = Stylesheet::Manager.stylesheet_data(:desktop_theme, theme.id)[0][:new_href]
+    colors_href2 = Stylesheet::Manager.color_scheme_stylesheet_details(scheme.id, "all", nil)
 
     expect(href).not_to eq(href2)
+    expect(colors_href).not_to eq(colors_href2)
   end
 
   describe "new" do
@@ -48,7 +57,7 @@ describe ColorScheme do
     it "creates a new color scheme" do
       c = described_class.create_from_base(name: 'Yellow', colors: { first_one: 'FFFF00', third_one: 'F00D33' })
       expect(c.colors.size).to eq base_colors.size
-      first  = c.colors.find { |x| x.name == 'first_one' }
+      first = c.colors.find { |x| x.name == 'first_one' }
       second = c.colors.find { |x| x.name == 'second_one' }
       third  = c.colors.find { |x| x.name == 'third_one' }
       expect(first.hex).to eq 'FFFF00'
@@ -62,12 +71,45 @@ describe ColorScheme do
       end
 
       it "returns nil for a missing attribute" do
-        expect(described_class.hex_for_name('undefined')).to eq nil
+        expect(ColorScheme.hex_for_name('undefined')).to eq nil
+      end
+
+      it "returns the base color for an attribute of a specified scheme" do
+        scheme = ColorScheme.create_from_base(name: "test scheme")
+        ColorSchemeRevisor.revise(scheme, colors: [{ name: "header_background", hex: "9dc927", default_hex: "949493" }])
+        scheme.reload
+        expect(ColorScheme.hex_for_name("header_background", scheme.id)).to eq("9dc927")
       end
 
       it "returns the base color for an attribute" do
-        expect(described_class.hex_for_name('second_one')).to eq base_colors[:second_one]
+        expect(ColorScheme.hex_for_name('second_one')).to eq base_colors[:second_one]
       end
+    end
+  end
+
+  describe "is_dark?" do
+    it "works as expected" do
+      scheme = ColorScheme.create_from_base(name: 'Tester')
+      ColorSchemeRevisor.revise(scheme, colors: [{ name: 'primary', hex: '333333' }, { name: 'secondary', hex: 'DDDDDD' }])
+      expect(scheme.is_dark?).to eq(false)
+
+      ColorSchemeRevisor.revise(scheme, colors: [{ name: 'primary', hex: 'F8F8F8' }, { name: 'secondary', hex: '232323' }])
+      expect(scheme.is_dark?).to eq(true)
+    end
+
+    it "does not break in scheme without colors" do
+      scheme = ColorScheme.create(name: "No Bueno")
+      expect(scheme.is_dark?).to eq(nil)
+    end
+  end
+
+  describe "is_wcag?" do
+    it "works as expected" do
+      expect(ColorScheme.create_from_base(name: 'Nope').is_wcag?).to eq(nil)
+      expect(ColorScheme.create_from_base(name: 'Nah', base_scheme_id: "Dark").is_wcag?).to eq(false)
+
+      expect(ColorScheme.create_from_base(name: 'Yup', base_scheme_id: "WCAG").is_wcag?).to eq(true)
+      expect(ColorScheme.create_from_base(name: 'Yup', base_scheme_id: "WCAG Dark").is_wcag?).to eq(true)
     end
   end
 end

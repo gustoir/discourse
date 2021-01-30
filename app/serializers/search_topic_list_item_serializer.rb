@@ -1,12 +1,15 @@
-class SearchTopicListItemSerializer < ListableTopicSerializer
-  attributes :tags,
-    :category_id
+# frozen_string_literal: true
 
-  def include_tags?
-    SiteSetting.tagging_enabled
+class SearchTopicListItemSerializer < ListableTopicSerializer
+  include TopicTagsMixin
+
+  attributes :category_id
+
+  def include_image_url?
+    false
   end
 
-  def tags
-    object.tags.map(&:name)
+  def include_thumbnails?
+    false
   end
 end

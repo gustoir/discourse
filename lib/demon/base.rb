@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Demon; end
 
 # intelligent fork based demonizer
@@ -7,10 +9,10 @@ class Demon::Base
     @demons
   end
 
-  def self.start(count = 1)
+  def self.start(count = 1, verbose: false)
     @demons ||= {}
     count.times do |i|
-      (@demons["#{prefix}_#{i}"] ||= new(i)).start
+      (@demons["#{prefix}_#{i}"] ||= new(i, verbose: verbose)).start
     end
   end
 
@@ -35,19 +37,28 @@ class Demon::Base
     end
   end
 
+  def self.kill(signal)
+    return unless @demons
+    @demons.values.each do |demon|
+      demon.kill(signal)
+    end
+  end
+
   attr_reader :pid, :parent_pid, :started, :index
   attr_accessor :stop_timeout
 
-  def initialize(index)
+  def initialize(index, rails_root: nil, parent_pid: nil, verbose: false)
     @index = index
     @pid = nil
-    @parent_pid = Process.pid
+    @parent_pid = parent_pid || Process.pid
     @started = false
     @stop_timeout = 10
+    @rails_root = rails_root || Rails.root
+    @verbose = verbose
   end
 
   def pid_file
-    "#{Rails.root}/tmp/pids/#{self.class.prefix}_#{@index}.pid"
+    "#{@rails_root}/tmp/pids/#{self.class.prefix}_#{@index}.pid"
   end
 
   def alive?(pid = nil)
@@ -59,11 +70,18 @@ class Demon::Base
     end
   end
 
+  def kill(signal)
+    Process.kill(signal, @pid)
+  end
+
+  def stop_signal
+    "HUP"
+  end
+
   def stop
     @started = false
     if @pid
-      # TODO configurable stop signal
-      Process.kill("HUP", @pid)
+      Process.kill(stop_signal, @pid)
 
       wait_for_stop = lambda {
         timeout = @stop_timeout
@@ -80,7 +98,7 @@ class Demon::Base
       wait_for_stop.call
 
       if alive?
-        STDERR.puts "Process would not terminate cleanly, force quitting. pid: #{@pid}"
+        STDERR.puts "Process would not terminate cleanly, force quitting. pid: #{@pid} #{self.class}"
         Process.kill("KILL", @pid)
       end
 
@@ -123,14 +141,13 @@ class Demon::Base
   end
 
   def run
-    if @pid = fork
-      write_pid_file
-      return
+    @pid = fork do
+      Process.setproctitle("discourse #{self.class.prefix}")
+      monitor_parent
+      establish_app
+      after_fork
     end
-
-    monitor_parent
-    establish_app
-    after_fork
+    write_pid_file
   end
 
   def already_running?
@@ -153,8 +170,15 @@ class Demon::Base
 
   private
 
+  def verbose(msg)
+    if @verbose
+      puts msg
+    end
+  end
+
   def write_pid_file
-    FileUtils.mkdir_p(Rails.root + "tmp/pids")
+    verbose("writing pid file #{pid_file} for #{@pid}")
+    FileUtils.mkdir_p(@rails_root + "tmp/pids")
     File.open(pid_file, 'w') do |f|
       f.write(@pid)
     end
@@ -190,7 +214,7 @@ class Demon::Base
   end
 
   def establish_app
-    Discourse.after_fork
+    Discourse.after_fork if defined?(Discourse)
 
     Signal.trap("HUP") do
       begin

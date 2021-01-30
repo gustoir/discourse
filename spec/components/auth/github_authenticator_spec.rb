@@ -1,13 +1,10 @@
-require 'rails_helper'
+# frozen_string_literal: true
 
-# In the ghetto ... getting the spec to run in autospec
-#  thing is we need to load up all auth really early pre-fork
-#  it means that the require is not going to get a new copy
-Auth.send(:remove_const, :GithubAuthenticator)
-load 'auth/github_authenticator.rb'
+require 'rails_helper'
 
 def auth_token_for(user)
   {
+    provider: "github",
     extra: {
       all_emails: [{
         email: user.email,
@@ -17,7 +14,6 @@ def auth_token_for(user)
     },
     info: {
       email: user.email,
-      email_verified: true,
       nickname: user.username,
       name: user.name,
       image: "https://avatars3.githubusercontent.com/u/#{user.username}",
@@ -28,39 +24,98 @@ end
 
 describe Auth::GithubAuthenticator do
   let(:authenticator) { described_class.new }
-  let(:user) { Fabricate(:user) }
+  fab!(:user) { Fabricate(:user) }
 
   context 'after_authenticate' do
+    let(:data) { auth_token_for(user) }
 
     it 'can authenticate and create a user record for already existing users' do
-      hash = {
-        extra: {
-          all_emails: [{
-            email: user.email,
-            primary: true,
-            verified: true,
-          }]
-        },
-        info: {
-          email: user.email,
-          email_verified: true,
-          nickname: user.username,
-          name: user.name,
-        },
-        uid: "100"
-      }
-
-      result = authenticator.after_authenticate(hash)
+      result = authenticator.after_authenticate(data)
 
       expect(result.user.id).to eq(user.id)
       expect(result.username).to eq(user.username)
       expect(result.name).to eq(user.name)
       expect(result.email).to eq(user.email)
       expect(result.email_valid).to eq(true)
+
+      # Authenticates again when user has Github user info
+      result = authenticator.after_authenticate(data)
+
+      expect(result.email).to eq(user.email)
+      expect(result.email_valid).to eq(true)
+    end
+
+    it 'can authenticate and update GitHub screen_name for existing user' do
+      UserAssociatedAccount.create!(user_id: user.id, provider_name: "github", provider_uid: 100, info: { nickname: "boris" })
+
+      result = authenticator.after_authenticate(data)
+
+      expect(result.user.id).to eq(user.id)
+      expect(result.email).to eq(user.email)
+      expect(result.email_valid).to eq(true)
+      expect(UserAssociatedAccount.find_by(provider_name: "github", user_id: user.id).info["nickname"]).to eq(user.username)
+    end
+
+    it 'should use primary email for new user creation over other available emails' do
+      hash = {
+        provider: "github",
+        extra: {
+          all_emails: [{
+            email: "bob@example.com",
+            primary: false,
+            verified: true,
+          }, {
+            email: "john@example.com",
+            primary: true,
+            verified: true,
+          }]
+        },
+        info: {
+          email: "john@example.com",
+          nickname: "john",
+          name: "John Bob",
+        },
+        uid: "100"
+      }
+
+      result = authenticator.after_authenticate(hash)
+
+      expect(result.email).to eq("john@example.com")
+    end
+
+    it 'should not error out if user already has a different old github account attached' do
+
+      # There is a rare case where an end user had
+      # 2 different github accounts and moved emails between the 2
+
+      UserAssociatedAccount.create!(user_id: user.id, info: { nickname: 'bob' }, provider_uid: 100, provider_name: "github")
+
+      hash = {
+        provider: "github",
+        extra: {
+          all_emails: [{
+            email: user.email,
+            primary: false,
+            verified: true,
+          }]
+        },
+        info: {
+          email: "john@example.com",
+          nickname: "john",
+          name: "John Bob",
+        },
+        uid: "1001"
+      }
+
+      result = authenticator.after_authenticate(hash)
+
+      expect(result.user.id).to eq(user.id)
+      expect(UserAssociatedAccount.where(user_id: user.id).pluck(:provider_uid)).to eq(["1001"])
     end
 
     it 'will not authenticate for already existing users with an unverified email' do
       hash = {
+        provider: "github",
         extra: {
           all_emails: [{
             email: user.email,
@@ -70,7 +125,6 @@ describe Auth::GithubAuthenticator do
         },
         info: {
           email: user.email,
-          email_verified: false,
           nickname: user.username,
           name: user.name,
         },
@@ -88,6 +142,7 @@ describe Auth::GithubAuthenticator do
 
     it 'can create a proper result for non existing users' do
       hash = {
+        provider: "github",
         extra: {
           all_emails: [{
             email: "person@example.com",
@@ -97,7 +152,6 @@ describe Auth::GithubAuthenticator do
         },
         info: {
           email: "person@example.com",
-          email_verified: true,
           nickname: "person",
           name: "Person Lastname",
         },
@@ -110,87 +164,117 @@ describe Auth::GithubAuthenticator do
       expect(result.username).to eq(hash[:info][:nickname])
       expect(result.name).to eq(hash[:info][:name])
       expect(result.email).to eq(hash[:info][:email])
-      expect(result.email_valid).to eq(hash[:info][:email_verified])
+      expect(result.email_valid).to eq(hash[:info][:email].present?)
     end
 
-    it 'will skip blacklisted domains for non existing users' do
+    it 'will skip blocklisted domains for non existing users' do
       hash = {
+        provider: "github",
         extra: {
           all_emails: [{
-            email: "not_allowed@blacklist.com",
+            email: "not_allowed@blocklist.com",
             primary: true,
             verified: true,
           }, {
-            email: "allowed@whitelist.com",
+            email: "allowed@allowlist.com",
             primary: false,
             verified: true,
           }]
         },
         info: {
-          email: "not_allowed@blacklist.com",
-          email_verified: true,
+          email: "not_allowed@blocklist.com",
           nickname: "person",
           name: "Person Lastname",
         },
         uid: "100"
       }
 
-      SiteSetting.email_domains_blacklist = "blacklist.com"
+      SiteSetting.blocked_email_domains = "blocklist.com"
       result = authenticator.after_authenticate(hash)
 
       expect(result.user).to eq(nil)
       expect(result.username).to eq(hash[:info][:nickname])
       expect(result.name).to eq(hash[:info][:name])
-      expect(result.email).to eq("allowed@whitelist.com")
+      expect(result.email).to eq("allowed@allowlist.com")
       expect(result.email_valid).to eq(true)
     end
 
-    it 'will find whitelisted domains for non existing users' do
+    it 'will find allowlisted domains for non existing users' do
       hash = {
+        provider: "github",
         extra: {
           all_emails: [{
             email: "person@example.com",
             primary: true,
             verified: true,
           }, {
-            email: "not_allowed@blacklist.com",
-            primary: true,
+            email: "not_allowed@blocklist.com",
+            primary: false,
             verified: true,
           }, {
-            email: "allowed@whitelist.com",
+            email: "allowed@allowlist.com",
             primary: false,
             verified: true,
           }]
         },
         info: {
           email: "person@example.com",
-          email_verified: true,
           nickname: "person",
           name: "Person Lastname",
         },
         uid: "100"
       }
 
-      SiteSetting.email_domains_whitelist = "whitelist.com"
+      SiteSetting.allowed_email_domains = "allowlist.com"
       result = authenticator.after_authenticate(hash)
 
       expect(result.user).to eq(nil)
       expect(result.username).to eq(hash[:info][:nickname])
       expect(result.name).to eq(hash[:info][:name])
-      expect(result.email).to eq("allowed@whitelist.com")
+      expect(result.email).to eq("allowed@allowlist.com")
       expect(result.email_valid).to eq(true)
     end
+
+    it 'can connect to a different existing user account' do
+      user1 = Fabricate(:user)
+      user2 = Fabricate(:user)
+
+      expect(authenticator.can_connect_existing_user?).to eq(true)
+
+      UserAssociatedAccount.create!(provider_name: "github", user_id: user1.id, provider_uid: 100, info: { nickname: "boris" })
+
+      result = authenticator.after_authenticate(data, existing_account: user2)
+
+      expect(result.user.id).to eq(user2.id)
+      expect(UserAssociatedAccount.exists?(user_id: user1.id)).to eq(false)
+      expect(UserAssociatedAccount.exists?(user_id: user2.id)).to eq(true)
+    end
+
+  end
+
+  context 'revoke' do
+    fab!(:user) { Fabricate(:user) }
+    let(:authenticator) { Auth::GithubAuthenticator.new }
+
+    it 'raises exception if no entry for user' do
+      expect { authenticator.revoke(user) }.to raise_error(Discourse::NotFound)
+    end
+
+      it 'revokes correctly' do
+        UserAssociatedAccount.create!(provider_name: "github", user_id: user.id, provider_uid: 100, info: { nickname: "boris" })
+        expect(authenticator.can_revoke?).to eq(true)
+        expect(authenticator.revoke(user)).to eq(true)
+        expect(authenticator.description_for_user(user)).to eq("")
+      end
 
   end
 
   describe 'avatar retrieval' do
     let(:job_klass) { Jobs::DownloadAvatarFromUrl }
 
-    before { SiteSetting.queue_jobs = true }
-
     context 'when user has a custom avatar' do
-      let(:user_avatar) { Fabricate(:user_avatar, custom_upload: Fabricate(:upload)) }
-      let(:user_with_custom_avatar) { Fabricate(:user, user_avatar: user_avatar) }
+      fab!(:user_avatar) { Fabricate(:user_avatar, custom_upload: Fabricate(:upload)) }
+      fab!(:user_with_custom_avatar) { Fabricate(:user, user_avatar: user_avatar) }
 
       it 'does not enqueue a download_avatar_from_url job' do
         expect {

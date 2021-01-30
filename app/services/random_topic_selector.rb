@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class RandomTopicSelector
 
   BACKFILL_SIZE = 3000
@@ -6,9 +8,6 @@ class RandomTopicSelector
   def self.backfill(category = nil)
     exclude = category&.topic_id
 
-    # don't leak private categories into the "everything" group
-    user = category ? CategoryFeaturedTopic.fake_admin : nil
-
     options = {
       per_page: category ? category.num_featured_topics : 3,
       visible: true,
@@ -16,9 +15,20 @@ class RandomTopicSelector
     }
 
     options[:except_topic_ids] = [category.topic_id] if exclude
-    options[:category] = category.id if category
 
-    query = TopicQuery.new(user, options)
+    if category
+      options[:category] = category.id
+      # NOTE: at the moment this site setting scopes tightly to a category (excluding subcats)
+      # this is done so we don't populate a junk cache
+      if SiteSetting.limit_suggested_to_category
+        options[:no_subcategories] = true
+      end
+
+      # don't leak private categories into the "everything" group
+      options[:guardian] = Guardian.new(Discourse.system_user)
+    end
+
+    query = TopicQuery.new(nil, options)
 
     results = query.latest_results.order('RANDOM()')
       .where(closed: false, archived: false)
@@ -30,9 +40,9 @@ class RandomTopicSelector
     key = cache_key(category)
 
     if results.present?
-      $redis.multi do
-        $redis.rpush(key, results)
-        $redis.expire(key, 2.days)
+      Discourse.redis.multi do
+        Discourse.redis.rpush(key, results)
+        Discourse.redis.expire(key, 2.days)
       end
     end
 
@@ -46,13 +56,13 @@ class RandomTopicSelector
 
     return results if count < 1
 
-    results = $redis.multi do
-      $redis.lrange(key, 0, count - 1)
-      $redis.ltrim(key, count, -1)
+    results = Discourse.redis.multi do
+      Discourse.redis.lrange(key, 0, count - 1)
+      Discourse.redis.ltrim(key, count, -1)
     end
 
     if !results.is_a?(Array) # Redis is in readonly mode
-      results = $redis.lrange(key, 0, count - 1)
+      results = Discourse.redis.lrange(key, 0, count - 1)
     else
       results = results[0]
     end
@@ -70,7 +80,7 @@ class RandomTopicSelector
       results = results[0...count]
     end
 
-    if !backfilled && $redis.llen(key) < BACKFILL_LOW_WATER_MARK
+    if !backfilled && Discourse.redis.llen(key) < BACKFILL_LOW_WATER_MARK
       Scheduler::Defer.later("backfill") do
         backfill(category)
       end
@@ -81,6 +91,10 @@ class RandomTopicSelector
 
   def self.cache_key(category = nil)
     "random_topic_cache_#{category&.id}"
+  end
+
+  def self.clear_cache!
+    Discourse.redis.delete_prefixed(cache_key)
   end
 
 end

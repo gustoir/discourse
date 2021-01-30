@@ -1,55 +1,85 @@
-.d-editor {
-  border: 1px solid $primary-low;
-}
-
 .d-editor-container {
-  padding: 0 10px 13px 10px;
+  display: flex;
+  flex-grow: 1;
+  max-width: 100%;
 }
 
-.d-editor-overlay {
-  position: absolute;
-  background-color: black;
-  opacity: 0.8;
-  z-index: 1000;
+.d-editor {
+  display: flex;
+  flex-grow: 1;
+  min-height: 0;
 }
 
-.d-editor-modals {
-  position: absolute;
-  z-index: 1001;
+.d-editor-textarea-wrapper,
+.d-editor-preview-wrapper {
+  flex: 1;
 }
 
-.d-editor .d-editor-modal {
-  min-width: 400px;
-  position: absolute;
-  background-color: $secondary;
-  border: 1px solid $primary-low;
-  padding: 1em;
-  top: 25px;
+.d-editor-textarea-wrapper {
+  display: flex;
+  flex-direction: column;
+  background-color: var(--secondary);
+  position: relative;
+  border: 1px solid var(--primary-medium);
 
-  input {
-    width: 98%;
+  textarea {
+    background: transparent;
   }
-  h3 {
-    margin-bottom: 0.5em;
+
+  &.in-focus {
+    border-color: $tertiary;
   }
+
+  &.disabled {
+    cursor: not-allowed;
+    .d-editor-button-bar {
+      visibility: hidden;
+    }
+  }
+}
+
+.d-editor-preview-wrapper {
+  max-width: 49%;
+  margin-left: 1%;
+  display: flex;
+  flex-direction: column;
 }
 
 .d-editor-button-bar {
-  margin: 5px;
-  padding: 0;
-  height: 20px;
-  overflow: hidden;
+  display: flex;
+  align-items: center;
+  min-height: 30px;
+  border-bottom: 1px solid var(--primary-low);
 
-  button {
+  .btn,
+  .btn-default {
     background-color: transparent;
-    padding: 2px 4px;
-    float: left;
-    margin-right: 6px;
-    min-width: 20px;
+    display: inline-block;
+    color: var(--primary-medium);
+    .d-icon {
+      color: currentColor;
+    }
+    &:hover {
+      color: var(--primary-low);
+    }
+
+    svg {
+      -webkit-transform: translate3d(
+        0,
+        0,
+        0
+      ); // Hack: Reduces composer icon jitter while scrolling in Safari on iOS12
+    }
+  }
+
+  .d-editor-spacer {
+    height: 1em;
+    display: inline-block;
+    border-left: 1px solid var(--primary-low-mid);
   }
 
   .btn:not(.no-text) {
-    font-size: 1.2em;
+    font-size: $font-up-1;
   }
 
   .btn.bold {
@@ -59,61 +89,261 @@
   .btn.italic {
     font-style: italic;
   }
-
-  .btn.heading {
-    font-family: Palatino, Cambria, Georgia, "Times New Roman", serif;
-    font-weight: bold;
-  }
 }
 
-.d-editor-spacer {
-  width: 1px;
-  height: 20px;
-  margin-right: 8px;
-  margin-left: 5px;
-  background-color: $primary-low;
-  display: inline-block;
-  float: left;
+.d-editor-preview-wrapper {
+  overflow: auto;
+  cursor: default;
+  -webkit-overflow-scrolling: touch;
+  // the below gives text little space to overflow without being cropped (e.g., Õ in headings)
+  padding-top: 1em;
+  margin-top: -1em;
+}
+
+.d-editor-input,
+.d-editor-preview {
+  box-sizing: border-box;
+  flex: 1 1 100%;
+  width: 100%;
+  margin: 0;
+  min-height: auto;
+  word-wrap: break-word;
+  -webkit-appearance: none;
+  border-radius: 0;
+  &:focus {
+    box-shadow: none;
+    border: 0;
+    outline: 0;
+  }
 }
 
 .d-editor-input {
-  color: $primary;
-  width: 98%;
-  height: 200px;
-
-  &:disabled {
-    background-color: $primary-low;
-  }
+  border: 0;
+  padding: 10px;
+  height: 100%;
+  overflow-x: hidden;
+  resize: none;
 }
 
 .d-editor-preview {
-  color: $primary;
-  border: 1px dashed $primary-low;
+  height: auto;
+}
+
+.d-editor-plugin {
+  display: flex;
+  flex: 1 1;
   overflow: auto;
-  cursor: default;
-  margin-top: 8px;
-  padding: 8px 8px 0 8px;
-  video {
-    max-width: 100%;
-    max-height: 500px;
-    height: auto;
-  }
-  audio {
-    max-width: 100%;
-  }
-  &.hidden {
-    width: 0;
-    visibility: hidden;
-  }
-
 }
-.composing-whisper {
+
+.composing-whisper .d-editor-preview {
+  font-style: italic;
+  color: var(--primary-medium) !important;
+}
+
+.hide-preview .d-editor-preview-wrapper {
+  display: none;
+  flex: 0;
+}
+
+.edit-category-tab-topic-template {
+  .emoji.btn {
+    display: none;
+  }
+}
+
+.user-preferences .bio-composer,
+.group-form-bio,
+.edit-category-tab-topic-template {
+  textarea {
+    width: 100%;
+    height: 100%;
+    min-height: 10em;
+  }
+  .local-dates.btn {
+    display: none;
+  }
+  .d-editor-container {
+    display: block;
+  }
+  .d-editor-textarea-wrapper {
+    border: 1px solid var(--primary-low);
+  }
+  .d-editor-preview-wrapper {
+    max-width: 100%;
+    margin: 0;
+    padding: 0;
+  }
   .d-editor-preview {
-    font-style: italic;
-    color: $primary-medium !important;
+    background-color: var(--primary-very-low);
+    margin-top: 1em;
+    padding: 0.667em;
+    &:empty {
+      margin: 0;
+      padding: 0;
+    }
   }
 }
 
-.d-editor-preview > *:first-child {
-  margin-top: 0;
+.user-preferences .bio-composer,
+.group-form-bio {
+  padding: 10px;
+  border: 1px solid var(--primary-low);
+}
+
+.d-editor-preview img {
+  padding-bottom: 1.4em;
+  &.emoji,
+  &.avatar,
+  &.site-icon {
+    padding-bottom: 0;
+  }
+  &.resizable {
+    object-fit: cover;
+    object-position: top;
+  }
+}
+
+.d-editor-preview .image-wrapper {
+  --resizer-height: 1.75em;
+  position: relative;
+  display: inline-block;
+  .desktop-view & {
+    // need the extra space on mobile because controls are always visible
+    padding-bottom: var(--resizer-height);
+    margin-bottom: calc(var(--resizer-height) * -1);
+  }
+
+  img {
+    padding-bottom: 0;
+  }
+
+  &:hover {
+    .button-wrapper {
+      opacity: 1;
+    }
+  }
+  .button-wrapper {
+    position: absolute;
+    height: var(--resizer-height);
+    bottom: 0;
+    left: 0;
+    opacity: 0;
+    display: flex;
+    align-items: center;
+    transition: all 0.25s;
+    z-index: 1; // needs to be higher than image
+    width: 100%;
+    background: var(--secondary); // for when images are wider than controls
+
+    .scale-btn {
+      background: var(--secondary); // for when controls are wider than image
+      color: var(--tertiary);
+      padding: 0 1em;
+      &:first-child,
+      &:last-child {
+        padding: 0;
+      }
+
+      &.active {
+        font-weight: bold;
+        color: var(--primary);
+      }
+
+      &:not(.active):hover {
+        text-decoration: underline;
+        cursor: pointer;
+      }
+    }
+  }
+}
+
+.mobile-view .d-editor-preview .image-wrapper .button-wrapper {
+  opacity: 1;
+}
+
+// d-editor bar button sizing for all editors - this is kept seprate to keep
+// everything in one place
+.d-editor-button-bar {
+  margin: 0.25em;
+
+  // shared styles for all font sizes
+  .btn,
+  .btn-default {
+    padding: 0.5em;
+  }
+  .d-editor-spacer {
+    margin: 0 0.25em;
+  }
+
+  // small text size
+  .text-size-smaller & {
+    @include breakpoint(mobile-large) {
+      .btn,
+      .btn-default {
+        padding: 0 0.4em;
+      }
+    }
+    @include breakpoint(mobile-medium) {
+      .btn,
+      .btn-default {
+        padding: 0 0.3em;
+      }
+      .d-editor-spacer {
+        margin: 0 0.25em;
+      }
+    }
+  }
+
+  // normal text size
+  .text-size-normal & {
+    @include breakpoint(mobile-large) {
+      .btn,
+      .btn-default {
+        padding: 0 0.35em;
+      }
+    }
+    @include breakpoint(mobile-medium) {
+      .btn,
+      .btn-default {
+        padding: 0 0.25em;
+      }
+    }
+  }
+
+  // larger text size
+  .text-size-larger & {
+    @include breakpoint(mobile-large) {
+      .btn,
+      .btn-default {
+        padding: 0 0.3em;
+      }
+    }
+    @include breakpoint(mobile-medium) {
+      .btn,
+      .btn-default {
+        padding: 0 0.2em;
+      }
+    }
+  }
+
+  // largest text size
+  .text-size-largest & {
+    .btn,
+    .btn-default {
+      font-size: $font-down-1;
+    }
+
+    @include breakpoint(mobile-large) {
+      .btn,
+      .btn-default {
+        padding: 0 0.3em;
+      }
+    }
+    @include breakpoint(mobile-medium) {
+      .btn,
+      .btn-default {
+        padding: 0 0.2em;
+      }
+    }
+  }
 }

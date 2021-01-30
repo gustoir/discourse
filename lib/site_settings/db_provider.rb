@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module SiteSettings; end
 
 class SiteSettings::DbProvider
@@ -14,15 +16,14 @@ class SiteSettings::DbProvider
     return [] unless table_exists?
 
     # Not leaking out AR records, cause I want all editing to happen via this API
-    SqlBuilder.new("SELECT name, data_type, value FROM #{@model.table_name}").map_exec(OpenStruct)
+    DB.query("SELECT name, data_type, value FROM #{@model.table_name}")
   end
 
   def find(name)
     return nil unless table_exists?
 
     # Not leaking out AR records, cause I want all editing to happen via this API
-    SqlBuilder.new("SELECT name, data_type, value FROM #{@model.table_name} WHERE name = :name")
-      .map_exec(OpenStruct, name: name)
+    DB.query("SELECT name, data_type, value FROM #{@model.table_name} WHERE name = ?", name)
       .first
   end
 
@@ -37,7 +38,7 @@ class SiteSettings::DbProvider
     model.data_type = data_type
 
     # save! used to ensure after_commit is called
-    model.save!
+    model.save! if model.changed?
 
     true
   end
@@ -57,12 +58,7 @@ class SiteSettings::DbProvider
   # table is not in the db yet, initial migration, etc
   def table_exists?
     @table_exists ||= {}
-
-    unless @table_exists[current_site]
-      @table_exists[current_site] = ActiveRecord::Base.connection.table_exists?(@model.table_name)
-    end
-
-    @table_exists[current_site]
+    @table_exists[current_site] ||= ActiveRecord::Base.connection.table_exists?(@model.table_name)
   end
 
 end

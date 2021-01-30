@@ -1,4 +1,6 @@
 # encoding: utf-8
+# frozen_string_literal: true
+
 # source: https://github.com/svenfuchs/i18n/blob/master/test/test_data/locales/plurals.rb
 
 {
@@ -11,7 +13,7 @@
   bh: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| [0, 1].include?(n) ? :one : :other } } } },
   bn: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   bo: { i18n: { plural: { keys: [:other], rule: lambda { |n| :other } } } },
-  bs: { i18n: { plural: { keys: [:one, :few, :many, :other], rule: lambda { |n| n % 10 == 1 && n % 100 != 11 ? :one : [2, 3, 4].include?(n % 10) && ![12, 13, 14].include?(n % 100) ? :few : n % 10 == 0 || [5, 6, 7, 8, 9].include?(n % 10) || [11, 12, 13, 14].include?(n % 100) ? :many : :other } } } },
+  bs_BA: { i18n: { plural: { keys: [:one, :few, :other], rule: lambda { |n| n % 10 == 1 && n % 100 != 11 ? :one : [2, 3, 4].include?(n % 10) && ![12, 13, 14].include?(n % 100) ? :few : :other } } } },
   ca: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   cs: { i18n: { plural: { keys: [:one, :few, :other], rule: lambda { |n| n == 1 ? :one : [2, 3, 4].include?(n) ? :few : :other } } } },
   cy: { i18n: { plural: { keys: [:one, :two, :many, :other], rule: lambda { |n| n == 1 ? :one : n == 2 ? :two : n == 8 || n == 11 ? :many : :other } } } },
@@ -38,8 +40,9 @@
   ha: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   he: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   hi: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| [0, 1].include?(n) ? :one : :other } } } },
-  hr: { i18n: { plural: { keys: [:one, :few, :many, :other], rule: lambda { |n| n % 10 == 1 && n % 100 != 11 ? :one : [2, 3, 4].include?(n % 10) && ![12, 13, 14].include?(n % 100) ? :few : n % 10 == 0 || [5, 6, 7, 8, 9].include?(n % 10) || [11, 12, 13, 14].include?(n % 100) ? :many : :other } } } },
+  hr: { i18n: { plural: { keys: [:one, :few, :other], rule: lambda { |n| n % 10 == 1 && n % 100 != 11 ? :one : [2, 3, 4].include?(n % 10) && ![12, 13, 14].include?(n % 100) ? :few : :other } } } },
   hu: { i18n: { plural: { keys: [:other], rule: lambda { |n| :other } } } },
+  hy: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   id: { i18n: { plural: { keys: [:other], rule: lambda { |n| :other } } } },
   is: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   it: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
@@ -92,7 +95,7 @@
   sms: { i18n: { plural: { keys: [:one, :two, :other], rule: lambda { |n| n == 1 ? :one : n == 2 ? :two : :other } } } },
   so: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   sq: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
-  sr: { i18n: { plural: { keys: [:one, :few, :many, :other], rule: lambda { |n| n % 10 == 1 && n % 100 != 11 ? :one : [2, 3, 4].include?(n % 10) && ![12, 13, 14].include?(n % 100) ? :few : n % 10 == 0 || [5, 6, 7, 8, 9].include?(n % 10) || [11, 12, 13, 14].include?(n % 100) ? :many : :other } } } },
+  sr: { i18n: { plural: { keys: [:one, :few, :other], rule: lambda { |n| n % 10 == 1 && n % 100 != 11 ? :one : [2, 3, 4].include?(n % 10) && ![12, 13, 14].include?(n % 100) ? :few : :other } } } },
   sv: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   sw: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },
   ta: { i18n: { plural: { keys: [:one, :other], rule: lambda { |n| n == 1 ? :one : :other } } } },

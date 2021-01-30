@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Helpers
   extend ActiveSupport::Concern
 
@@ -14,6 +16,11 @@ module Helpers
   def log_in_user(user)
     provider = Discourse.current_user_provider.new(request.env)
     provider.log_on_user(user, session, cookies)
+    provider
+  end
+
+  def log_out_user(provider)
+    provider.log_off_user(session, cookies)
   end
 
   def fixture_file(filename)
@@ -58,7 +65,7 @@ module Helpers
   def stub_guardian(user)
     guardian = Guardian.new(user)
     yield(guardian) if block_given?
-    Guardian.stubs(new: guardian).with(user)
+    Guardian.stubs(new: guardian).with(user, anything)
   end
 
   def wait_for(on_fail: nil, &blk)
@@ -84,5 +91,99 @@ module Helpers
 
   def email(email_name)
     fixture_file("emails/#{email_name}.eml")
+  end
+
+  def create_staff_only_tags(tag_names)
+    create_limited_tags('Staff Tags', Group::AUTO_GROUPS[:staff], tag_names)
+  end
+
+  def create_limited_tags(tag_group_name, group_id, tag_names)
+    tag_group = Fabricate(:tag_group, name: tag_group_name)
+    TagGroupPermission.where(
+      tag_group: tag_group,
+      group_id: Group::AUTO_GROUPS[:everyone],
+      permission_type: TagGroupPermission.permission_types[:full]
+    ).update(permission_type: TagGroupPermission.permission_types[:readonly])
+    TagGroupPermission.create!(
+      tag_group: tag_group,
+      group_id: group_id,
+      permission_type: TagGroupPermission.permission_types[:full]
+    )
+    tag_names.each do |name|
+      tag_group.tags << (Tag.where(name: name).first || Fabricate(:tag, name: name))
+    end
+  end
+
+  def create_hidden_tags(tag_names)
+    tag_group = Fabricate(:tag_group,
+      name: 'Hidden Tags',
+      permissions: { staff: :full }
+    )
+    tag_names.each do |name|
+      tag_group.tags << (Tag.where(name: name).first || Fabricate(:tag, name: name))
+    end
+  end
+
+  def sorted_tag_names(tag_records)
+    tag_records.map { |t| t.is_a?(String) ? t : t.name }.sort
+  end
+
+  def expect_same_tag_names(a, b)
+    expect(sorted_tag_names(a)).to eq(sorted_tag_names(b))
+  end
+
+  def capture_output(output_name)
+    if ENV['RAILS_ENABLE_TEST_STDOUT']
+      yield
+      return
+    end
+
+    previous_output = output_name == :stdout ? $stdout : $stderr
+
+    io = StringIO.new
+    output_name == :stdout ? $stdout = io : $stderr = io
+
+    yield
+    io.string
+  ensure
+    output_name == :stdout ? $stdout = previous_output : $stderr = previous_output
+  end
+
+  def capture_stdout(&block)
+    capture_output(:stdout, &block)
+  end
+
+  def capture_stderr(&block)
+    capture_output(:stderr, &block)
+  end
+
+  def set_subfolder(f)
+    global_setting :relative_url_root, f
+    old_root = ActionController::Base.config.relative_url_root
+    ActionController::Base.config.relative_url_root = f
+
+    before_next_spec do
+      ActionController::Base.config.relative_url_root = old_root
+    end
+  end
+
+  def setup_git_repo(files)
+    repo_dir = Dir.mktmpdir
+    `cd #{repo_dir} && git init .`
+    `cd #{repo_dir} && git config user.email 'someone@cool.com'`
+    `cd #{repo_dir} && git config user.name 'The Cool One'`
+    `cd #{repo_dir} && git config commit.gpgsign 'false'`
+    files.each do |name, data|
+      FileUtils.mkdir_p(Pathname.new("#{repo_dir}/#{name}").dirname)
+      File.write("#{repo_dir}/#{name}", data)
+      `cd #{repo_dir} && git add #{name}`
+    end
+    `cd #{repo_dir} && git commit -am 'first commit'`
+    repo_dir
+  end
+
+  class StubbedJob
+    def initialize; end
+    def perform(args); end
   end
 end

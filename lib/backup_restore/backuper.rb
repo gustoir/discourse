@@ -1,3 +1,8 @@
+# frozen_string_literal: true
+
+require "mini_mime"
+require "file_store/s3_store"
+
 module BackupRestore
 
   class Backuper
@@ -7,7 +12,8 @@ module BackupRestore
       @user_id = user_id
       @client_id = opts[:client_id]
       @publish_to_message_bus = opts[:publish_to_message_bus] || false
-      @with_uploads = opts[:with_uploads].nil? ? true : opts[:with_uploads]
+      @with_uploads = opts[:with_uploads].nil? ? include_uploads? : opts[:with_uploads]
+      @filename_override = opts[:filename]
 
       ensure_no_operation_is_running
       ensure_we_have_a_user
@@ -26,20 +32,13 @@ module BackupRestore
       ensure_directory_exists(@tmp_directory)
       ensure_directory_exists(@archive_directory)
 
-      ### READ-ONLY / START ###
-      enable_readonly_mode
-
-      pause_sidekiq
-      wait_for_sidekiq
-
+      update_metadata
       dump_public_schema
-
-      disable_readonly_mode
-      ### READ-ONLY / END ###
 
       log "Finalizing backup..."
 
       @with_uploads ? create_archive : move_dump_backup
+      upload_archive
 
       after_create_hook
     rescue SystemExit
@@ -50,15 +49,12 @@ module BackupRestore
       @success = false
     else
       @success = true
-      File.join(@archive_directory, @backup_filename)
+      @backup_filename
     ensure
-      begin
-        notify_user
-        remove_old
-        clean_up
-      rescue => ex
-        Rails.logger.error("#{ex}\n" + ex.backtrace.join("\n"))
-      end
+      delete_old
+      clean_up
+      notify_user
+      log "Finished!"
 
       @success ? log("[SUCCESS]") : log("[FAILED]")
     end
@@ -74,14 +70,20 @@ module BackupRestore
       raise Discourse::InvalidParameters.new(:user_id) unless @user
     end
 
+    def get_parameterized_title
+      SiteSetting.title.parameterize.presence || "discourse"
+    end
+
     def initialize_state
       @success = false
+      @store = BackupRestore::BackupStore.create
       @current_db = RailsMultisite::ConnectionManagement.current_db
       @timestamp = Time.now.strftime("%Y-%m-%d-%H%M%S")
       @tmp_directory = File.join(Rails.root, "tmp", "backups", @current_db, @timestamp)
       @dump_filename = File.join(@tmp_directory, BackupRestore::DUMP_FILE)
-      @archive_directory = File.join(Rails.root, "public", "backups", @current_db)
-      @archive_basename = File.join(@archive_directory, "#{SiteSetting.title.parameterize}-#{@timestamp}-#{BackupRestore::VERSION_PREFIX}#{BackupRestore.current_version}")
+      @archive_directory = BackupRestore::LocalBackupStore.base_directory(db: @current_db)
+      filename = @filename_override || "#{get_parameterized_title}-#{@timestamp}"
+      @archive_basename = File.join(@archive_directory, "#{filename}-#{BackupRestore::VERSION_PREFIX}#{BackupRestore.current_version}")
 
       @backup_filename =
         if @with_uploads
@@ -91,10 +93,11 @@ module BackupRestore
         end
 
       @logs = []
-      @readonly_mode_was_enabled = Discourse.readonly_mode? || !SiteSetting.readonly_mode_during_backup
     end
 
     def listen_for_shutdown_signal
+      BackupRestore.clear_shutdown_signal!
+
       Thread.new do
         while BackupRestore.is_operation_running?
           exit if BackupRestore.should_shutdown?
@@ -108,36 +111,15 @@ module BackupRestore
       BackupRestore.mark_as_running!
     end
 
-    def enable_readonly_mode
-      return if @readonly_mode_was_enabled
-      log "Enabling readonly mode..."
-      Discourse.enable_readonly_mode
-    end
-
-    def pause_sidekiq
-      log "Pausing sidekiq..."
-      Sidekiq.pause!
-    end
-
-    def wait_for_sidekiq
-      log "Waiting for sidekiq to finish running jobs..."
-      iterations = 1
-      while sidekiq_has_running_jobs?
-        log "Waiting for sidekiq to finish running jobs... ##{iterations}"
-        sleep 5
-        iterations += 1
-        raise "Sidekiq did not finish running all the jobs in the allowed time!" if iterations > 6
-      end
-    end
-
-    def sidekiq_has_running_jobs?
-      Sidekiq::Workers.new.each do |_, _, worker|
-        payload = worker.try(:payload)
-        return true if payload.try(:all_sites)
-        return true if payload.try(:current_site_id) == @current_db
-      end
-
-      false
+    def update_metadata
+      log "Updating metadata..."
+      BackupMetadata.delete_all
+      BackupMetadata.create!(name: "base_url", value: Discourse.base_url)
+      BackupMetadata.create!(name: "cdn_url", value: Discourse.asset_host)
+      BackupMetadata.create!(name: "s3_base_url", value: SiteSetting.Upload.enable_s3_uploads ? SiteSetting.Upload.s3_base_url : nil)
+      BackupMetadata.create!(name: "s3_cdn_url", value: SiteSetting.Upload.enable_s3_uploads ? SiteSetting.Upload.s3_cdn_url : nil)
+      BackupMetadata.create!(name: "db_name", value: RailsMultisite::ConnectionManagement.current_db)
+      BackupMetadata.create!(name: "multisite", value: Rails.configuration.multisite)
     end
 
     def dump_public_schema
@@ -181,6 +163,7 @@ module BackupRestore
       [ password_argument,            # pass the password to pg_dump (if any)
         "pg_dump",                    # the pg_dump command
         "--schema=public",            # only public schema
+        "-T public.pg_*",             # exclude tables and views whose name starts with "pg_"
         "--file='#{@dump_filename}'", # output to the dump.sql file
         "--no-owner",                 # do not output commands to set ownership of objects
         "--no-privileges",            # prevent dumping of access privileges
@@ -196,8 +179,10 @@ module BackupRestore
     def move_dump_backup
       log "Finalizing database dump file: #{@backup_filename}"
 
+      archive_filename = File.join(@archive_directory, @backup_filename)
+
       Discourse::Utils.execute_command(
-        'mv', @dump_filename, File.join(@archive_directory, @backup_filename),
+        'mv', @dump_filename, archive_filename,
         failure_message: "Failed to move database dump file."
       )
 
@@ -217,96 +202,183 @@ module BackupRestore
       Discourse::Utils.execute_command('tar', '--create', '--file', tar_filename, '--files-from', '/dev/null')
 
       log "Archiving data dump..."
-      FileUtils.cd(File.dirname(@dump_filename)) do
-        Discourse::Utils.execute_command(
-          'tar', '--append', '--dereference', '--file', tar_filename, File.basename(@dump_filename),
-          failure_message: "Failed to archive data dump."
-        )
-      end
+      Discourse::Utils.execute_command(
+        'tar', '--append', '--dereference', '--file', tar_filename, File.basename(@dump_filename),
+        failure_message: "Failed to archive data dump.",
+        chdir: File.dirname(@dump_filename)
+      )
 
-      upload_directory = "uploads/" + @current_db
-
-      log "Archiving uploads..."
-      FileUtils.cd(File.join(Rails.root, "public")) do
-        if File.directory?(upload_directory)
-          Discourse::Utils.execute_command(
-            'tar', '--append', '--dereference', '--warning=no-file-changed', '--file', tar_filename, upload_directory,
-            failure_message: "Failed to archive uploads."
-          )
-        else
-          log "No uploads found, skipping archiving uploads..."
-        end
-      end
+      add_local_uploads_to_archive(tar_filename)
+      add_remote_uploads_to_archive(tar_filename) if SiteSetting.Upload.enable_s3_uploads
 
       remove_tmp_directory
 
       log "Gzipping archive, this may take a while..."
-      Discourse::Utils.execute_command('gzip', '-5', tar_filename, failure_message: "Failed to gzip archive.")
+      Discourse::Utils.execute_command(
+        'gzip', "-#{SiteSetting.backup_gzip_compression_level_for_uploads}", tar_filename,
+        failure_message: "Failed to gzip archive."
+      )
+    end
+
+    def include_uploads?
+      has_local_uploads? || SiteSetting.include_s3_uploads_in_backups
+    end
+
+    def local_uploads_directory
+      @local_uploads_directory ||= File.join(Rails.root, "public", Discourse.store.upload_path)
+    end
+
+    def has_local_uploads?
+      File.directory?(local_uploads_directory) && !Dir.empty?(local_uploads_directory)
+    end
+
+    def add_local_uploads_to_archive(tar_filename)
+      log "Archiving uploads..."
+
+      if has_local_uploads?
+        upload_directory = Discourse.store.upload_path
+
+        if SiteSetting.include_thumbnails_in_backups
+          exclude_optimized = ""
+        else
+          optimized_path = File.join(upload_directory, 'optimized')
+          exclude_optimized = "--exclude=#{optimized_path}"
+        end
+
+        Discourse::Utils.execute_command(
+          'tar', '--append', '--dereference', exclude_optimized, '--file', tar_filename, upload_directory,
+          failure_message: "Failed to archive uploads.", success_status_codes: [0, 1],
+          chdir: File.join(Rails.root, "public")
+        )
+      else
+        log "No local uploads found. Skipping archiving of local uploads..."
+      end
+    end
+
+    def add_remote_uploads_to_archive(tar_filename)
+      if !SiteSetting.include_s3_uploads_in_backups
+        log "Skipping uploads stored on S3."
+        return
+      end
+
+      log "Downloading uploads from S3. This may take a while..."
+
+      store = FileStore::S3Store.new
+      upload_directory = Discourse.store.upload_path
+      count = 0
+
+      Upload.find_each do |upload|
+        next if upload.local?
+        filename = File.join(@tmp_directory, upload_directory, store.get_path_for_upload(upload))
+
+        begin
+          FileUtils.mkdir_p(File.dirname(filename))
+          store.download_file(upload, filename)
+        rescue StandardError => ex
+          log "Failed to download file with upload ID #{upload.id} from S3", ex
+        end
+
+        count += 1
+        log "#{count} files have already been downloaded. Still downloading..." if count % 500 == 0
+      end
+
+      log "Appending uploads to archive..."
+      Discourse::Utils.execute_command(
+        'tar', '--append', '--file', tar_filename, upload_directory,
+        failure_message: "Failed to append uploads to archive.", success_status_codes: [0, 1],
+        chdir: @tmp_directory
+      )
+
+      log "No uploads found on S3. Skipping archiving of uploads stored on S3..." if count == 0
+    end
+
+    def upload_archive
+      return unless @store.remote?
+
+      log "Uploading archive..."
+      content_type = MiniMime.lookup_by_filename(@backup_filename).content_type
+      archive_path = File.join(@archive_directory, @backup_filename)
+      @store.upload_file(@backup_filename, archive_path, content_type)
     end
 
     def after_create_hook
       log "Executing the after_create_hook for the backup..."
-      backup = Backup.create_from_filename(@backup_filename)
-      backup.after_create_hook
+      DiscourseEvent.trigger(:backup_created)
     end
 
-    def remove_old
-      log "Removing old backups..."
-      Backup.remove_old
+    def delete_old
+      return if Rails.env.development?
+
+      log "Deleting old backups..."
+      @store.delete_old
+    rescue => ex
+      log "Something went wrong while deleting old backups.", ex
     end
 
     def notify_user
+      return if @success && @user.id == Discourse::SYSTEM_USER_ID
+
       log "Notifying '#{@user.username}' of the end of the backup..."
       status = @success ? :backup_succeeded : :backup_failed
 
-      post = SystemMessage.create_from_system_user(@user, status,
-        logs: Discourse::Utils.pretty_logs(@logs)
+      post = SystemMessage.create_from_system_user(
+        @user, status, logs: Discourse::Utils.pretty_logs(@logs)
       )
 
-      if !@success && @user.id == Discourse::SYSTEM_USER_ID
+      if @user.id == Discourse::SYSTEM_USER_ID
         post.topic.invite_group(@user, Group[:admins])
       end
-
-      post
+    rescue => ex
+      log "Something went wrong while notifying user.", ex
     end
 
     def clean_up
       log "Cleaning stuff up..."
+      delete_uploaded_archive
       remove_tar_leftovers
-      unpause_sidekiq
-      disable_readonly_mode if Discourse.readonly_mode?
       mark_backup_as_not_running
-      log "Finished!"
+      refresh_disk_space
+    end
+
+    def delete_uploaded_archive
+      return unless @store.remote?
+
+      archive_path = File.join(@archive_directory, @backup_filename)
+
+      if File.exist?(archive_path)
+        log "Removing archive from local storage..."
+        File.delete(archive_path)
+      end
+    rescue => ex
+      log "Something went wrong while deleting uploaded archive from local storage.", ex
+    end
+
+    def refresh_disk_space
+      log "Refreshing disk stats..."
+      @store.reset_cache
+    rescue => ex
+      log "Something went wrong while refreshing disk stats.", ex
     end
 
     def remove_tar_leftovers
       log "Removing '.tar' leftovers..."
-      system('rm', '-f', "#{@archive_directory}/*.tar")
+      Dir["#{@archive_directory}/*.tar"].each { |filename| File.delete(filename) }
+    rescue => ex
+      log "Something went wrong while removing '.tar' leftovers.", ex
     end
 
     def remove_tmp_directory
       log "Removing tmp '#{@tmp_directory}' directory..."
       FileUtils.rm_rf(@tmp_directory) if Dir[@tmp_directory].present?
-    rescue
-      log "Something went wrong while removing the following tmp directory: #{@tmp_directory}"
-    end
-
-    def unpause_sidekiq
-      log "Unpausing sidekiq..."
-      Sidekiq.unpause!
-    rescue
-      log "Something went wrong while unpausing Sidekiq."
-    end
-
-    def disable_readonly_mode
-      return if @readonly_mode_was_enabled
-      log "Disabling readonly mode..."
-      Discourse.disable_readonly_mode
+    rescue => ex
+      log "Something went wrong while removing the following tmp directory: #{@tmp_directory}", ex
     end
 
     def mark_backup_as_not_running
       log "Marking backup as finished..."
       BackupRestore.mark_as_not_running!
+    rescue => ex
+      log "Something went wrong while marking backup as finished.", ex
     end
 
     def ensure_directory_exists(directory)
@@ -314,11 +386,12 @@ module BackupRestore
       FileUtils.mkdir_p(directory)
     end
 
-    def log(message)
+    def log(message, ex = nil)
       timestamp = Time.now.strftime("%Y-%m-%d %H:%M:%S")
-      puts(message) rescue nil
-      publish_log(message, timestamp) rescue nil
+      puts(message)
+      publish_log(message, timestamp)
       save_log(message, timestamp)
+      Rails.logger.error("#{ex}\n" + ex.backtrace.join("\n")) if ex
     end
 
     def publish_log(message, timestamp)

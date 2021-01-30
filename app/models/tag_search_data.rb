@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class TagSearchData < ActiveRecord::Base
   include HasSearchData
 end
@@ -14,5 +16,5 @@ end
 #
 # Indexes
 #
-#  idx_search_tag  (search_data)
+#  idx_search_tag  (search_data) USING gin
 #

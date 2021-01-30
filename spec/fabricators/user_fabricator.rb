@@ -1,7 +1,9 @@
+# frozen_string_literal: true
+
 Fabricator(:user_stat) do
 end
 
-Fabricator(:user_single_email, class_name: :user) do
+Fabricator(:user, class_name: :user) do
   name 'Bruce Wayne'
   username { sequence(:username) { |i| "bruce#{i}" } }
   email { sequence(:email) { |i| "bruce#{i}@wayne.com" } }
@@ -11,8 +13,8 @@ Fabricator(:user_single_email, class_name: :user) do
   active true
 end
 
-Fabricator(:user, from: :user_single_email) do
-  after_create { |user| Fabricate(:alternate_email, user: user)  }
+Fabricator(:user_with_secondary_email, from: :user) do
+  after_create { |user| Fabricate(:secondary_email, user: user) }
 end
 
 Fabricator(:coding_horror, from: :user) do
@@ -26,14 +28,14 @@ Fabricator(:evil_trout, from: :user) do
   name 'Evil Trout'
   username 'eviltrout'
   email 'eviltrout@somewhere.com'
-  password 'imafish'
+  password 'imafish123'
 end
 
 Fabricator(:walter_white, from: :user) do
   name 'Walter White'
   username 'heisenberg'
   email 'wwhite@bluemeth.com'
-  password 'letscook'
+  password 'letscook123'
 end
 
 Fabricator(:inactive_user, from: :user) do
@@ -97,14 +99,20 @@ Fabricator(:anonymous, from: :user) do
   username { sequence(:username) { |i| "anonymous#{i}" } }
   email { sequence(:email) { |i| "anonymous#{i}@anonymous.com" } }
   trust_level TrustLevel[1]
-  trust_level_locked true
+  manual_locked_trust_level TrustLevel[1]
 
-  before_create do |user|
-    user.custom_fields["master_id"] = 1
-    user.save!
+  after_create do
+    # this is not "the perfect" fabricator in that user id -1 is system
+    # but creating a proper account here is real slow and has a huge
+    # impact on the test suite run time
+    create_anonymous_user_master(master_user_id: -1, active: true)
   end
 end
 
 Fabricator(:staged, from: :user) do
   staged true
+end
+
+Fabricator(:unicode_user, from: :user) do
+  username { sequence(:username) { |i| "Löwe#{i}" } }
 end

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe Jobs::PendingUsersReminder do
@@ -36,6 +38,13 @@ describe Jobs::PendingUsersReminder do
       it "doesn't send a message if pending_users_reminder_delay is -1" do
         SiteSetting.pending_users_reminder_delay = -1
         PostCreator.expects(:create).never
+        Jobs::PendingUsersReminder.new.execute({})
+      end
+
+      it "sets the correct pending user count in the notification" do
+        SiteSetting.pending_users_reminder_delay = 8
+        Fabricate(:user, created_at: 9.hours.ago)
+        PostCreator.expects(:create).with(Discourse.system_user, has_entries(title: '1 user waiting for approval'))
         Jobs::PendingUsersReminder.new.execute({})
       end
     end

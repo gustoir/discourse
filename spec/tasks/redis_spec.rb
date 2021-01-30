@@ -1,16 +1,12 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
-RSpec.describe "Redis rake tasks" do
-  let(:redis) { $redis.without_namespace }
+RSpec.describe "Redis rake tasks", type: :multisite do
+  let(:redis) { Discourse.redis.without_namespace }
 
   before do
-    @multisite = Rails.configuration.multisite
-    Rails.configuration.multisite = true
     Discourse::Application.load_tasks
-  end
-
-  after do
-    Rails.configuration.multisite = @multisite
   end
 
   describe 'clean up' do
@@ -40,6 +36,8 @@ RSpec.describe "Redis rake tasks" do
       orphan_keys.each do |key|
         expect(redis.get(key)).to eq(nil)
       end
+    ensure
+      active_keys.each { |key| redis.del(key) }
     end
   end
 end

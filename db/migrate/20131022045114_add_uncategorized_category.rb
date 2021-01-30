@@ -1,15 +1,17 @@
+# frozen_string_literal: true
+
 class AddUncategorizedCategory < ActiveRecord::Migration[4.2]
   def up
 
     result = execute "SELECT 1 FROM categories WHERE lower(name) = 'uncategorized'"
-    name = 'Uncategorized'
+    name = +'Uncategorized'
     if result.count > 0
       name << SecureRandom.hex
     end
 
     result = execute "INSERT INTO categories
             (name,color,slug,description,text_color, user_id, created_at, updated_at, position)
-     VALUES ('#{name}', 'AB9364', 'uncategorized', '', 'FFFFFF', -1, now(), now(), 0 )
+     VALUES ('#{name}', '0088CC', 'uncategorized', '', 'FFFFFF', -1, now(), now(), 0 )
      RETURNING id
     "
     category_id = result[0]["id"].to_i

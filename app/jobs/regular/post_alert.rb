@@ -1,12 +1,15 @@
-require_dependency 'post_alerter'
+# frozen_string_literal: true
 
 module Jobs
-  class PostAlert < Jobs::Base
+  class PostAlert < ::Jobs::Base
 
     def execute(args)
-      # maybe it was removed by the time we are making the post
-      post = Post.where(id: args[:post_id]).first
-      PostAlerter.post_created(post, args[:options] || {}) if post && post.topic
+      post = Post.find_by(id: args[:post_id])
+      if post&.topic && post.raw.present?
+        opts = args[:options] || {}
+        new_record = true == args[:new_record]
+        PostAlerter.new(opts).after_save_post(post, new_record)
+      end
     end
 
   end

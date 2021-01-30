@@ -1,139 +1,209 @@
 // Mobile styles for "/user" section
-.user-right {
-  &,
-  > .user-stream {
-    > .alert:first-child {
-      margin-top: 20px;
-    }
+
+.user-content-wrapper {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  grid-template-rows: auto auto auto;
+  grid-row-gap: 20px;
+  grid-column-gap: 16px;
+  .user-primary-navigation {
+    grid-column-start: 1;
+    grid-row-start: 1;
+    grid-column-end: 2;
+    min-width: 120px;
+  }
+  .user-secondary-navigation {
+    grid-column-start: 2;
+    grid-row-start: 1;
+    min-width: 120px;
+  }
+  .user-additional-controls + .user-content,
+  .user-secondary-navigation + .user-content {
+    grid-column-start: 1;
+  }
+  .user-additional-controls {
+    grid-column-start: 1;
+    grid-row-start: 2;
+  }
+  .user-content,
+  .spinner {
+    grid-row-start: 3;
+    grid-column-start: 1;
   }
 }
 
 .user-main {
-
-  table.group-members {
-    width: 100%;
-    p {
-      max-width: 600px;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    th {
-      padding: 0.5em;
-      text-align: right;
-      border-bottom: 1px solid $primary-low;
-    }
-    td {
-      padding: 0.5em;
-      border-bottom: 1px solid $primary-low;
-      img {
-        margin-right: 10px;
-      }
-      span.text {
-        float: right;
-        color: $primary;
-      }
-    }
-    .user-info {
-      width: 245px;
-    }
-  }
+  margin-top: 12px;
+  padding-bottom: 60px; // slightly taller than .footer-nav
 
   .user-content {
-    background-color: $secondary;
     box-sizing: border-box;
-    margin-top: 10px;
-
-    .btn.right {
-      float: right
-    }
-
-    h2 {
-      margin-bottom: 10px;
-    }
-
+    background-color: var(--secondary);
     table {
       width: 100%;
-      margin-top: 10px;
-
-      th {
-        text-align: left;
-        border-bottom: 1px solid $primary-low;
-        padding: 5px;
-      }
-
-      td {
-        padding: 5px;
-        border-bottom: 1px solid $primary-low;
-      }
+      margin-top: 12px;
     }
   }
 
   .about {
-    background: dark-light-diff($primary, $secondary, 0%, -75%) center;
-    margin-bottom: 10px;
-    color: $secondary;
+    margin-bottom: 0;
+    color: var(--secondary);
 
     .secondary {
-      background: $primary-low;
-
       dl {
-        padding: 10px 15px;
-      }
-
-      dd {
-        margin: 0 15px 0 5px;
+        padding: 8px 0;
       }
     }
 
     .details {
-      padding: 15px 0 4px 0;
+      margin-bottom: 12px;
 
       h1 {
-        margin: 10px 0 0 0;
+        line-height: $line-height-small;
       }
 
-      .primary {
-        color: $primary;
+      h2 {
+        line-height: $line-height-medium;
+      }
 
-        .primary-textual {
-          float: left;
-          padding-left: 15px;
-          a[href] {
-            color: $primary;
-          }
+      .user-profile-avatar {
+        .avatar-flair {
+          right: 2px;
+        }
+        display: block;
+        float: none;
+        margin: 8px auto;
+        img.avatar {
+          float: none;
+        }
+      }
+
+      .user-profile-names {
+        text-align: center;
+      }
+
+      .featured-topic {
+        text-align: center;
+        font-size: $font-0;
+      }
+
+      .location-and-website {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        font-size: $font-0;
+        .d-icon {
+          width: 0.8em;
+          height: 0.8em;
+          margin-right: 0.25em;
+        }
+        a {
+          text-decoration: underline;
+        }
+      }
+
+      .user-profile-location {
+        margin-right: 1em;
+      }
+
+      .user-profile-location,
+      .user-profile-website {
+        justify-content: center;
+        display: flex;
+        align-items: center;
+      }
+    }
+
+    .primary {
+      display: flex;
+      flex-wrap: wrap;
+      color: var(--primary);
+
+      .avatar {
+        margin: 0 0 12px;
+      }
+
+      .primary-textual {
+        flex: 1 1 100%;
+        word-break: break-word;
+        margin: 0;
+        max-width: 100%;
+      }
+
+      .bio {
+        color: var(--primary);
+        margin: 0 auto 8px;
+        max-width: 700px;
+        text-align: center;
+
+        ol {
+          margin-left: 25px;
         }
 
-        .bio {
-          color: $primary;
-          max-width: 700px;
+        ul,
+        ol {
+          display: inline-block;
+          padding-left: 0;
+          text-align: left;
         }
+      }
+
+      .public-user-fields .public-user-field {
+        text-align: center;
+      }
+    }
+
+    &.has-background {
+      .user-profile-image {
+        height: 200px;
+      }
+      .user-profile-avatar {
+        margin-top: -60px;
       }
     }
 
     .controls {
-      float: left;
-      padding-left: 15px;
+      order: 3;
+      flex: 1 1 25%;
+      margin-left: auto;
 
       ul {
         margin: 0;
+        display: flex;
+        flex: 1 1 auto;
+        flex-wrap: wrap;
+        margin-left: -1em;
+        li,
+        > span {
+          display: flex;
+          flex: 1 1 45%;
+          margin-left: 1em;
+          button,
+          a {
+            width: 100%;
+          }
+          .select-kit.dropdown-select-box.user-notifications-dropdown {
+            width: 100%;
+            li {
+              flex: 1 1 100%;
+              margin-left: 0;
+            }
+          }
+        }
+      }
+
+      .user-profile-controls-outlet {
+        margin: 0 0 0 1em;
+        li {
+          margin: 0;
+        }
       }
 
       a {
-        width: 120px;
+        flex: 1 1 auto;
+        min-width: 120px;
       }
     }
-
-    &.collapsed-info {
-      .details {
-        padding: 12px 15px 2px 15px;
-      }
-    }
-  }
-
-  .staff-counters {
-    padding: 7px 0;
-    display: inline;
   }
 
   .user-field {
@@ -145,13 +215,27 @@
   }
 }
 
-.profile-image {
-  height: 25px;
-  width: 100%;
+.user-main .collapsed-info.about.has-background {
+  background-image: none !important; // todo: make changes to behavior to remove this
+  .details {
+    margin-top: 0;
+  }
 }
 
-.has-background .details {
-  margin-top: 200px;
+.user-main .collapsed-info.about .details {
+  display: flex;
+  .user-profile-avatar {
+    margin: 0;
+    flex: 0 0 auto;
+    align-self: flex-start;
+  }
+  .primary .primary-textual {
+    flex: 1 0 80%;
+    margin: 0;
+  }
+  .user-profile-names {
+    text-align: left;
+  }
 }
 
 .form-horizontal .control-group.category {
@@ -162,59 +246,35 @@
   margin-top: 20px;
 }
 
-// mobile fixups for badges
+.stats-section {
+  li {
+    margin: 0 15px 10px 0;
+    padding: 0;
+    &.linked-stat {
+      a {
+        padding: 0;
+      }
+    }
+  }
+}
+
 .badge-card.medium {
-  width: 300px;
+  width: 100%;
 }
 
 .user-badges {
   margin-bottom: 2em;
 }
 
-.show-badge-details {
-  margin-bottom: 1em;
-
-  .badge-grant-info {
-    display: none;
-  }
-}
-
 .user-preferences {
-  .control-group {
-    padding: 8px 36px 8px 8px;
-  }
-
-  .static {
-    margin-top: 5px;
-    margin-left: 5px;
-  }
+  padding-bottom: 2em;
 
   .instructions {
-    margin-top: 5px;
-  }
-
-  .category-controls {
-    padding-top: 8px;
+    margin-top: 4px;
   }
 
   .controls-dropdown {
-    margin-top: 10px;
-    margin-bottom: 15px;
-    padding-left: 5px;
-
-    select {
-      width: 280px;
-    }
-  }
-
-  .save-button {
-    width: 100%;
-    overflow: auto;
-    max-width: 200px;
-
-    button {
-      display: block;
-    }
+    margin-bottom: 16px;
   }
 
   .delete-account {
@@ -222,16 +282,58 @@
   }
 
   .checkbox-label {
+    display: flex;
     overflow: auto;
-    display: block;
     width: 100%;
-    padding: 5px 8px;
+    padding: 5px 0;
+    input {
+      margin-right: 5px;
+      flex: 0 0 auto;
+    }
   }
 
-  .desktop-notifications button {
-    float: none;
-  }
   .apps .controls button {
     float: right;
+  }
+}
+
+.user-right {
+  &,
+  > .user-stream {
+    > .alert:first-child {
+      margin-top: 20px;
+    }
+  }
+}
+
+.user-invites-page {
+  .admin-controls {
+    flex-wrap: wrap;
+    .pull-right {
+      flex: 1 1 100%;
+      font-size: $font-down-1;
+      padding: 0;
+    }
+  }
+  table {
+    tr:first-of-type {
+      display: none;
+    }
+    tr {
+      display: flex;
+      flex-wrap: wrap;
+      margin-bottom: 1em;
+    }
+    td:first-of-type {
+      margin-right: 1em;
+    }
+    td:nth-of-type(n + 3) {
+      display: block;
+      width: 50%;
+      padding: 0.25em 0 1em 0;
+    }
+  }
+  .user-invite-none {
+    margin-top: 1em;
   }
 }

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require_relative 'attachment_importer'
 require_relative 'avatar_importer'
 require_relative 'bookmark_importer'
@@ -30,7 +32,7 @@ module ImportScripts::PhpBB3
     end
 
     def category_importer
-      CategoryImporter.new(@lookup, text_processor, permalink_importer)
+      CategoryImporter.new(@lookup, text_processor, permalink_importer, @settings)
     end
 
     def post_importer
@@ -42,14 +44,12 @@ module ImportScripts::PhpBB3
     end
 
     def bookmark_importer
-      BookmarkImporter.new
+      BookmarkImporter.new(@settings)
     end
 
     def permalink_importer
       @permalink_importer ||= PermalinkImporter.new(@settings.permalinks)
     end
-
-    protected
 
     def attachment_importer
       AttachmentImporter.new(@database, @uploader, @settings, @phpbb_config)
@@ -60,15 +60,15 @@ module ImportScripts::PhpBB3
     end
 
     def poll_importer
-      PollImporter.new(@lookup, @database, text_processor)
+      PollImporter.new(@lookup, @database, text_processor, @settings)
     end
 
     def text_processor
-      @text_processor ||= TextProcessor.new(@lookup, @database, smiley_processor, @settings)
+      @text_processor ||= TextProcessor.new(@lookup, @database, smiley_processor, @settings, @phpbb_config)
     end
 
     def smiley_processor
-      SmileyProcessor.new(@uploader, @settings, @phpbb_config)
+      SmileyProcessor.new(@uploader, @database, @settings, @phpbb_config)
     end
   end
 end

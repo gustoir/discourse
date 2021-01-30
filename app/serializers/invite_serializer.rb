@@ -1,19 +1,13 @@
-class InviteSerializer < ApplicationSerializer
+# frozen_string_literal: true
 
-  attributes :email, :created_at, :redeemed_at, :expired, :user
+class InviteSerializer < ApplicationSerializer
+  attributes :id, :email, :updated_at, :expired
 
   def include_email?
-    !object.redeemed?
+    options[:show_emails] && !object.redeemed?
   end
 
   def expired
     object.expired?
   end
-
-  def user
-    ser = InvitedUserSerializer.new(object.user, scope: scope, root: false)
-    ser.invited_by = object.invited_by
-    ser.as_json
-  end
-
 end

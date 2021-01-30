@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CategorySearchData < ActiveRecord::Base
   include HasSearchData
 end
@@ -14,5 +16,5 @@ end
 #
 # Indexes
 #
-#  idx_search_category  (search_data)
+#  idx_search_category  (search_data) USING gin
 #

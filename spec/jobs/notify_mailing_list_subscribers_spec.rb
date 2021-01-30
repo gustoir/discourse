@@ -1,13 +1,20 @@
+# frozen_string_literal: true
+
 require "rails_helper"
 
 describe Jobs::NotifyMailingListSubscribers do
 
-  let(:mailing_list_user) { Fabricate(:user) }
+  fab!(:mailing_list_user) { Fabricate(:user) }
 
   before { mailing_list_user.user_option.update(mailing_list_mode: true, mailing_list_mode_frequency: 1) }
+  before do
+    SiteSetting.tagging_enabled = true
+  end
 
-  let(:user) { Fabricate(:user) }
-  let(:post) { Fabricate(:post, user: user) }
+  fab!(:tag) { Fabricate(:tag) }
+  fab!(:topic) { Fabricate(:topic, tags: [tag]) }
+  fab!(:user) { Fabricate(:user) }
+  fab!(:post) { Fabricate(:post, topic: topic, user: user) }
 
   shared_examples "no emails" do
     it "doesn't send any emails" do
@@ -38,6 +45,16 @@ describe Jobs::NotifyMailingListSubscribers do
   context "when mailing list mode is globally enabled" do
     before { SiteSetting.disable_mailing_list_mode = false }
 
+    context "when site requires approval and user is not approved" do
+      before do
+        SiteSetting.login_required = true
+        SiteSetting.must_approve_users = true
+
+        User.update_all(approved: false)
+      end
+      include_examples "no emails"
+    end
+
     context "with an invalid post_id" do
       before { post.update(deleted_at: Time.now) }
       include_examples "no emails"
@@ -45,6 +62,11 @@ describe Jobs::NotifyMailingListSubscribers do
 
     context "with a deleted post" do
       before { post.update(deleted_at: Time.now) }
+      include_examples "no emails"
+    end
+
+    context "with a empty post" do
+      before { post.update_columns(raw: "") }
       include_examples "no emails"
     end
 
@@ -65,8 +87,8 @@ describe Jobs::NotifyMailingListSubscribers do
         include_examples "no emails"
       end
 
-      context "to a blocked user" do
-        before { mailing_list_user.update(blocked: true) }
+      context "to a silenced user" do
+        before { mailing_list_user.update(silenced_till: 1.year.from_now) }
         include_examples "no emails"
       end
 
@@ -76,7 +98,7 @@ describe Jobs::NotifyMailingListSubscribers do
       end
 
       context "to an anonymous user" do
-        let(:mailing_list_user) { Fabricate(:anonymous) }
+        fab!(:mailing_list_user) { Fabricate(:anonymous) }
         include_examples "no emails"
       end
 
@@ -100,6 +122,11 @@ describe Jobs::NotifyMailingListSubscribers do
         include_examples "no emails"
       end
 
+      context "from an ignored user" do
+        before { Fabricate(:ignored_user, user: mailing_list_user, ignored_user: user) }
+        include_examples "no emails"
+      end
+
       context "from a muted topic" do
         before { TopicUser.create(user: mailing_list_user, topic: post.topic, notification_level: TopicUser.notification_levels[:muted]) }
         include_examples "no emails"
@@ -107,6 +134,40 @@ describe Jobs::NotifyMailingListSubscribers do
 
       context "from a muted category" do
         before { CategoryUser.create(user: mailing_list_user, category: post.topic.category, notification_level: CategoryUser.notification_levels[:muted]) }
+        include_examples "no emails"
+      end
+
+      context "mute all categories by default setting" do
+        before { SiteSetting.mute_all_categories_by_default = true }
+        include_examples "no emails"
+      end
+
+      context "mute all categories by default setting but user is watching category" do
+        before do
+          SiteSetting.mute_all_categories_by_default = true
+          CategoryUser.create(user: mailing_list_user, category: post.topic.category, notification_level: CategoryUser.notification_levels[:watching])
+        end
+        include_examples "one email"
+      end
+
+      context "mute all categories by default setting but user is watching tag" do
+        before do
+          SiteSetting.mute_all_categories_by_default = true
+          TagUser.create(user: mailing_list_user, tag: tag, notification_level: TagUser.notification_levels[:watching])
+        end
+        include_examples "one email"
+      end
+
+      context "mute all categories by default setting but user is watching topic" do
+        before do
+          SiteSetting.mute_all_categories_by_default = true
+          TopicUser.create(user: mailing_list_user, topic: post.topic, notification_level: TopicUser.notification_levels[:watching])
+        end
+        include_examples "one email"
+      end
+
+      context "from a muted tag" do
+        before { TagUser.create(user: mailing_list_user, tag: tag, notification_level: TagUser.notification_levels[:muted]) }
         include_examples "no emails"
       end
 
@@ -118,10 +179,41 @@ describe Jobs::NotifyMailingListSubscribers do
             mailing_list_user.email_logs.create(email_type: 'foobar', to_address: mailing_list_user.email)
           }
 
-          Jobs::NotifyMailingListSubscribers.new.execute(post_id: post.id)
-          UserNotifications.expects(:mailing_list_notify).with(mailing_list_user, post).never
+          expect do
+            UserNotifications.expects(:mailing_list_notify)
+              .with(mailing_list_user, post)
+              .never
 
-          expect(EmailLog.where(user: mailing_list_user, skipped: true).count).to eq(1)
+            2.times do
+              Jobs::NotifyMailingListSubscribers.new.execute(post_id: post.id)
+            end
+
+            Jobs::NotifyMailingListSubscribers.new.execute(
+              post_id: Fabricate(:post, user: user).id
+            )
+          end.to change { SkippedEmailLog.count }.by(1)
+
+          expect(SkippedEmailLog.exists?(
+            email_type: "mailing_list",
+            user: mailing_list_user,
+            post: post,
+            to_address: mailing_list_user.email,
+            reason_type: SkippedEmailLog.reason_types[:exceeded_emails_limit]
+          )).to eq(true)
+
+          freeze_time(Time.zone.now.tomorrow + 1.second)
+
+          expect do
+            post = Fabricate(:post, user: user)
+
+            UserNotifications.expects(:mailing_list_notify)
+              .with(mailing_list_user, post)
+              .once
+
+            Jobs::NotifyMailingListSubscribers.new.execute(
+              post_id: post.id
+            )
+          end.to change { SkippedEmailLog.count }.by(0)
         end
       end
 
@@ -133,7 +225,13 @@ describe Jobs::NotifyMailingListSubscribers do
           Jobs::NotifyMailingListSubscribers.new.execute(post_id: post.id)
           UserNotifications.expects(:mailing_list_notify).with(mailing_list_user, post).never
 
-          expect(EmailLog.where(user: mailing_list_user, skipped: true).count).to eq(1)
+          expect(SkippedEmailLog.exists?(
+            email_type: "mailing_list",
+            user: mailing_list_user,
+            post: post,
+            to_address: mailing_list_user.email,
+            reason_type: SkippedEmailLog.reason_types[:exceeded_bounces_limit]
+          )).to eq(true)
         end
 
       end
@@ -141,7 +239,7 @@ describe Jobs::NotifyMailingListSubscribers do
     end
 
     context "with a valid post from same user" do
-      let(:post) { Fabricate(:post, user: mailing_list_user) }
+      fab!(:post) { Fabricate(:post, user: mailing_list_user) }
 
       context "to an user who has frequency set to 'daily'" do
         before { mailing_list_user.user_option.update(mailing_list_mode_frequency: 0) }

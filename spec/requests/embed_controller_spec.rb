@@ -1,9 +1,11 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe EmbedController do
 
-  let(:host) { "eviltrout.com" }
   let(:embed_url) { "http://eviltrout.com/2013/02/10/why-discourse-uses-emberjs.html" }
+  let(:embed_url_secure) { "https://eviltrout.com/2013/02/10/why-discourse-uses-emberjs.html" }
   let(:discourse_username) { "eviltrout" }
 
   it "is 404 without an embed_url" do
@@ -26,7 +28,7 @@ describe EmbedController do
     it "allows a topic to be embedded by id" do
       topic = Fabricate(:topic)
       get '/embed/comments', params: { topic_id: topic.id }, headers: headers
-      expect(response).to be_success
+      expect(response.status).to eq(200)
     end
   end
 
@@ -40,16 +42,17 @@ describe EmbedController do
 
     context "with api key" do
 
-      let(:api_key) { ApiKey.create_master_key }
+      let(:api_key) { Fabricate(:api_key) }
 
       context "with valid embed url" do
         let(:topic_embed) { Fabricate(:topic_embed, embed_url: embed_url) }
 
         it "returns information about the topic" do
           get '/embed/info.json',
-            params: { embed_url: topic_embed.embed_url, api_key: api_key.key, api_username: "system" }
+            params: { embed_url: topic_embed.embed_url },
+            headers: { HTTP_API_KEY: api_key.key, HTTP_API_USERNAME: "system" }
 
-          json = JSON.parse(response.body)
+          json = response.parsed_body
           expect(json['topic_id']).to eq(topic_embed.topic.id)
           expect(json['post_id']).to eq(topic_embed.post.id)
           expect(json['topic_slug']).to eq(topic_embed.topic.slug)
@@ -59,28 +62,101 @@ describe EmbedController do
       context "without invalid embed url" do
         it "returns error response" do
           get '/embed/info.json',
-            params: { embed_url: "http://nope.com", api_key: api_key.key, api_username: "system" }
+            params: { embed_url: "http://nope.com" },
+            headers: { HTTP_API_KEY: api_key.key, HTTP_API_USERNAME: "system" }
 
-          json = JSON.parse(response.body)
+          json = response.parsed_body
           expect(json["error_type"]).to eq("not_found")
         end
       end
     end
   end
 
+  context "#topics" do
+    it "raises an error when not enabled" do
+      get '/embed/topics?embed_id=de-1234'
+      expect(response.status).to eq(400)
+    end
+
+    context "when enabled" do
+      before do
+        SiteSetting.embed_topics_list = true
+      end
+
+      it "raises an error with a weird id" do
+        get '/embed/topics?discourse_embed_id=../asdf/-1234', headers: headers
+        expect(response.status).to eq(400)
+      end
+
+      it "returns a list of topics" do
+        topic = Fabricate(:topic)
+        get '/embed/topics?discourse_embed_id=de-1234', headers: {
+          'REFERER' => 'https://example.com/evil-trout'
+        }
+        expect(response.status).to eq(200)
+        expect(response.headers['X-Frame-Options']).to eq("ALLOWALL")
+        expect(response.body).to match("data-embed-id=\"de-1234\"")
+        expect(response.body).to match("data-topic-id=\"#{topic.id}\"")
+        expect(response.body).to match("data-referer=\"https://example.com/evil-trout\"")
+      end
+
+      it "returns no referer if not supplied" do
+        get '/embed/topics?discourse_embed_id=de-1234'
+        expect(response.status).to eq(200)
+        expect(response.body).to match("data-referer=\"\"")
+      end
+
+      it "returns * for the referer if `embed_any_origin` is set" do
+        SiteSetting.embed_any_origin = true
+        get '/embed/topics?discourse_embed_id=de-1234'
+        expect(response.status).to eq(200)
+        expect(response.body).to match("data-referer=\"\\*\"")
+      end
+
+    end
+  end
+
   context "with a host" do
     let!(:embeddable_host) { Fabricate(:embeddable_host) }
+    let(:headers) { { 'REFERER' => embed_url } }
+
+    before do
+      Jobs.run_immediately!
+    end
 
     it "raises an error with no referer" do
       get '/embed/comments', params: { embed_url: embed_url }
       expect(response.body).to match(I18n.t('embed.error'))
     end
 
-    context "success" do
-      let(:headers) { { 'REFERER' => embed_url } }
+    it "includes CSS from embedded_scss field" do
+      theme = Fabricate(:theme)
+      theme.set_default!
 
+      ThemeField.create!(
+        theme_id: theme.id,
+        name: "embedded_scss",
+        target_id: 0,
+        type_id: 1,
+        value: ".test-osama-15 {\n" + "    color: red;\n" + "}\n"
+      )
+
+      topic_embed = Fabricate(:topic_embed, embed_url: embed_url)
+      post = Fabricate(:post, topic: topic_embed.topic)
+
+      get '/embed/comments', params: { embed_url: embed_url }, headers: headers
+
+      html = Nokogiri::HTML5.fragment(response.body)
+      css_link = html.at("link[data-target=embedded_theme]").attribute("href").value
+
+      get css_link
+      expect(response.status).to eq(200)
+      expect(response.body).to include(".test-osama-15")
+    end
+
+    context "success" do
       after do
-        expect(response).to be_success
+        expect(response.status).to eq(200)
         expect(response.headers['X-Frame-Options']).to eq("ALLOWALL")
       end
 
@@ -95,7 +171,7 @@ describe EmbedController do
       it "displays the right view" do
         topic_embed = Fabricate(:topic_embed, embed_url: embed_url)
 
-        get '/embed/comments', params: { embed_url: embed_url }, headers: headers
+        get '/embed/comments', params: { embed_url: embed_url_secure }, headers: headers
 
         expect(response.body).to match(I18n.t('embed.start_discussion'))
       end
@@ -111,7 +187,11 @@ describe EmbedController do
       end
 
       it "provides the topic retriever with the discourse username when provided" do
-        TopicRetriever.expects(:new).with(embed_url, has_entry(author_username: discourse_username))
+        retriever = mock
+        retriever.expects(:retrieve).returns(nil)
+        TopicRetriever.expects(:new)
+          .with(embed_url, has_entry(author_username: discourse_username))
+          .returns(retriever)
 
         get '/embed/comments',
           params: { embed_url: embed_url, discourse_username: discourse_username },
@@ -134,7 +214,7 @@ describe EmbedController do
           params: { embed_url: embed_url },
           headers: { 'REFERER' => "http://eviltrout.com/wat/1-2-3.html" }
 
-        expect(response).to be_success
+        expect(response.status).to eq(200)
       end
 
       it "works with the second host" do
@@ -142,7 +222,7 @@ describe EmbedController do
           params: { embed_url: embed_url },
           headers: { 'REFERER' => "http://eviltrout.com/wat/1-2-3.html" }
 
-        expect(response).to be_success
+        expect(response.status).to eq(200)
       end
 
       it "works with a host with a path" do
@@ -150,7 +230,7 @@ describe EmbedController do
           params: { embed_url: embed_url },
           headers: { 'REFERER' => "https://example.com/some-other-path" }
 
-        expect(response).to be_success
+        expect(response.status).to eq(200)
       end
 
       it "contains custom class name" do

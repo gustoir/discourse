@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class UserAction < ActiveRecord::Base
   belongs_to :user
   belongs_to :target_post, class_name: "Post"
@@ -17,14 +19,12 @@ class UserAction < ActiveRecord::Base
   EDIT = 11
   NEW_PRIVATE_MESSAGE = 12
   GOT_PRIVATE_MESSAGE = 13
-  PENDING = 14
   SOLVED = 15
   ASSIGNED = 16
 
   ORDER = Hash[*[
     GOT_PRIVATE_MESSAGE,
     NEW_PRIVATE_MESSAGE,
-    PENDING,
     NEW_TOPIC,
     REPLY,
     RESPONSE,
@@ -38,45 +38,50 @@ class UserAction < ActiveRecord::Base
     ASSIGNED,
   ].each_with_index.to_a.flatten]
 
-  # note, this is temporary until we upgrade to rails 4
-  #  in rails 4 types are mapped correctly so you dont end up
-  #  having strings where you would expect bools
-  class UserActionRow < OpenStruct
-    include ActiveModel::SerializerSupport
-
-    def as_json(options = nil)
-      @table.as_json(options)
-    end
+  def self.types
+    @types ||= Enum.new(
+      like: 1,
+      was_liked: 2,
+      bookmark: 3,
+      new_topic: 4,
+      reply: 5,
+      response: 6,
+      mention: 7,
+      quote: 9,
+      edit: 11,
+      new_private_message: 12,
+      got_private_message: 13,
+      solved: 15,
+      assigned: 16)
   end
 
   def self.last_action_in_topic(user_id, topic_id)
     UserAction.where(user_id: user_id,
                      target_topic_id: topic_id,
-                     action_type: [RESPONSE, MENTION, QUOTE]).order('created_at DESC').pluck(:target_post_id).first
+                     action_type: [RESPONSE, MENTION, QUOTE]).order('created_at DESC').pluck_first(:target_post_id)
   end
 
   def self.stats(user_id, guardian)
 
     # Sam: I tried this in AR and it got complex
-    builder = UserAction.sql_builder <<SQL
+    builder = DB.build <<~SQL
 
-    SELECT action_type, COUNT(*) count
-    FROM user_actions a
-    LEFT JOIN topics t ON t.id = a.target_topic_id
-    LEFT JOIN posts p on p.id = a.target_post_id
-    LEFT JOIN posts p2 on p2.topic_id = a.target_topic_id and p2.post_number = 1
-    LEFT JOIN categories c ON c.id = t.category_id
-    /*where*/
-    GROUP BY action_type
-SQL
+      SELECT action_type, COUNT(*) count
+      FROM user_actions a
+      LEFT JOIN topics t ON t.id = a.target_topic_id
+      LEFT JOIN posts p on p.id = a.target_post_id
+      LEFT JOIN posts p2 on p2.topic_id = a.target_topic_id and p2.post_number = 1
+      LEFT JOIN categories c ON c.id = t.category_id
+      /*where*/
+      GROUP BY action_type
+    SQL
 
     builder.where('a.user_id = :user_id', user_id: user_id)
 
     apply_common_filters(builder, user_id, guardian)
 
-    results = builder.exec.to_a
+    results = builder.query
     results.sort! { |a, b| ORDER[a.action_type] <=> ORDER[b.action_type] }
-
     results
   end
 
@@ -96,7 +101,8 @@ SQL
          AND t.id IN (SELECT topic_id FROM topic_allowed_users WHERE user_id = :user_id)
     SQL
 
-    all, mine, unread = exec_sql(sql, user_id: user_id).values[0].map(&:to_i)
+    # map is there due to count returning nil
+    all, mine, unread = DB.query_single(sql, user_id: user_id).map(&:to_i)
 
     sql = <<-SQL
       SELECT  g.name, COUNT(*) "count"
@@ -111,50 +117,53 @@ SQL
 
     result = { all: all, mine: mine, unread: unread }
 
-    exec_sql(sql, user_id: user_id).each do |row|
-      (result[:groups] ||= []) << { name: row["name"], count: row["count"].to_i }
+    DB.query(sql, user_id: user_id).each do |row|
+      (result[:groups] ||= []) << { name: row.name, count: row.count.to_i }
     end
 
     result
 
   end
 
+  def self.count_daily_engaged_users(start_date = nil, end_date = nil)
+    result = select(:user_id)
+      .distinct
+      .where(action_type: [LIKE, NEW_TOPIC, REPLY, NEW_PRIVATE_MESSAGE])
+
+    if start_date && end_date
+      result = result.group('date(created_at)')
+      result = result.where('created_at > ? AND created_at < ?', start_date, end_date)
+      result = result.order('date(created_at)')
+    end
+
+    result.count
+  end
+
   def self.stream_item(action_id, guardian)
     stream(action_id: action_id, guardian: guardian).first
   end
 
-  def self.stream_queued(opts = nil)
-    opts ||= {}
-
-    offset = opts[:offset] || 0
-    limit = opts[:limit] || 60
-
-    builder = SqlBuilder.new <<-SQL
-      SELECT
-        a.id,
-        t.title, a.action_type, a.created_at, t.id topic_id,
-        u.username, u.name, u.id AS user_id,
-        qp.raw,
-        t.category_id
-      FROM user_actions as a
-      JOIN queued_posts AS qp ON qp.id = a.queued_post_id
-      LEFT OUTER JOIN topics t on t.id = qp.topic_id
-      JOIN users u on u.id = a.user_id
-      LEFT JOIN categories c on c.id = t.category_id
-      /*where*/
-      /*order_by*/
-      /*offset*/
-      /*limit*/
-    SQL
-
-    builder
-      .where('a.user_id = :user_id', user_id: opts[:user_id].to_i)
-      .where('action_type = :pending', pending: UserAction::PENDING)
-      .order_by("a.created_at desc")
-      .offset(offset.to_i)
-      .limit(limit.to_i)
-      .map_exec(UserActionRow)
-  end
+  NULL_QUEUED_STREAM_COLS = %i{
+    cooked
+    uploaded_avatar_id
+    acting_name
+    acting_username
+    acting_user_id
+    target_name
+    target_username
+    target_user_id
+    post_number
+    post_id
+    deleted
+    hidden
+    post_type
+    action_type
+    action_code
+    action_code_who
+    topic_closed
+    topic_id
+    topic_archived
+  }.map! { |s|  "NULL as #{s}" }.join(", ")
 
   def self.stream(opts = nil)
     opts ||= {}
@@ -166,10 +175,23 @@ SQL
     ignore_private_messages = opts[:ignore_private_messages]
     offset = opts[:offset] || 0
     limit = opts[:limit] || 60
+    acting_username = opts[:acting_username]
+
+    # Acting user columns. Can be extended by plugins to include custom avatar
+    # columns
+    acting_cols = [
+      'u.id AS acting_user_id',
+      'u.name AS acting_name'
+    ]
+
+    UserLookup.lookup_columns.each do |c|
+      next if c == :id || c['.']
+      acting_cols << "u.#{c} AS acting_#{c}"
+    end
 
     # The weird thing is that target_post_id can be null, so it makes everything
     #  ever so more complex. Should we allow this, not sure.
-    builder = SqlBuilder.new <<-SQL
+    builder = DB.build <<~SQL
       SELECT
         a.id,
         t.title, a.action_type, a.created_at, t.id topic_id,
@@ -179,13 +201,13 @@ SQL
         p.reply_to_post_number,
         pu.username, pu.name, pu.id user_id,
         pu.uploaded_avatar_id,
-        u.username acting_username, u.name acting_name, u.id acting_user_id,
-        u.uploaded_avatar_id acting_uploaded_avatar_id,
+        #{acting_cols.join(', ')},
         coalesce(p.cooked, p2.cooked) cooked,
         CASE WHEN coalesce(p.deleted_at, p2.deleted_at, t.deleted_at) IS NULL THEN false ELSE true END deleted,
         p.hidden,
         p.post_type,
         p.action_code,
+        pc.value AS action_code_who,
         p.edit_reason,
         t.category_id
       FROM user_actions as a
@@ -196,6 +218,7 @@ SQL
       JOIN users pu on pu.id = COALESCE(p.user_id, t.user_id)
       JOIN users au on au.id = a.user_id
       LEFT JOIN categories c on c.id = t.category_id
+      LEFT JOIN post_custom_fields pc ON pc.post_id = a.target_post_id AND pc.name = 'action_code_who'
       /*where*/
       /*order_by*/
       /*offset*/
@@ -209,24 +232,31 @@ SQL
     else
       builder.where("a.user_id = :user_id", user_id: user_id.to_i)
       builder.where("a.action_type in (:action_types)", action_types: action_types) if action_types && action_types.length > 0
+
+      if acting_username
+        builder.where("u.username_lower = :acting_username",
+          acting_username: acting_username.downcase
+        )
+      end
+
+      unless SiteSetting.enable_mentions?
+        builder.where("a.action_type <> :mention_type", mention_type: UserAction::MENTION)
+      end
+
       builder
         .order_by("a.created_at desc")
         .offset(offset.to_i)
         .limit(limit.to_i)
     end
 
-    builder.map_exec(UserActionRow)
+    builder.query
   end
 
   def self.log_action!(hash)
     required_parameters = [:action_type, :user_id, :acting_user_id]
 
-    if hash[:action_type] == UserAction::PENDING
-      required_parameters << :queued_post_id
-    else
-      required_parameters << :target_post_id
-      required_parameters << :target_topic_id
-    end
+    required_parameters << :target_post_id
+    required_parameters << :target_topic_id
 
     require_parameters(hash, *required_parameters)
 
@@ -284,22 +314,32 @@ SQL
     end
   end
 
-  def self.synchronize_target_topic_ids(post_ids = nil)
+  def self.synchronize_target_topic_ids(post_ids = nil, limit: nil)
 
     # nuke all dupes, using magic
-    builder = SqlBuilder.new <<SQL
-DELETE FROM user_actions USING user_actions ua2
-/*where*/
-SQL
+    builder = DB.build <<~SQL
+      DELETE FROM user_actions USING user_actions ua2
+      /*where*/
+    SQL
 
-    builder.where <<SQL
-  user_actions.action_type = ua2.action_type AND
-  user_actions.user_id = ua2.user_id AND
-  user_actions.acting_user_id = ua2.acting_user_id AND
-  user_actions.target_post_id = ua2.target_post_id AND
-  user_actions.target_post_id > 0 AND
-  user_actions.id > ua2.id
-SQL
+    builder.where <<~SQL
+      user_actions.action_type = ua2.action_type AND
+      user_actions.user_id = ua2.user_id AND
+      user_actions.acting_user_id = ua2.acting_user_id AND
+      user_actions.target_post_id = ua2.target_post_id AND
+      user_actions.target_post_id > 0 AND
+      user_actions.id > ua2.id
+    SQL
+
+    if limit
+      builder.where(<<~SQL, limit: limit)
+        user_actions.target_post_id IN (
+          SELECT target_post_id
+          FROM user_actions
+          WHERE created_at > :limit
+        )
+      SQL
+    end
 
     if post_ids
       builder.where("user_actions.target_post_id in (:post_ids)", post_ids: post_ids)
@@ -307,20 +347,32 @@ SQL
 
     builder.exec
 
-    builder = SqlBuilder.new("UPDATE user_actions
-                    SET target_topic_id = (select topic_id from posts where posts.id = target_post_id)
-                    /*where*/")
+    builder = DB.build <<~SQL
+      UPDATE user_actions
+      SET target_topic_id = (select topic_id from posts where posts.id = target_post_id)
+      /*where*/
+    SQL
 
     builder.where("target_topic_id <> (select topic_id from posts where posts.id = target_post_id)")
     if post_ids
       builder.where("target_post_id in (:post_ids)", post_ids: post_ids)
     end
 
+    if limit
+      builder.where(<<~SQL, limit: limit)
+        target_post_id IN (
+          SELECT target_post_id
+          FROM user_actions
+          WHERE created_at > :limit
+        )
+      SQL
+    end
+
     builder.exec
   end
 
-  def self.ensure_consistency!
-    self.synchronize_target_topic_ids
+  def self.ensure_consistency!(limit = nil)
+    self.synchronize_target_topic_ids(nil, limit: limit)
   end
 
   def self.update_like_count(user_id, action_type, delta)
@@ -353,7 +405,6 @@ SQL
 
     unless guardian.can_see_notifications?(User.where(id: user_id).first)
       builder.where("a.action_type not in (#{BOOKMARK})")
-      builder.where('a.action_type <> :pending', pending: UserAction::PENDING)
     end
 
     if !guardian.can_see_private_messages?(user_id) || ignore_private_messages || !guardian.user
@@ -408,13 +459,14 @@ end
 #  acting_user_id  :integer
 #  created_at      :datetime         not null
 #  updated_at      :datetime         not null
-#  queued_post_id  :integer
 #
 # Indexes
 #
-#  idx_unique_rows                                (action_type,user_id,target_topic_id,target_post_id,acting_user_id) UNIQUE
-#  idx_user_actions_speed_up_user_all             (user_id,created_at,action_type)
-#  index_user_actions_on_acting_user_id           (acting_user_id)
-#  index_user_actions_on_target_post_id           (target_post_id)
-#  index_user_actions_on_user_id_and_action_type  (user_id,action_type)
+#  idx_unique_rows                                   (action_type,user_id,target_topic_id,target_post_id,acting_user_id) UNIQUE
+#  idx_user_actions_speed_up_user_all                (user_id,created_at,action_type)
+#  index_actions_on_acting_user_id                   (acting_user_id)
+#  index_actions_on_user_id_and_action_type          (user_id,action_type)
+#  index_user_actions_on_action_type_and_created_at  (action_type,created_at)
+#  index_user_actions_on_target_post_id              (target_post_id)
+#  index_user_actions_on_target_user_id              (target_user_id) WHERE (target_user_id IS NOT NULL)
 #

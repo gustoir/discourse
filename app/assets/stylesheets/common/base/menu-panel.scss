@@ -1,13 +1,17 @@
 .menu-panel.slide-in {
   position: fixed;
   right: 0;
+  box-shadow: shadow("header");
+  &.animate {
+    transition: right 0.2s ease-out, left 0.2s ease-out;
+  }
 
   .panel-body {
-    position: absolute;
-    top: 3px;
-    bottom: 37px;
-    width: 97%;
+    width: 100%;
   }
+}
+.header-cloak {
+  display: none;
 }
 
 .menu-panel.drop-down {
@@ -15,16 +19,19 @@
   // positions are relative to the .d-header .panel div
   top: 100%; // directly underneath .panel
   right: -10px; // 10px to the right of .panel - adjust as needed
+  max-height: 80vh;
 }
 
 .menu-panel {
-  border: 1px solid $primary-low;
-  box-shadow: 0 2px 2px rgba(0,0,0, .25);
-  background-color: $secondary;
-  z-index: 1100;
+  border: 1px solid var(--primary-low);
+  box-shadow: shadow("menu-panel");
+  background-color: var(--secondary);
+  z-index: z("header");
   padding: 0.5em;
-  width: 300px;
-
+  width: 320px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   hr {
     margin: 3px 0;
   }
@@ -41,10 +48,63 @@
   }
 
   .panel-body {
-    overflow-y: auto;
-    overflow-x: hidden;
+    display: flex;
+    touch-action: pan-y pinch-zoom;
+    overflow: hidden;
+    height: 100%;
   }
 
+  .panel-body-contents {
+    max-height: 100%;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .panel-body-bottom {
+    display: flex;
+    flex: 1 0 0%; // safari height fix
+    margin-top: 0.5em;
+    flex-wrap: wrap;
+
+    .show-all {
+      flex: 1 1 auto;
+      button {
+        width: 100%;
+      }
+    }
+    .notifications-dismiss {
+      margin-left: 0.5em;
+    }
+
+    .btn {
+      background-color: var(--primary-very-low);
+      color: var(--primary-high);
+      &:hover {
+        background: var(--primary-low);
+        color: var(--primary);
+      }
+    }
+  }
+
+  .badge-notification {
+    vertical-align: text-bottom;
+  }
+}
+
+.hamburger-panel {
+  a.widget-link {
+    width: 100%;
+    box-sizing: border-box;
+    @include ellipsis;
+  }
+  .panel-body {
+    overflow-y: auto;
+  }
+
+  span.badge-category {
+    max-width: 100px;
+  }
 }
 
 .menu-links.columned {
@@ -55,198 +115,219 @@
 }
 
 .menu-panel {
-  ul.menu-links li, ul li.heading {
-    a {
+  li,
+  li.heading {
+    a.widget-link,
+    a.categories-link {
       padding: 0.25em 0.5em;
       display: block;
-      &:hover {
-        background-color: $highlight-medium;
+      color: var(--primary);
+      &:hover,
+      &:focus {
+        background-color: var(--highlight-medium);
+        outline: none;
+      }
+
+      .d-icon {
+        color: var(--primary-medium);
       }
     }
 
     .new {
-      font-size: 0.8em;
+      font-size: $font-down-1;
       margin-left: 0.5em;
-      color: dark-light-choose($primary-medium, $secondary-medium);
+      color: var(--primary-med-or-secondary-med);
     }
-
   }
 
   li.category-link {
     float: left;
     background-color: transparent;
-    width: 45%;
-    margin: 5px 5px 0 8px;
-    .box {margin-top: 0;}
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25em 0.5em;
+    width: 50%;
+    box-sizing: border-box;
+    a {
+      display: inline-flex;
+      &:hover,
+      &:focus {
+        background: transparent;
+
+        .category-name {
+          color: var(--primary);
+        }
+      }
+    }
     .badge-notification {
-      color: dark-light-choose($primary-medium, $secondary-medium);
+      color: var(--primary-med-or-secondary-med);
       background-color: transparent;
       display: inline;
       padding: 0;
+      font-size: $font-down-1;
+      line-height: $line-height-large;
+    }
+    .badge-wrapper {
+      &.bar,
+      &.bullet {
+        color: var(--primary);
+        padding: 0 0 0 0.15em;
+      }
+      &.box {
+        color: var(--secondary);
+        + a.badge.badge-notification {
+          padding-top: 2px;
+        }
+        span {
+          z-index: z("base") * -1;
+        }
+      }
     }
   }
 
   // note these topic counts only appear for anons in the category hamburger drop down
   b.topics-count {
-    color: dark-light-choose($primary-medium, $secondary-medium);
+    color: var(--primary-med-or-secondary-med);
     font-weight: normal;
-    font-size: 11px;
+    font-size: $font-down-1;
   }
 
-  span.badge-category {
-    max-width: 90px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-}
-
-.search-menu {
-
-  .search-context .show-help {
-    float: right;
-  }
-
-  .heading {
-    padding: 5px 0 5px 5px;
-    .filter {
-      padding: 0 5px;
-    }
-  }
-
-  input[type='text'] {
-    margin: 0.5em 3px;
-    box-sizing: border-box;
-    width: calc(100% - 6px);
-    height: 32px;
-    padding: 5px;
-  }
-
-  .search-context {
-    padding: 0 5px;
-    label { margin-bottom: 0; }
-  }
-
-  .searching {
-    position: absolute;
-    top: 0.25em;
-    right: 1.5em;
-
-    .spinner {
-      width: 10px;
-      height: 10px;
-      border-width: 2px;
-      margin: 20px 0 0 0;
-    }
-  }
-  // I am ghetto using this to display "Show More".. be warned
-  .no-results {
-    padding: 5px;
-    text-align: center;
-  }
-
-  .filter {
-    padding: 0;
-    &:hover {background: transparent;}
-  }
-
-  .search-link {
-    .badge-category-parent {
-      line-height: 0.8em;
-    }
-    .topic-title {
-      margin-right: 6px;
-    }
-
-    .topic-statuses {
-      float: none;
-      display: inline-block;
-      color: dark-light-choose($primary-medium, $secondary-medium);
-      margin: 0;
-      .fa {
-        margin: 0;
-      }
-    }
-  }
-
-  li:not(.category):not(.heading) {
-    font-size: 0.929em;
-    line-height: 16px;
-
-    .fa {
-      font-size: inherit;
-    }
-
-    a {
-      &:not(.discourse-tag) {
-        display: block;
-        padding: 5px;
-      }
-      transition: all linear .15s;
-
-      .user-results {
-        color: dark-light-choose($primary-high, $secondary-low);
-      }
-    }
-
-    &:hover a:not(.badge-notification) {
-      background-color: $highlight-medium;
-    }
-
-    button {margin-left: 5px;}
+  div.discourse-tags {
+    font-size: $font-down-1;
   }
 }
 
 .user-menu {
-
-  .notifications {
+  .quick-access-panel {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    max-height: 100%;
+    border-top: 1px solid var(--primary-low);
+    padding-top: 0.75em;
+    margin-top: -1px;
     h3 {
       padding: 0 0.4em;
       font-weight: bold;
       margin: 0.5em 0;
     }
 
-    .fa { color: dark-light-choose($primary-medium, $secondary-medium); }
-    .icon { color: dark-light-choose($primary-high, $secondary-low); }
+    .d-icon,
+    &:hover .d-icon {
+      color: var(--primary-medium);
+    }
+    .icon {
+      color: var(--primary-high);
+    }
+
+    ul {
+      display: flex;
+      flex-flow: column wrap;
+      overflow: hidden;
+      max-height: 100%;
+    }
+
     li {
-      background-color: $tertiary-low;
-      padding: 0.25em 0.5em;
-      i {
-        float: left;
-        margin-right: 5px;
-        padding-top: 2px;
-      }
+      background-color: var(--tertiary-low);
+      box-sizing: border-box;
+      list-style-type: none;
 
       // This is until other languages remove the HTML from within
       // notifications. It can then be removed
-      div i.fa {
+      div .fa {
         display: none;
       }
 
-      span { color: $primary; }
-      &:hover { background-color: $highlight-medium; }
-      a { padding: 0; }
+      span:first-child {
+        color: var(--primary);
+      }
+
+      span.double-user,
+      // e.g., "username, username2"
+      span.multi-user
+      // e.g., "username, username2, and n others"
+      {
+        display: inline-flex;
+        max-width: 100%;
+        align-items: baseline;
+        white-space: nowrap;
+      }
+
+      span.multi-user
+      // e.g., "username, username2, and n others"
+      {
+        span.multi-username:nth-of-type(2) {
+          // margin between username2 and "and n others"
+          margin-right: 0.25em;
+        }
+      }
+
+      // truncate when usernames are very long
+      span.multi-username {
+        @include ellipsis;
+        flex: 0 1 auto;
+        min-width: 1.2em;
+        max-width: 10em;
+        &:nth-of-type(2) {
+          // margin for comma between username and username2
+          margin-left: 0.25em;
+        }
+      }
+
+      &:hover,
+      &:focus {
+        background-color: var(--highlight-medium);
+        outline: none;
+      }
+
+      a {
+        display: flex;
+      }
+
+      a,
+      button {
+        padding: 0.25em 0.5em;
+
+        > div {
+          overflow: hidden; // clears the text from wrapping below icons
+          overflow-wrap: anywhere;
+          @supports not (overflow-wrap: anywhere) {
+            word-break: break-word;
+          }
+
+          // Truncate items with more than 2 lines.
+          @include line-clamp(2);
+        }
+      }
+
       p {
         margin: 0;
         overflow: hidden;
       }
     }
+    li:not(.show-all) {
+      padding: 0;
+      align-self: flex-start;
+      width: 100%;
+      .d-icon {
+        padding-top: 0.2em;
+        margin-right: 0.5em;
+      }
+    }
     .is-warning {
-      .d-icon-envelope-o {
-        &:before {
-          content: "\f0e0";
-        }
-        color: $danger;
+      .d-icon-far-envelope {
+        color: var(--danger);
       }
     }
     .read {
-      background-color: $secondary;
+      background-color: var(--secondary);
     }
     .none {
       padding-top: 5px;
     }
-    .spinner-container.visible {
-      min-height: 30px;
+    .spinner-container {
+      min-height: 2em;
     }
     .spinner {
       width: 20px;
@@ -254,60 +335,118 @@
       border-width: 2px;
       margin: 0 auto;
     }
+    .show-all a {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 30px;
+      color: var(--primary-med-or-secondary-high);
+      background: var(--blend-primary-secondary-5);
+      &:hover {
+        color: var(--primary);
+        background: var(--primary-low);
+      }
+    }
     /* as a big ol' click target, don't let text inside be selected */
     @include unselectable;
+
+    &.quick-access-profile {
+      display: inline;
+      overflow-y: auto; // There's no "show all" for this content, so it always needs to be scrollable
+      ul {
+        display: inline;
+        a {
+          box-sizing: border-box; // without this you end up with horizontal scroll
+        }
+      }
+      li:not(.show-all) a {
+        color: var(--primary);
+        display: flex;
+      }
+    }
   }
 }
 
-.notifications .logout {
-  padding: 0.25em;
-  &:hover {
-    background-color: $highlight-medium;
-  }
+.user-notifications-link {
+  // keep this in leftmost position consistently
+  order: -1;
 }
 
 div.menu-links-header {
   width: 100%;
-  display: table;
-  border-collapse: separate;
-  border-spacing: 0 0.5em;
   .menu-links-row {
-    display: table-row;
+    box-sizing: border-box;
+    display: flex;
+    width: 100%;
+    z-index: 2;
+    justify-content: space-between;
+
+    .glyphs {
+      display: inline-flex;
+      align-items: center;
+      flex-wrap: nowrap;
+      width: 100%;
+      justify-content: space-between;
+      padding: 0;
+
+      button {
+        display: flex;
+        flex: 1 1 auto;
+        padding: 0.65em 0.25em 0.75em;
+        justify-content: center;
+      }
+    }
+
+    button {
+      // This is to make sure active and inactive tab icons have the same
+      // size. `box-sizing` does not work and I have no idea why.
+      border: 1px solid transparent;
+      &:not(.active):hover {
+        border-bottom: 0;
+        margin-top: -1px;
+      }
+    }
+
+    button.active {
+      border: 1px solid var(--primary-low);
+      border-bottom: 1px solid var(--secondary);
+      position: relative;
+
+      .d-icon {
+        color: var(--primary-high);
+      }
+
+      &:focus,
+      &:hover {
+        background-color: inherit;
+      }
+    }
   }
-  a:hover {
-    background-color: $highlight-medium;
+
+  button:hover,
+  button:focus {
+    background-color: var(--highlight-medium);
+    outline: none;
   }
-  a {
-    padding: 0.5em;
+  button {
+    padding: 0.3em 0.5em;
   }
-  a.user-activity-link {
-    max-width: 150px;
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    margin: -0.5em 0;
-  }
-  li {
+
+  .glyphs {
     display: table-cell;
     width: auto;
     text-align: center;
   }
-  li:first-child {
+  .glyphs:first-child {
     text-align: left;
   }
 
-  li:last-child {
+  .glyphs:last-child {
     text-align: right;
   }
-  .fa, a {
-    color: dark-light-choose($primary-medium, $secondary-medium);
-  }
-
-  a {
-    font-size: 1.1em;
-  }
-  .d-icon-user {
-    margin-right: 0.2em;
+  .fa,
+  button {
+    color: var(--primary-med-or-secondary-med);
   }
 }

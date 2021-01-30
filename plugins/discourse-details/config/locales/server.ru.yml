@@ -1,0 +1,11 @@
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
+#
+# To work with us on translations, join this project:
+# https://translate.discourse.org/
+
+ru:
+  site_settings:
+    details_enabled: 'Включить дополнительные возможности. Если вы измените данный пункт, то потребуется обновить все сообщения при помощи команды: "rake posts:rebake"'
+  details:
+    excerpt_details: "(нажмите для более подробной информации)"

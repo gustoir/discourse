@@ -1,9 +1,8 @@
-# encoding: utf-8
-#
-# Never edit this file. It will be overwritten when translations are pulled from Transifex.
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
 #
 # To work with us on translations, join this project:
-# https://www.transifex.com/projects/p/discourse-org/
+# https://translate.discourse.org/
 
 et:
   js:
@@ -15,20 +14,6 @@ et:
         one: "häält kokku"
         other: "hääli kokku"
       average_rating: "Keskmine hinnang: <strong>%{average}</strong>."
-      public:
-        title: "Antud hääled on avalikud."
-      multiple:
-        help:
-          at_least_min_options:
-            one: "Tee vähemalt <strong>1</strong> valik"
-            other: "Tee vähemalt <strong>%{count}</strong> valikut"
-          up_to_max_options:
-            one: "Võid teha <strong>1</strong> valiku"
-            other: "Võid teha kuni <strong>%{count}</strong> valikut"
-          x_options:
-            one: "Tee <strong>1</strong> valik"
-            other: "Tee <strong>%{count}</strong> valikut"
-          between_min_and_max_options: "Tee <strong>%{min}</strong> kuni <strong>%{max}</strong> valikut"
       cast-votes:
         title: "Anna oma hääl"
         label: "Hääleta nüüd!"
@@ -37,7 +22,8 @@ et:
         label: "Kuva tulemused"
       hide-results:
         title: "Tagasi sinu vastuse juurde"
-        label: "Peida tulemused"
+      export-results:
+        label: "Ekspordi"
       open:
         title: "Ava hääletus"
         label: "Ava"
@@ -53,7 +39,7 @@ et:
         title: Koosta hääletus
         insert: Sisesta hääletus
         help:
-          options_count: Sisesta vähemalt 2 valikut
+          min_step_value: Sammu minimaalne väärtus on 1
         poll_type:
           label: Tüüp
           regular: Üks valik

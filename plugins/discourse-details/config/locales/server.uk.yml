@@ -1,0 +1,11 @@
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
+#
+# To work with us on translations, join this project:
+# https://translate.discourse.org/
+
+uk:
+  site_settings:
+    details_enabled: 'Увімкніть функцію деталей. Якщо змінити, то потрібно відредагувати всі дописи: "rake posts:rebake".'
+  details:
+    excerpt_details: "(натисніть для отримання детальної інформації)"

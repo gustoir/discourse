@@ -1,6 +1,12 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe SearchLog, type: :model do
+
+  after do
+    SearchLog.clear_debounce_cache!
+  end
 
   describe ".log" do
 
@@ -83,7 +89,7 @@ RSpec.describe SearchLog, type: :model do
     end
 
     context "when logged in" do
-      let(:user) { Fabricate(:user) }
+      fab!(:user) { Fabricate(:user) }
 
       it "logs and updates the search" do
         freeze_time
@@ -97,7 +103,7 @@ RSpec.describe SearchLog, type: :model do
         log = SearchLog.find(log_id)
         expect(log.term).to eq('hello')
         expect(log.search_type).to eq(SearchLog.search_types[:full_page])
-        expect(log.ip_address).to eq('192.168.0.1')
+        expect(log.ip_address).to eq(nil)
         expect(log.user_id).to eq(user.id)
 
         action, updated_log_id = SearchLog.log(
@@ -122,6 +128,7 @@ RSpec.describe SearchLog, type: :model do
         expect(action).to eq(:created)
 
         freeze_time(10.minutes.from_now)
+        Discourse.redis.del(SearchLog.redis_key(ip_address: '192.168.0.1', user_id: user.id))
 
         action, _ = SearchLog.log(
           term: 'hello',
@@ -153,6 +160,79 @@ RSpec.describe SearchLog, type: :model do
         expect(action).to eq(:created)
       end
 
+    end
+  end
+
+  describe ".term_details" do
+    it "should only use the date for the period" do
+      time = Time.utc(2019, 5, 23, 18, 15, 30)
+      freeze_time(time)
+
+      search_log = Fabricate(:search_log, created_at: time - 1.hour)
+      search_log2 = Fabricate(:search_log, created_at: time + 1.hour)
+
+      details = SearchLog.term_details(search_log.term, :daily)
+
+      expect(details[:data].first[:y]).to eq(2)
+    end
+
+    it "correctly returns term details" do
+      Fabricate(:search_log, term: "ruby")
+      Fabricate(:search_log, term: "ruBy", user: Fabricate(:user))
+      Fabricate(:search_log, term: "ruby core", ip_address: "127.0.0.3")
+
+      Fabricate(:search_log,
+        term: "ruBy",
+        search_type: SearchLog.search_types[:full_page],
+        ip_address: "127.0.0.2"
+      )
+
+      term_details = SearchLog.term_details("ruby")
+      expect(term_details[:data][0][:y]).to eq(3)
+
+      term_header_details = SearchLog.term_details("ruby", :all, :header)
+      expect(term_header_details[:data][0][:y]).to eq(2)
+
+      SearchLog
+        .where("lower(term) = ?", 'ruby')
+        .where(ip_address: '127.0.0.2')
+        .update_all(search_result_id: 24)
+
+      term_click_through_details = SearchLog.term_details("ruby", :all, :click_through_only)
+      expect(term_click_through_details[:period]).to eq("all")
+      expect(term_click_through_details[:data][0][:y]).to eq(1)
+    end
+  end
+
+  context "trending" do
+    fab!(:user) { Fabricate(:user) }
+    before do
+      SearchLog.log(term: 'ruby', search_type: :header, ip_address: '127.0.0.1')
+      SearchLog.log(term: 'php', search_type: :header, ip_address: '127.0.0.1')
+      SearchLog.log(term: 'java', search_type: :header, ip_address: '127.0.0.1')
+      SearchLog.log(term: 'ruby', search_type: :header, ip_address: '127.0.0.1', user_id: user.id)
+      SearchLog.log(term: 'swift', search_type: :header, ip_address: '127.0.0.1')
+      SearchLog.log(term: 'ruby', search_type: :header, ip_address: '127.0.0.2')
+    end
+
+    it "considers time period" do
+      expect(SearchLog.trending.to_a.count).to eq(4)
+
+      SearchLog.where(term: 'swift').update_all(created_at: 1.year.ago)
+      expect(SearchLog.trending(:monthly).to_a.count).to eq(3)
+    end
+
+    it "correctly returns trending data" do
+      top_trending = SearchLog.trending.first
+      expect(top_trending.term).to eq("ruby")
+      expect(top_trending.searches).to eq(3)
+      expect(top_trending.click_through).to eq(0)
+
+      SearchLog.where(term: 'ruby', ip_address: '127.0.0.1').update_all(search_result_id: 12)
+      SearchLog.where(term: 'ruby', user_id: user.id).update_all(search_result_id: 12)
+      SearchLog.where(term: 'ruby', ip_address: '127.0.0.2').update_all(search_result_id: 24)
+      top_trending = SearchLog.trending.first
+      expect(top_trending.click_through).to eq(3)
     end
   end
 

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe ScreenedIpAddress do
@@ -30,6 +32,13 @@ describe ScreenedIpAddress do
       expect {
         described_class.new(valid_params.merge(action_name: nil))
       }.to raise_error(ArgumentError)
+    end
+
+    it 'returns a useful error if ip address matches an existing record' do
+      ScreenedIpAddress.create(ip_address: '2600:387:b:f::7a/128', action_name: :block)
+      r = ScreenedIpAddress.new(ip_address: '2600:387:b:f::7a', action_name: :block)
+      expect(r.save).to eq(false)
+      expect(r.errors[:ip_address]).to be_present
     end
   end
 
@@ -128,13 +137,13 @@ describe ScreenedIpAddress do
       end
 
       context 'using exact match' do
-        let!(:existing) { Fabricate(:screened_ip_address) }
+        fab!(:existing) { Fabricate(:screened_ip_address) }
         let(:ip_address_arg) { existing.ip_address }
         include_examples 'exact match of ip address'
       end
 
       context 'using subnet mask 255.255.255.0' do
-        let!(:existing) { Fabricate(:screened_ip_address, ip_address: '99.232.23.124/24') }
+        fab!(:existing) { Fabricate(:screened_ip_address, ip_address: '99.232.23.124/24') }
 
         context 'at exact address' do
           let(:ip_address_arg) { '99.232.23.124' }
@@ -203,37 +212,37 @@ describe ScreenedIpAddress do
     end
   end
 
-  describe '#is_whitelisted?' do
+  describe '#is_allowed?' do
     it 'returns false when record does not exist' do
-      expect(described_class.is_whitelisted?(ip_address)).to eq(false)
+      expect(described_class.is_allowed?(ip_address)).to eq(false)
     end
 
     it 'returns false when no record matches' do
       Fabricate(:screened_ip_address, ip_address: '111.234.23.11', action_type: described_class.actions[:do_nothing])
-      expect(described_class.is_whitelisted?('222.12.12.12')).to eq(false)
+      expect(described_class.is_allowed?('222.12.12.12')).to eq(false)
     end
 
     context 'IPv4' do
       it 'returns true when when record matches and action is :do_nothing' do
         Fabricate(:screened_ip_address, ip_address: '111.234.23.11', action_type: described_class.actions[:do_nothing])
-        expect(described_class.is_whitelisted?('111.234.23.11')).to eq(true)
+        expect(described_class.is_allowed?('111.234.23.11')).to eq(true)
       end
 
       it 'returns false when when record matches and action is :block' do
         Fabricate(:screened_ip_address, ip_address: '111.234.23.11', action_type: described_class.actions[:block])
-        expect(described_class.is_whitelisted?('111.234.23.11')).to eq(false)
+        expect(described_class.is_allowed?('111.234.23.11')).to eq(false)
       end
     end
 
     context 'IPv6' do
       it 'returns true when when record matches and action is :do_nothing' do
         Fabricate(:screened_ip_address, ip_address: '2001:db8::ff00:42:8329', action_type: described_class.actions[:do_nothing])
-        expect(described_class.is_whitelisted?('2001:db8::ff00:42:8329')).to eq(true)
+        expect(described_class.is_allowed?('2001:db8::ff00:42:8329')).to eq(true)
       end
 
       it 'returns false when when record matches and action is :block' do
         Fabricate(:screened_ip_address, ip_address: '2001:db8::ff00:42:8329', action_type: described_class.actions[:block])
-        expect(described_class.is_whitelisted?('2001:db8::ff00:42:8329')).to eq(false)
+        expect(described_class.is_allowed?('2001:db8::ff00:42:8329')).to eq(false)
       end
     end
   end
@@ -241,12 +250,12 @@ describe ScreenedIpAddress do
   describe '#block_admin_login?' do
     context 'no allow_admin records exist' do
 
-      it "returns false when use_admin_ip_whitelist is false" do
+      it "returns false when use_admin_ip_allowlist is false" do
         expect(described_class.block_admin_login?(Fabricate.build(:user), '123.12.12.12')).to eq(false)
       end
 
-      context "use_admin_ip_whitelist is true" do
-        before { SiteSetting.use_admin_ip_whitelist = true }
+      context "use_admin_ip_allowlist is true" do
+        before { SiteSetting.use_admin_ip_allowlist = true }
 
         it "returns false when user is nil" do
           expect(described_class.block_admin_login?(nil, '123.12.12.12')).to eq(false)
@@ -272,12 +281,12 @@ describe ScreenedIpAddress do
         Fabricate(:screened_ip_address, ip_address: @permitted_ip_address, action_type: described_class.actions[:allow_admin])
       end
 
-      it "returns false when use_admin_ip_whitelist is false" do
+      it "returns false when use_admin_ip_allowlist is false" do
         expect(described_class.block_admin_login?(Fabricate.build(:admin), '123.12.12.12')).to eq(false)
       end
 
-      context "use_admin_ip_whitelist is true" do
-        before { SiteSetting.use_admin_ip_whitelist = true }
+      context "use_admin_ip_allowlist is true" do
+        before { SiteSetting.use_admin_ip_allowlist = true }
 
         it "returns false when user is nil" do
           expect(described_class.block_admin_login?(nil, @permitted_ip_address)).to eq(false)

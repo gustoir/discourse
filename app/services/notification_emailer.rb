@@ -1,10 +1,13 @@
+# frozen_string_literal: true
+
 class NotificationEmailer
 
   class EmailUser
-    attr_reader :notification
+    attr_reader :notification, :no_delay
 
-    def initialize(notification)
+    def initialize(notification, no_delay: false)
       @notification = notification
+      @no_delay = no_delay
     end
 
     def group_mentioned
@@ -67,12 +70,20 @@ class NotificationEmailer
     EMAILABLE_POST_TYPES ||= Set.new [Post.types[:regular], Post.types[:whisper]]
 
     def enqueue(type, delay = default_delay)
-      return unless notification.user.user_option.email_direct?
+      return if notification.user.user_option.email_level == UserOption.email_level_types[:never]
       perform_enqueue(type, delay)
     end
 
     def enqueue_private(type, delay = private_delay)
-      return unless notification.user.user_option.email_private_messages?
+
+      if notification.user.user_option.nil?
+        # this can happen if we roll back user creation really early
+        # or delete user
+        # bypass this pm
+        return
+      end
+
+      return if notification.user.user_option.email_messages_level == UserOption.email_level_types[:never]
       perform_enqueue(type, delay)
     end
 
@@ -80,6 +91,7 @@ class NotificationEmailer
       user = notification.user
       return unless user.active? || user.staged?
       return if SiteSetting.must_approve_users? && !user.approved? && !user.staged?
+      return if user.staged? && (type == :user_linked || type == :user_quoted)
 
       return unless EMAILABLE_POST_TYPES.include?(post_type)
 
@@ -87,11 +99,11 @@ class NotificationEmailer
     end
 
     def default_delay
-      SiteSetting.email_time_window_mins.minutes
+      no_delay ? 0 : SiteSetting.email_time_window_mins.minutes
     end
 
     def private_delay
-      SiteSetting.private_email_time_window_seconds
+      no_delay ? 0 : SiteSetting.personal_email_time_window_seconds
     end
 
     def post_type
@@ -112,13 +124,13 @@ class NotificationEmailer
     @disabled = false
   end
 
-  def self.process_notification(notification)
+  def self.process_notification(notification, no_delay: false)
     return if @disabled
 
-    email_user   = EmailUser.new(notification)
+    email_user   = EmailUser.new(notification, no_delay: no_delay)
     email_method = Notification.types[notification.notification_type]
 
-    email_user.send(email_method) if email_user.respond_to? email_method
+    email_user.public_send(email_method) if email_user.respond_to? email_method
   end
 
 end

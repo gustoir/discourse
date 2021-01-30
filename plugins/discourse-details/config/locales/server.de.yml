@@ -1,3 +1,11 @@
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
+#
+# To work with us on translations, join this project:
+# https://translate.discourse.org/
+
 de:
   site_settings:
-    details_enabled: "Aktiviert das Details-Plugin. Wenn du dies änderst, musst du alle Beiträge neu „backen“ mit: \"rake posts:rebake\"."
+    details_enabled: 'Aktiviert die Details-Funktion. Wenn du dies änderst, musst du alle Beiträge mit folgendem Befehl aktualisieren: „rake posts:rebake“'
+  details:
+    excerpt_details: "(klicke, um weitere Details zu sehen)"

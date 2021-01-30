@@ -1,9 +1,5 @@
-//= require_tree ./ember-addons/utils
-//= require ./ember-addons/decorator-alias
-//= require ./ember-addons/macro-alias
-//= require ./ember-addons/ember-computed-decorators
-//= require_tree ./discourse-common
-//= require_tree ./select-box-kit
+//= require_tree ./discourse-common/addon
+//= require_tree ./select-kit/addon
 //= require wizard/router
 //= require wizard/wizard
 //= require_tree ./wizard/templates

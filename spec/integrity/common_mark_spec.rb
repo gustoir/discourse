@@ -6,6 +6,7 @@ describe "CommonMark" do
 
     SiteSetting.traditional_markdown_linebreaks = true
     SiteSetting.enable_markdown_typographer = false
+    SiteSetting.highlighted_languages = 'ruby|aa'
 
     html, state, md = nil
     failed = 0
@@ -27,7 +28,8 @@ describe "CommonMark" do
         html.gsub!('<hr />', '<hr>')
         html.gsub!(/<img([^>]+) \/>/, "<img\\1>")
 
-        cooked = PrettyText.markdown(md, sanitize: false, linkify: false)
+        SiteSetting.enable_markdown_linkify = false
+        cooked = PrettyText.markdown(md, sanitize: false)
         cooked.strip!
         cooked.gsub!(" class=\"lang-auto\"", '')
         cooked.gsub!(/<span class="hashtag">(.*)<\/span>/, "\\1")
@@ -35,6 +37,7 @@ describe "CommonMark" do
         cooked.gsub!("<blockquote>\n</blockquote>", "<blockquote></blockquote>")
         html.gsub!("<blockquote>\n</blockquote>", "<blockquote></blockquote>")
         html.gsub!("language-ruby", "lang-ruby")
+        html.gsub!("language-aa", "lang-aa")
         # strip out unsupported languages
         html.gsub!(/ class="language-[;f].*"/, "")
 

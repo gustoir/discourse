@@ -1,23 +1,14 @@
+# frozen_string_literal: true
+
 require 'mail'
-require_dependency 'email/message_builder'
-require_dependency 'email/renderer'
-require_dependency 'email/sender'
-require_dependency 'email/styles'
 
 module Email
+  # cute little guy ain't he?
+  MESSAGE_ID_REGEX = /<(.*@.*)+>/
 
   def self.is_valid?(email)
     return false unless String === email
-
-    parsed = Mail::Address.new(email)
-
-    # Don't allow for a TLD by itself list (sam@localhost)
-    # The Grammar is: (local_part "@" domain) / local_part ... need to discard latter
-    parsed.address == email &&
-    parsed.local != parsed.address &&
-    parsed&.domain.split(".").size > 1
-  rescue Mail::Field::ParseError
-    false
+    !!(EmailValidator.email_regex =~ email)
   end
 
   def self.downcase(email)
@@ -46,4 +37,18 @@ module Email
     [text&.decoded, html&.decoded]
   end
 
+  def self.site_title
+    SiteSetting.email_site_title.presence || SiteSetting.title
+  end
+
+  # https://tools.ietf.org/html/rfc850#section-2.1.7
+  def self.message_id_rfc_format(message_id)
+    return message_id if message_id =~ MESSAGE_ID_REGEX
+    "<#{message_id}>"
+  end
+
+  def self.message_id_clean(message_id)
+    return message_id if !(message_id =~ MESSAGE_ID_REGEX)
+    message_id.tr("<>", "")
+  end
 end

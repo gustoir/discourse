@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# frozen_string_literal: true
 
 require 'action_mailer'
 
@@ -20,10 +21,11 @@ MAILTO = YOUR_EMAIL
 ### You shouldn't need to change anything below here
 $delivery_options = {
   user_name: @DISCOURSE_SMTP_USER_NAME || nil,
-  password:  @DISCOURSE_SMTP_PASSWORD  || nil,
-  address:   DISCOURSE_SMTP_ADDRESS,
-  port:      @DISCOURSE_SMTP_PORT || nil,
-  openssl_verify_mode: @DISCOURSE_SMTP_OPENSSL_VERIFY_MODE || nil }
+  password: @DISCOURSE_SMTP_PASSWORD || nil,
+  address: DISCOURSE_SMTP_ADDRESS,
+  port: @DISCOURSE_SMTP_PORT || nil,
+  openssl_verify_mode: @DISCOURSE_SMTP_OPENSSL_VERIFY_MODE || nil
+}
 
 class EmailTestMailer < ActionMailer::Base
   def email_test(mailfrom, mailto)

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe PostAnalyzer do
@@ -14,7 +16,7 @@ describe PostAnalyzer do
     before { Oneboxer.stubs(:onebox) }
 
     it 'fetches the cached onebox for any urls in the post' do
-      Oneboxer.expects(:cached_onebox).with url
+      Oneboxer.expects(:cached_onebox).with(url).returns('something')
       post_analyzer.cook(raw, options)
       expect(post_analyzer.found_oneboxes?).to be(true)
     end
@@ -29,6 +31,7 @@ describe PostAnalyzer do
 
       it 'invalidates the oneboxes for urls in the post' do
         Oneboxer.expects(:invalidate).with url
+        InlineOneboxer.expects(:invalidate).with url
         post_analyzer.cook(raw, options)
       end
     end
@@ -38,9 +41,14 @@ describe PostAnalyzer do
       expect(cooked).to eq('Hello <div/> world')
     end
 
-    it "does not interpret Markdown when cook_method is 'email'" do
-      cooked = post_analyzer.cook('*this is not italic* and here is a link: https://www.example.com', cook_method: Post.cook_methods[:email])
+    it "does not interpret Markdown when cook_method is 'email' and raw contains plaintext" do
+      cooked = post_analyzer.cook("[plaintext]\n*this is not italic* and here is a link: https://www.example.com\n[/plaintext]", cook_method: Post.cook_methods[:email])
       expect(cooked).to eq('*this is not italic* and here is a link: <a href="https://www.example.com">https://www.example.com</a>')
+    end
+
+    it "does interpret Markdown when cook_method is 'email' and raw does not contain plaintext" do
+      cooked = post_analyzer.cook('*this is italic*', cook_method: Post.cook_methods[:email])
+      expect(cooked).to eq('<p><em>this is italic</em></p>')
     end
 
     it "does interpret Markdown when cook_method is 'regular'" do
@@ -107,52 +115,58 @@ describe PostAnalyzer do
     end
   end
 
-  describe "image_count" do
+  describe "embedded_media_count" do
     let(:raw_post_one_image_md) { "![sherlock](http://bbc.co.uk/sherlock.jpg)" }
     let(:raw_post_two_images_html) { "<img src='http://discourse.org/logo.png'> <img src='http://bbc.co.uk/sherlock.jpg'>" }
     let(:raw_post_with_avatars) { '<img alt="smiley" title=":smiley:" src="/assets/emoji/smiley.png" class="avatar"> <img alt="wink" title=":wink:" src="/assets/emoji/wink.png" class="avatar">' }
     let(:raw_post_with_favicon) { '<img src="/assets/favicons/wikipedia.png" class="favicon">' }
     let(:raw_post_with_thumbnail) { '<img src="/assets/emoji/smiley.png" class="thumbnail">' }
     let(:raw_post_with_two_classy_images) { "<img src='http://discourse.org/logo.png' class='classy'> <img src='http://bbc.co.uk/sherlock.jpg' class='classy'>" }
+    let(:raw_post_with_two_embedded_media) { '<video width="950" height="700" controls><source src="https://bbc.co.uk/news.mp4" type="video/mp4"></video><audio controls><source type="audio/mpeg" src="https://example.com/audio.mp3"></audio>' }
 
     it "returns 0 images for an empty post" do
       post_analyzer = PostAnalyzer.new("Hello world", nil)
-      expect(post_analyzer.image_count).to eq(0)
+      expect(post_analyzer.embedded_media_count).to eq(0)
     end
 
     it "finds images from markdown" do
       post_analyzer = PostAnalyzer.new(raw_post_one_image_md, default_topic_id)
-      expect(post_analyzer.image_count).to eq(1)
+      expect(post_analyzer.embedded_media_count).to eq(1)
     end
 
     it "finds images from HTML" do
       post_analyzer = PostAnalyzer.new(raw_post_two_images_html, default_topic_id)
-      expect(post_analyzer.image_count).to eq(2)
+      expect(post_analyzer.embedded_media_count).to eq(2)
+    end
+
+    it "finds video and audio from HTML" do
+      post_analyzer = PostAnalyzer.new(raw_post_with_two_embedded_media, default_topic_id)
+      expect(post_analyzer.embedded_media_count).to eq(2)
     end
 
     it "doesn't count avatars as images" do
       post_analyzer = PostAnalyzer.new(raw_post_with_avatars, default_topic_id)
       PrettyText.stubs(:cook).returns(raw_post_with_avatars)
-      expect(post_analyzer.image_count).to eq(0)
+      expect(post_analyzer.embedded_media_count).to eq(0)
     end
 
     it "doesn't count favicons as images" do
       post_analyzer = PostAnalyzer.new(raw_post_with_favicon, default_topic_id)
       PrettyText.stubs(:cook).returns(raw_post_with_favicon)
-      expect(post_analyzer.image_count).to eq(0)
+      expect(post_analyzer.embedded_media_count).to eq(0)
     end
 
     it "doesn't count thumbnails as images" do
       post_analyzer = PostAnalyzer.new(raw_post_with_thumbnail, default_topic_id)
       PrettyText.stubs(:cook).returns(raw_post_with_thumbnail)
-      expect(post_analyzer.image_count).to eq(0)
+      expect(post_analyzer.embedded_media_count).to eq(0)
     end
 
-    it "doesn't count whitelisted images" do
-      Post.stubs(:white_listed_image_classes).returns(["classy"])
+    it "doesn't count allowlisted images" do
+      Post.stubs(:allowed_image_classes).returns(["classy"])
       PrettyText.stubs(:cook).returns(raw_post_with_two_classy_images)
       post_analyzer = PostAnalyzer.new(raw_post_with_two_classy_images, default_topic_id)
-      expect(post_analyzer.image_count).to eq(0)
+      expect(post_analyzer.embedded_media_count).to eq(0)
     end
   end
 
@@ -169,6 +183,11 @@ describe PostAnalyzer do
     it "returns 0 links for a post with mentions" do
       post_analyzer = PostAnalyzer.new(raw_post_with_mentions, default_topic_id)
       expect(post_analyzer.link_count).to eq(0)
+    end
+
+    it "returns links with href=''" do
+      post_analyzer = PostAnalyzer.new('<a href="">Hello world</a>', nil)
+      expect(post_analyzer.link_count).to eq(1)
     end
 
     it "finds links from markdown" do
@@ -222,6 +241,13 @@ describe PostAnalyzer do
     it "ignores quotes" do
       post_analyzer = PostAnalyzer.new("[quote=\"Evil Trout\"]\n@Jake\n[/quote]\n @Finn", default_topic_id)
       expect(post_analyzer.raw_mentions).to eq(['finn'])
+    end
+
+    it "ignores group mentions in quotes" do
+      Fabricate(:group, name: "team")
+      Fabricate(:group, name: "mods")
+      post_analyzer = PostAnalyzer.new("[quote=\"Evil Trout\"]\n@team\n[/quote]\n @mods", default_topic_id)
+      expect(post_analyzer.raw_mentions).to eq(["mods"])
     end
 
     it "ignores oneboxes" do

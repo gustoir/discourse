@@ -1,12 +1,18 @@
-require 'rails_helper'
+# frozen_string_literal: true
+
+require "rails_helper"
 
 describe NewPostManager do
   let(:user) { Fabricate(:newuser) }
   let(:admin) { Fabricate(:admin) }
 
-  describe 'when new post containing a poll is queued for approval' do
-    it 'should render the poll upon approval' do
-      params = {
+  describe "when new post containing a poll is queued for approval" do
+    before do
+      SiteSetting.poll_minimum_trust_level_to_create = 0
+    end
+
+    let(:params) do
+      {
         raw: "[poll]\n* 1\n* 2\n* 3\n[/poll]",
         archetype: "regular",
         category: "",
@@ -21,15 +27,33 @@ describe NewPostManager do
         referrer: "http://localhost:3000/",
         first_post_checks: true
       }
+    end
 
-      expect { NewPostManager.new(user, params).perform }
-        .to change { QueuedPost.count }.by(1)
+    it "should render the poll upon approval" do
+      result = NewPostManager.new(user, params).perform
+      expect(result.action).to eq(:enqueued)
+      expect(result.reviewable).to be_present
 
-      queued_post = QueuedPost.last
-      queued_post.approve!(admin)
+      review_result = result.reviewable.perform(admin, :approve_post)
+      expect(Poll.where(post: review_result.created_post).exists?).to eq(true)
+    end
 
-      expect(Post.last.custom_fields[DiscoursePoll::POLLS_CUSTOM_FIELD])
-        .to_not eq(nil)
+    it 're-validates the poll when the approve_post event is triggered' do
+      invalid_raw_poll = <<~RAW
+        [poll type=multiple min=0]
+        * 1
+        * 2
+        [/poll]
+      RAW
+
+      result = NewPostManager.new(user, params).perform
+
+      reviewable = result.reviewable
+      reviewable.payload["raw"] = invalid_raw_poll
+      reviewable.save!
+
+      review_result = result.reviewable.perform(admin, :approve_post)
+      expect(Poll.where(post: review_result.created_post).exists?).to eq(false)
     end
   end
 end

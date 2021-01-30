@@ -1,66 +1,196 @@
-// these are the styles associated with the Discourse admin section
-@import "common/foundation/variables";
-@import "common/foundation/mixins";
-@import "common/foundation/helpers";
+// Styles for /admin section
 
-@import "common/admin/customize";
-@import "common/admin/flagging";
-@import "common/admin/suspend";
+@import "common/foundation/helpers";
 
 $mobile-breakpoint: 700px;
 
-// Change the box model for .admin-content
-@media (max-width: $mobile-breakpoint) {
-  .admin-content {
-    box-sizing: border-box;
-    *, *:before, *:after {
-      box-sizing: inherit;
-    }
+// Common admin styles
 
-    input[type="text"] {
-      // Desktop/_discourse.scss sets a height on text-input elements. Using `box-sizing: border-box`
-      // this value either needs to be increased or set to auto. `mobile.css` seems to not set a height on text-inputs.
-      height: auto;
+.admin-main-nav {
+  display: inline-flex;
+  position: relative;
+  width: 100%;
+  height: auto;
+  overflow: hidden;
+  height: 100%;
+  .mobile-view & {
+    margin-top: 10px;
+  }
+  @include breakpoint(tablet) {
+    width: calc(100% + 10px);
+    margin-left: -10px;
+    padding: 0 0 0 10px;
+  }
+
+  .nav-pills {
+    display: inline-flex;
+    flex-wrap: wrap;
+    width: calc(100% - 10px);
+    flex: 1 0 auto;
+    @include breakpoint(tablet) {
+      white-space: nowrap;
+      flex-wrap: nowrap;
+      overflow-x: scroll;
+      -webkit-overflow-scrolling: touch;
+      margin: 0 0 0 -10px;
+      padding: 0 10px 10px 10px;
+    }
+    &:before {
+      display: none;
+    }
+    > li {
+      margin: 0;
+      &:last-of-type {
+        > a {
+          margin-right: 25px;
+        }
+      }
+    }
+  }
+  @include breakpoint(tablet) {
+    // Fade-out for horizontal scroll nav
+    &:before {
+      content: "";
+      position: absolute;
+      width: 10px;
+      margin-left: -10px;
+      height: 100%;
+      background: linear-gradient(
+        to right,
+        rgba(var(--secondary-rgb), 1),
+        rgba(var(--secondary-rgb), 0)
+      );
+    }
+    &:after {
+      content: "";
+      position: absolute;
+      right: 0px;
+      width: 30px;
+      height: 100%;
+      background: linear-gradient(
+        to right,
+        rgba(var(--secondary-rgb), 0),
+        rgba(var(--secondary-rgb), 1)
+      );
     }
   }
 }
 
 .admin-contents {
   position: relative;
-  margin-left: -10px;
-  margin-right: -10px;
+  .nav-stacked {
+    @media screen and (max-width: 700px) {
+      margin: 0 15px 0 -10px;
+    }
+  }
 }
 
 .admin-contents table {
   width: 100%;
   margin-top: 10px;
+
   tr {text-align: right;}
   td, th {padding: 8px;}
   td {
     border-bottom: 1px solid $primary-low;
     border-top: 1px solid $primary-low;
   }
+  td,
   th {
-    text-align: left;
+    padding: 8px;
+  }
+  tr:hover {
+    background-color: var(--primary-very-low);
+  }
+  tr.selected {
+    background-color: var(--primary-low);
+  }
+  .filters input {
+    margin-bottom: 0;
+  }
+  .label {
+    display: none;
+  }
 
-    &.sortable {
-      cursor: pointer;
-      white-space: nowrap;
+  @media screen and (max-width: 970px) and (min-width: 768px) {
+    td,
+    th {
+      padding: 6px 4px;
+    }
+    th {
+      vertical-align: bottom;
+    }
+    th.sortable {
+      max-width: 100px;
+    }
+  }
+}
 
-      &:hover {
-        background-color: #e9e9e9;
-        background-color: lighten($primary, 80%);
+.admin-contents table.grid {
+  // Table switches to grid for narrow screens
+  @media screen and (max-width: 767px) {
+    thead {
+      display: none;
+    }
+    .label {
+      display: block;
+      color: var(--primary-medium);
+      font-size: $font-down-1;
+      margin: 0.5em 0 0.15em 0;
+    }
+    tr {
+      grid-template-columns: repeat(3, 1fr);
+      display: grid;
+      line-height: $line-height-medium;
+      padding: 8px 0;
+      min-width: 0;
+      td {
+        padding: 2px;
+        align-self: center;
       }
+    }
 
-      .d-icon-chevron-down,
-      .d-icon-chevron-up {
-        margin-left: 0.5em;
+    tr.flagged-topic {
+      grid-template-columns: 0.25fr 1fr 1fr;
+      td.topic-title {
+        grid-column-start: 2;
+        grid-column-end: -2;
+        min-width: 0;
+        align-self: start;
+      }
+      td.last-flagged {
+        grid-row: 1;
+        grid-column-end: -1;
+        text-align: right;
+        align-self: start;
+      }
+      td.flag-details {
+        grid-row: 2;
+        grid-column-end: -1;
+        text-align: right;
+      }
+      td.flagged-topic-users {
+        grid-row: 1;
+        grid-column-start: 1;
+        max-width: 60px;
+        align-self: start;
+        a {
+          display: inline-block;
+          margin: 0 0.25em 0.25em 0;
+        }
+      }
+      td.flag-counts {
+        grid-row: 2;
+        grid-column-start: 2;
       }
     }
   }
-  tr:hover { background-color: darken($secondary, 2.5%); }
-  tr.selected { background-color: lighten($primary, 80%); }
-  .filters input { margin-bottom: 0; }
+
+  @media screen and (min-width: 550px) {
+    tr {
+      grid-template-columns: repeat(6, 1fr);
+    }
+  }
 }
 
 .site-texts {
@@ -69,82 +199,100 @@ $mobile-breakpoint: 700px;
     p {
       margin-top: 0;
     }
-
     .site-text-search {
       padding: 0.5em;
-      font-size: 1em;
+      font-size: $font-0;
       width: 50%;
     }
-
-    .extra-options {
+    .reseed {
       float: right;
-      input[type=checkbox] {
-        margin-right: 0.5em;
-      }
     }
-
+    .locale {
+      margin-bottom: 0.5em;
+    }
+    .locale-search {
+      width: 50%;
+    }
   }
   .text-highlight {
     font-weight: bold;
   }
-
   .site-text {
     cursor: pointer;
-    border-bottom: 1px solid $primary-low;
+    border-bottom: 1px solid var(--primary-low);
     margin-bottom: 0.5em;
-
     &.overridden {
-      background-color: $highlight-medium;
+      background-color: var(--highlight-medium);
     }
-
     h3 {
       font-weight: normal;
-      font-size: 1.1em;
+      font-size: $font-0;
+      @include breakpoint(mobile-extra-large) {
+        word-wrap: break-word;
+      }
     }
-
     button.edit {
       float: right;
     }
     .site-text-value {
       margin: 0.5em 5em 0.5em 0;
-      max-height: 100px;
-      color: $primary-medium;
+      @include breakpoint(medium, min-width) {
+        max-height: 100px;
+      }
+      @include breakpoint(mobile-extra-large) {
+        word-wrap: break-word;
+      }
+      color: var(--primary-medium);
     }
-
   }
-
   .edit-site-text {
     textarea {
-      width: 80%;
+      width: 100%;
+      max-width: 800px;
     }
-
-    .save-messages, .title {
+    .save-button,
+    .title {
       margin-bottom: 1em;
     }
-
+    @include breakpoint(mobile-extra-large) {
+      .title {
+        word-wrap: break-word;
+      }
+    }
     .go-back {
       margin-top: 1em;
     }
   }
+  p.warning {
+    color: var(--danger);
+  }
 }
 
-.content-list li a span.count {
-  font-size: 0.857em;
-  float: right;
-  margin-right: 10px;
-  background-color: $primary-low;
-  padding: 2px 5px;
-  border-radius: 5px;
-  color: $primary;
+.content-list {
+  width: 27%;
+  float: left;
+  li a span.count {
+    font-size: $font-down-1;
+    float: right;
+    margin-right: 10px;
+    background-color: var(--primary-low);
+    padding: 2px 5px;
+    border-radius: 5px;
+    color: var(--primary);
+  }
+}
+
+.content-body {
+  float: left;
+  width: 60%;
 }
 
 .admin-content {
   margin-bottom: 50px;
   .admin-contents {
-    padding: 8px 0;
+    padding: 0 0 8px 0;
     @include clearfix();
   }
-
   .view-options {
     float: right;
   }
@@ -156,118 +304,275 @@ $mobile-breakpoint: 700px;
       }
     }
 
+    tr.total-for-period,
+    tr.total {
+      td {
+        font-weight: 700;
+      }
+    }
+
+    &.web_crawlers {
+      tr {
+        th:nth-of-type(1) {
+          width: 60%;
+        }
+      }
+      td.x-value {
+        max-width: 0;
+        @include ellipsis;
+      }
+    }
     .bar-container {
       float: right;
       width: 300px;
       margin-right: 15px;
       margin-bottom: 5px;
       display: inline-block;
-
       .bar {
         margin-top: 5px;
-        background-color: $tertiary;
+        background-color: var(--tertiary);
         display: inline-block;
         text-align: left;
         padding-right: 8px;
-        color: $secondary;
+        color: var(--secondary);
       }
     }
+  }
+}
+
+.full-reason {
+  white-space: pre-wrap;
+}
+
+.admin-users .users-list {
+  .username .d-icon {
+    color: var(--primary-medium);
   }
 }
 
 .ip-lookup {
   position: relative;
   display: inline-block;
-
   .location-box {
     position: absolute;
     width: 460px;
-    right: 0px;
-    z-index: 990;
-    box-shadow: 0 2px 6px rgba(0,0,0, .8);
+    right: 0;
+    z-index: z("dropdown");
+    box-shadow: shadow("card");
     margin-top: -2px;
-    background-color: $secondary;
+    background-color: var(--secondary);
     padding: 12px 12px 5px;
-
     .powered-by {
-      font-size: 0.80em;
+      font-size: $font-down-1;
       position: absolute;
       bottom: -10px;
       left: 10px;
     }
-
     .other-accounts {
       margin: 5px 0 0;
       max-height: 200px;
       overflow: auto;
       width: 455px;
-      ul { margin: 0; }
-      li { list-style: none; }
-      tr td:first-of-type { width: 130px; }
+      ul {
+        margin: 0;
+      }
+      li {
+        list-style: none;
+      }
+      tr td:first-of-type {
+        width: 130px;
+      }
     }
   }
 }
 
 .admin-container {
-  margin-top: 20px;
+  margin-top: 10px;
 
-  .select-box-kit {
+  .username {
+    input {
+      min-width: 15em;
+      @media screen and (max-width: 500px) {
+        box-sizing: border-box;
+        width: 100%;
+      }
+    }
+  }
+  .select-kit {
     width: 350px;
   }
-
-  .select-box-kit-header {
-    height: 28px;
+  .select-kit.multi-select {
+    width: 500px;
   }
-}
+  .select-kit.dropdown-select-box {
+    width: auto;
+  }
+  .search-logs-filter {
+    margin-left: auto;
+    @media screen and (max-width: 700px) {
+      flex: 1 1 100%;
+      margin-left: 0;
+    }
+  }
 
-.admin-container .controls {
-  @include clearfix;
-
-  .save-messages {
-    margin-top: 1em;
+  .header-search-results {
+    clear: both;
+    padding: 4px;
+  }
+  @include breakpoint(tablet) {
+    .select-kit.period-chooser
+      .period-chooser-header
+      h2.selected-name
+      .top-date-string {
+      font-size: $font-down-3;
+    }
+  }
+  .controls {
+    @include clearfix;
   }
 }
 
 .admin-title {
-  margin-bottom: 0.5em;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  .show-emails,
+  .hide-emails {
+    margin-left: auto;
+  }
 }
 
 .admin-controls {
-  background-color: $primary-low;
-  padding: 10px 10px 3px 0;
-  @include clearfix;
-  .nav.nav-pills {
-    li.active {
-      a {
-        border-color: $primary-low;
-        background-color: $primary-medium;
-        &:hover {
-          background-color: $primary-medium;
+  display: flex;
+  background-color: var(--primary-low);
+  align-items: center;
+
+  .admin-actions {
+    margin-left: auto;
+  }
+  nav {
+    background-color: var(--primary-low);
+    width: 100%;
+  }
+  nav {
+    display: inline-flex;
+    position: relative;
+    flex: 1 0 0px;
+    height: auto;
+    overflow: hidden;
+    padding: 0;
+    height: 100%;
+    @include breakpoint(tablet) {
+      width: calc(100% + 10px);
+      padding-left: 10px;
+      margin-left: -10px;
+      margin-right: -10px;
+    }
+
+    &:before {
+      // Fade out sides of horizontal nav
+      content: "";
+      position: absolute;
+      width: 10px;
+      left: 0;
+      height: calc(100% - 5px);
+      background: linear-gradient(
+        to right,
+        rgba(var(--primary-low-rgb), 1),
+        rgba(var(--primary-low-rgb), 0)
+      );
+    }
+
+    &:after {
+      content: "";
+      position: absolute;
+      right: 0px;
+      width: 15px;
+      height: calc(100% - 5px);
+      background: linear-gradient(
+        to right,
+        rgba(var(--primary-low-rgb), 0),
+        rgba(var(--primary-low-rgb), 1)
+      );
+    }
+  }
+
+  .nav-pills {
+    width: calc(100% - 10px);
+    display: inline-flex;
+    padding: 10px;
+    margin: 0;
+    white-space: nowrap;
+    overflow-x: auto;
+    @include breakpoint(tablet) {
+      margin-left: -10px;
+      overflow-x: scroll;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    &:before {
+      display: none;
+    }
+    > li {
+      margin: 0;
+      a.active {
+        background: var(--primary-medium);
+      }
+      &:last-of-type {
+        > a {
+          margin-right: 25px;
         }
       }
     }
   }
   h1 {
-    font-size: 1.429em;
-    line-height: 25px;
-    color: $primary;
+    font-size: $font-up-3;
+    line-height: $line-height-medium;
+    color: var(--primary);
   }
   .controls {
-    margin-left: 10px;
+    background: var(--primary-low);
+    width: 100%;
+    padding: 10px;
+    display: flex;
+    align-items: center;
+    @include breakpoint(mobile-extra-large) {
+      margin: 0 -10px;
+    }
+    label {
+      margin-bottom: 0;
+    }
+    input {
+      margin-right: 5px;
+      margin-bottom: 0;
+      @include breakpoint(tablet) {
+        max-width: 150px;
+      }
+    }
+    &.search {
+      width: auto;
+      white-space: nowrap;
+      label {
+        flex: 1 1 250px;
+        display: flex;
+        align-items: center;
+        input {
+          margin-right: 0.5em;
+        }
+      }
+    }
   }
-
   .controls .menu-toggle {
     display: none;
     float: left;
-    font-size: 24px;
-    padding: 3px 6px;
-    margin-right: 32px;
-    border: 1px solid lighten($primary, 40%);
+    padding: 5px 10px;
+    margin-right: 15px;
+    border: 1px solid var(--primary-medium);
     border-radius: 3px;
     background: transparent;
-    color: $primary;
+    color: var(--primary);
     &:hover {
-      background-color: lighten($primary, 60%);
+      background-color: var(--primary-low-mid);
     }
     @media (max-width: $mobile-breakpoint) {
       display: inline-block;
@@ -275,9 +580,8 @@ $mobile-breakpoint: 700px;
   }
   button {
     margin-right: 5px;
-
   }
-  input[type=text] {
+  input[type="text"] {
     display: inline-block;
     float: left;
   }
@@ -286,29 +590,23 @@ $mobile-breakpoint: 700px;
     padding-left: 10px;
   }
   .username {
-    input[type=text] {
+    input[type="text"] {
       width: 240px;
     }
   }
   .search {
-    float: right;
-    margin-left: 10px;
     label {
       margin-top: 5px;
     }
     .controls {
       margin-left: 0;
-    }
-    // Hide the search checkbox for very small screens
+    } // Hide the search checkbox for very small screens
     // Todo: find somewhere to display it - probably requires switching its order in the html
     @media (max-width: 550px) {
       display: none;
     }
   }
   .toggle {
-    margin-top: 8px;
-    float: right;
-
     span {
       font-weight: bold;
     }
@@ -317,24 +615,8 @@ $mobile-breakpoint: 700px;
     display: inline-block;
     margin-right: 5px;
   }
-  #last-seen input[type="text"] {
-    float: none;
-  }
-  .ac-wrap {
-    display: inline-block;
-    vertical-align: middle;
-    padding: 0;
-  }
-}
-
-.email-preview {
-  .ac-wrap {
-    .item {
-      margin: 0.2em 0 0 0.4em;
-    }
-    // input[type=text] {
-    //   margin-left: 0.4em;
-    // }
+  .pull-right {
+    padding-right: 10px;
   }
 }
 
@@ -343,70 +625,77 @@ $mobile-breakpoint: 700px;
   height: 150px;
 }
 
-.groups, .badges, .web-hook-container {
+.groups,
+.badges,
+.web-hook-container {
   .form-horizontal {
-    label {
-      font-weight: bold;
-    }
-
     & > div {
-      margin-top: 10px;
+      margin-bottom: 20px;
     }
-
-    input, textarea, select, .select-box {
+    .d-editor-textarea-wrapper {
+      max-width: 60%;
+      .d-editor-button-bar {
+        overflow: hidden;
+      }
+    }
+    input,
+    textarea,
+    select,
+    .select-box {
       width: 350px;
     }
-
-    input[type="checkbox"], input[type="radio"] {
+    input[type="checkbox"],
+    input[type="radio"] {
       width: 20px;
     }
   }
 }
 
 .text-successful {
-  color: $success;
+  color: var(--success);
 }
 
 .text-danger {
-  color: $danger;
+  color: var(--danger);
 }
 
 .text-muted {
-  color: lighten($primary, 40);
+  color: var(--primary-medium);
 }
 
 .admin-nav {
-  width: 18.018%;
-  position: relative;
-
-  // The admin-nav becomes a slide-out menu at the mobile-nav breakpoint
+  width: 18%;
+  box-sizing: border-box;
+  position: relative; // The admin-nav becomes a slide-out menu at the mobile-nav breakpoint
   @media (max-width: $mobile-breakpoint) {
     position: absolute;
-    z-index: 0;
+    z-index: z("base") - 1;
+    width: 250px;
+  }
+  @media (max-width: 500px) {
     width: 50%;
   }
 }
 
 .admin-detail {
-  width: 76.5765%;
-  @media (max-width: $mobile-breakpoint) {
-    z-index: 10;
-    width: 100%;
-  }
-  background-color: $secondary;
-  // Todo: set this properly - it needs to be >= the menu height
-  min-height: 875px;
+  background-color: var(--secondary);
   margin-left: 0;
-  border-right: solid 1px $primary-low;
-  padding: 0 30px 30px 30px;
+  border-left: solid 1px var(--primary-low);
+  padding: 30px 0 30px 30px;
+  width: 82%;
+  box-sizing: border-box;
   @media (max-width: $mobile-breakpoint) {
-    padding: 30px 0;
+    width: 95%;
     border: none;
   }
 }
 
 .admin-detail.mobile-open {
   @media (max-width: $mobile-breakpoint) {
+    transition: transform 0.3s ease;
+    @include transform(translateX(250px));
+  }
+  @media (max-width: 500px) {
     transition: transform 0.3s ease;
     @include transform(translateX(50%));
   }
@@ -416,62 +705,30 @@ $mobile-breakpoint: 700px;
   @media (max-width: $mobile-breakpoint) {
     transition: transform 0.3s ease;
     @include transform(translateX(0));
+    margin-left: -10px;
   }
 }
 
-.settings {
-  margin-left: 10px;
-  margin-right: 10px;
-  .setting {
-    padding-bottom: 20px;
+section.details {
+  h1 {
+    font-size: $font-up-3;
+    color: var(--primary);
+    padding: 5px 10px;
+    margin: 30px 0 5px 0;
+    border-bottom: 5px solid var(--primary-low);
+  }
+}
 
-    .setting-label {
-      float: left;
-      width: 17.6576%;
-      margin-right: 12px;
-      @media (max-width: $mobile-breakpoint) {
-        float: none;
-        margin-right: 0;
-        width: 100%;
-        h3 {
-          margin-bottom: 6px;
-        }
-      }
-    }
-    .setting-value {
-      float: left;
-      width: 53%;
-      padding-right: 20px;
-      .category-selector {
-        width: 95%;
-      }
-      @media (max-width: $mobile-breakpoint) {
-        width: 100%;
-        padding-right: 0;
-      }
-      .select-box-kit {
-        width: 100% !important; // Needs !important to override hard-coded value
-        @media (max-width: $mobile-breakpoint) {
-          width: 100% !important; // !important overrides hard-coded mobile width of 68px
-        }
-      }
-      .select2-container-multi .select2-choices {
-        border: none;
-      }
-    }
-    .setting-controls {
-      float: left;
-    }
-    .input-setting-string, .input-setting-textarea {
-      box-sizing: border-box;
-      height: 30px;
-      width: 100%;
-      @media (max-width: $mobile-breakpoint) {
-        width: 100%;
-      }
-    }
-    .input-setting-textarea {
-      height: 150px;
+.user-controls {
+  padding: 5px;
+  clear: both;
+  text-align: right;
+  .btn {
+    line-height: $line-height-medium;
+  }
+  @media (max-width: $mobile-breakpoint) {
+    .btn {
+      margin: 2px;
     }
     .input-setting-list {
       @media (max-width: $mobile-breakpoint) {
@@ -1329,204 +1586,108 @@ table.api-keys {
   }
 }
 
-.admin-plugins .col-enabled {
-  width: 20px;
-}
-
-// Backups
-// --------------------------------------------------
-
-$rollback: #3D9970;
-$rollback-dark: darken($rollback, 10%) !default;
-$rollback-darker: darken($rollback, 20%) !default;
-
-.btn-rollback {
-  color: $secondary;
-  background: $rollback;
-  &:hover {
-    background: $rollback-dark;
+.row.groups {
+  input[type="text"] {
+    width: 500px;
   }
-  &:active {
-    @include linear-gradient($rollback-darker, $rollback-dark);
-  }
-  &[disabled] {
-    background: $rollback;
+  input#group-users {
+    width: 600px;
   }
 }
 
-.admin-backups-logs {
-  max-height: 500px;
-  overflow: auto;
-}
-
-
-button.ru {
+// Ember.ListView
+.ember-list-view {
+  overflow-y: auto;
+  overflow-x: hidden;
   position: relative;
-  min-width: 110px;
 }
 
-.ru-progress {
+.ember-list-item-view {
   position: absolute;
-  top: 0;
-  left: 0;
-  height: 100%;
-  background: rgba(0, 175, 0, 0.3);
 }
 
-.is-uploading:hover .ru-progress {
-  background: rgba(200, 0, 0, 0.3);
-}
-
-.invisible {
-  visibility: hidden;
-}
-
-.start-backup-modal {
-  .btn {
-    margin: 10px 0 10px 5px;
+.tl3-requirements {
+  .d-icon-check {
+    color: var(--success);
   }
-  .btn:first-of-type {
-    margin-left: 10px;
+  .d-icon-times {
+    color: var(--danger);
   }
 }
 
-@media all
-and (min-width : 320px)
-and (max-width : 500px) {
-
-.full-width { margin: 0; }
-.site-settings-nav { width: 100%; }
-.site-settings-detail {
-  width: 100%;
-  padding: 0;
-  border: none;
-
-  .settings .setting {
+@media all and (min-width: 320px) and (max-width: 500px) {
+  .full-width {
+    margin: 0;
+  }
+  .site-settings-nav {
+    width: 100%;
+  }
+  .site-settings-detail {
+    width: 100%;
+    padding: 0;
+    border: none;
+    .settings .setting {
       .setting-label {
-      float: left;
-      width: 100%;
-      h3 {
-        margin-bottom: 5px;
-        font-weight: bold;
-        margin-top: 25px;
+        float: left;
+        width: 100%;
+        h3 {
+          margin-bottom: 5px;
+          font-weight: bold;
+          margin-top: 25px;
         }
       }
       .setting-value {
         width: 100%;
-        }
-      label {
-        font-size: 0.929em;
-        }
+      }
     }
   }
-
   .content-editor {
     width: 100%;
   }
-
   div.ac-wrap {
     width: 100% !important;
     box-sizing: border-box;
   }
 
-  .admin-container {
-    h2 {
-      float: left;
-      }
+  .dashboard-left,
+  .dashboard-right {
+    width: 100%;
   }
-
-  .dashboard-left, .dashboard-right { width: 100%; }
-  .dashboard-stats { margin: 0; }
-
+  .dashboard-stats {
+    margin: 0;
+  }
   .badges {
-    .current-badge {margin: 70px 0 0 0;}
-    .current-badge-actions {padding: 0;}
+    .current-badge {
+      margin: 70px 0 0 0;
+    }
+    .current-badge-actions {
+      padding: 0;
+    }
   }
-
-  .customize .content-list, .customize .current-style {
+  .customize .content-list,
+  .customize .current-style {
     width: 100%;
   }
 }
 
-.badge-groupings {
-  list-style: none;
-  margin: 0;
-  padding: 10px 3px;
-  li {
-    padding: 6px 0;
-    width: 600px;
-    border-bottom: 1px solid #dfdfdf;
-  }
-  .actions {
-    float: right;
-    .btn {
-      padding: 3px 6px;
-    }
-  }
-}
-
 tr.not-activated {
-  td, td a, td a:visited {
+  td,
+  td a,
+  td a:visited {
     color: #bbb;
   }
 }
+
 .details.not-activated {
-  .username .value, .email .value a, .email .value a:visited {
+  .username .value,
+  .email .value a,
+  .email .value a:visited {
     color: #bbb;
-  }
-}
-
-.user-fields {
-  h2 {
-    margin-bottom: 10px;
-  }
-
-  .user-field {
-    padding: 10px;
-    margin-bottom: 10px;
-    border-bottom: 1px solid $primary-low;
-
-    .form-display {
-      width: 25%;
-      display: inline-block;
-      float: left;
-    }
-
-    .form-element, .form-element-desc {
-      float: left;
-      min-height: 30px;
-      padding: 0.25em 0;
-
-      &.input-area {
-        width: 75%;
-        input[type=text] {
-          width: 50%;
-        }
-      }
-
-      &.label-area {
-        width: 25%;
-        label {
-          margin: 0.5em 1em 0 0;
-          text-align: right;
-          font-weight: bold;
-        }
-      }
-    }
-
-    .controls {
-      float: right;
-      text-align: right;
-    }
-
-    .clearfix {
-      clear: both;
-    }
   }
 }
 
 .preview {
- margin-top: 5px;
+  margin-top: 5px;
 }
 
 table#user-badges {
@@ -1535,315 +1696,114 @@ table#user-badges {
   }
 }
 
+@mixin value-btn {
+  width: 29px;
+  border: 1px solid var(--primary-low);
+  outline: none;
+  padding: 0;
+
+  &:focus {
+    border-color: var(--tertiary);
+  }
+}
+
 .value-list {
   .value {
-    border-bottom: 1px solid #ddd;
-    padding: 3px;
-    margin-right: 10px;
+    padding: 0.125em 0;
+    @include ellipsis;
+    display: flex;
 
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    &:last-child {
+      border-bottom: none;
+    }
 
-    cursor: move;
+    .value-input {
+      box-sizing: border-box;
+      flex: 1 0 0px;
+      border-color: var(--primary-low);
+      cursor: pointer;
+      margin: 0;
+
+      &:focus {
+        border-color: var(--tertiary);
+        box-shadow: none;
+      }
+    }
+
+    .remove-value-btn {
+      @include value-btn;
+      margin-right: 0.25em;
+    }
   }
-
   .values {
-    margin-bottom: 10px;
-  }
-
-  .placeholder {
-    border-bottom: 1px solid #ddd;
-    padding: 3px;
-    margin-right: 10px;
-    height: 30px;
-  }
-
-  input[type=text] {
-    width: 90%;
+    margin-bottom: 0.5em;
   }
 }
 
-// Permalinks
-
-.permalinks {
-  .url, .topic, .category, .external_url, .post {
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .url {
-    width: 200px;
-  }
-  .topic, .post, .external_url {
-    width: 180px;
-  }
-  .category {
-    width: 140px;
-  }
-  .action {
-    text-align: center;
-    width: 8%;
-  }
-}
-
-.permalink-title {
-  margin-bottom: 10px;
-}
-
-
-// embedding
-
-.embeddable-hosts {
-  table {
-    margin-bottom: 1em;
-  }
-  margin-bottom: 2em;
-}
-
-.embedding-secondary {
-  h3 {
-    margin: 1em 0;
-  }
-  margin-bottom: 2em;
-
-  .embed-setting {
-    input[type=text] {
-      width: 50%;
+.secret-value-list {
+  .value {
+    flex-flow: row wrap;
+    margin-left: -0.25em;
+    margin-top: -0.125em;
+    .new-value-input {
+      flex: 1 0 0px;
     }
-    margin: 0.75em 0;
-  }
-
-  p.description {
-    color: dark-light-choose($primary-medium, $secondary-medium);
-    margin-bottom: 1em;
-    max-width: 700px;
-  }
-}
-
-.embedding td input {
-  margin-bottom: 0;
-}
-
-// Emails
-
-.email-list {
-  .filters input {
-    width: 100%;
-  }
-  .time {
-    width: 50px;
-  }
-  .reply-key {
-    display: block;
-    font-size: 12px;
-    color: dark-light-choose($primary-medium, $secondary-high);
-  }
-  .username div {
-    max-width: 180px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .addresses p {
-    margin: 2px 0;
-    max-width: 200px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    .value-input,
+    .new-value-input {
+      margin-top: 0.125em;
+      &:last-of-type {
+        margin-left: 0.25em;
+      }
+    }
+    .remove-value-btn {
+      margin-left: 0.25em;
+      margin-top: 0.125em;
+    }
+    .add-value-btn {
+      @include value-btn;
+      margin-left: 0.25em;
+      margin-top: 0.125em;
+    }
+    .new-value-input {
+      margin-left: 0.25em;
+    }
   }
 }
 
-.incoming-emails {
-  .control-group {
-    margin: 8px 0;
+.mobile-view .secret-value-list {
+  .add-value-btn {
+    margin-bottom: 9px;
   }
-  .controls {
-    margin-left: 110px;
+  .value {
+    .value-input:last-of-type {
+      margin-left: 2.35em;
+    }
+    .new-value-input:first-of-type {
+      margin-right: 2.15em;
+      margin-left: 0.25em;
+    }
   }
-  p {
-    margin: 5px 10px;
-  }
-  .error-description {
-    color: #919191;
-    font-size: 90%;
-  }
-  hr {
+}
+
+.simple-list-input {
+  display: flex;
+
+  .add-value-input {
     margin: 0;
+    box-sizing: border-box;
+    flex: 1 0 0px;
   }
-  label {
-    font-weight: bold;
-    float: left;
-    width: 100px;
-    text-align: right;
-    margin: 0 10px;
-  }
-  ul {
-    list-style: none;
-    margin: 0 10px;
-  }
-  textarea {
-    width: 95%;
-    height: 150px;
-    font-family: monospace;
-    box-shadow: none;
+
+  .add-value-btn {
+    margin-left: 0.25em;
   }
 }
 
-.admin-list-item {
-  width: 100%;
-  border-top: 1px solid #e9e9e9;
-  padding: 0.25em 0;
-}
-
-// Webhook
-
-.web-hook-container {
-  > p {
-    padding-bottom: 10px;
-    border-bottom: darken($secondary, 10%) 1px solid;
-  }
-  .filters {
-    margin: 5px 0;
-    padding-bottom: 5px;
-    border-bottom: darken($secondary, 5%) 1px solid;
-  }
-  .instructions {
-    margin-top: 5px;
-  }
-  .subscription-choice {
-    margin-bottom: 10px;
-  }
-}
-
-.web-hook-direction {
-  button {
-    margin-right: 10px;
-  }
-}
-
-.web-hook-events {
-  li {
-    padding: 2px 0;
-  }
-
-  .col {
-    display: inline-block;
-    padding-top: 6px;
-    vertical-align: top;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-
-  .col.first {
-    width: 90px;
-  }
-
-  .col.event-id {
-    width: 300px;
-  }
-
-  .col.timestamp {
-    width: 150px;
-  }
-
-  .col.completion {
-    width: 220px;
-  }
-
-  .col.actions {
-    width: 305px;
-    padding-top: 0;
-    a {
-      text-decoration: underline;
-    }
-  }
-
-  .col.heading.actions {
-    padding: 4px 0;
-  }
-
-  .details {
-    display: block;
-    margin-top: 10px;
-  }
-  label {
-    font-size: 1.05em;
-  }
-}
-
-.web-hook-events-listing {
-  margin-top: 15px;
-  .alert {
-    margin: 15px 0 0 0;
-  }
-}
-
-.email-preview-digest {
-  .controls {
-    margin-left: 20px;
-    label {
-      display: inline;
-    }
-  }
-
-  .preview-output iframe {
-    width: 100%;
-    height: 600px;
-    border-width: 1px;
-  }
-}
-
-.watched-word-box {
-  display: inline-block;
-  width: 250px;
-  margin-bottom: 1em;
-  float: left;
-}
-
-.watched-words-list {
-  margin-top: 40px;
-}
-.watched-word {
-  display: inline-block;
-  cursor: pointer;
-  .d-icon {
-    margin-right: 0.25em;
-    color: dark-light-diff($primary, $secondary, 50%, -50%);
-  }
-  &:hover .d-icon {
-    color: $primary;
-  }
-}
-.watched-word-form {
-  display: inline-block;
-  .success-message {
-    margin-left: 1em;
-  }
-}
-.watched-words-uploader {
-  float: right;
-  text-align: right;
-  .instructions {
-    font-size: 12px;
-  }
-}
-.watched-words-detail {
-  .about {
-    margin-top: 24px;
-    margin-bottom: 40px;
-  }
-}
-
-// Mobile specific styles
 // Mobile view text-inputs need some padding
 .mobile-view .admin-contents {
   input[type="text"] {
     padding: 4px;
   }
-}
-
-.mobile-view .admin-controls {
-  padding: 10px 10px 9px 0;
 }
 
 .mobile-view .full-width {
@@ -1856,66 +1816,35 @@ table#user-badges {
   left: -100%;
 }
 
-
-
-.cboxcontainer {
-  display: inline-block;
-  padding: 8px;
-  padding-bottom: 4px;
-
-  * {
-    width: 20px;
-    height: 20px;
-    display: inline-block;
-    border: 1px solid $tertiary;
-  }
-  &.primary {
-    background: $primary;
-  }
-  &.secondary {
-    background: $secondary;
-  }
-}
-
 .inline-edit label {
   display: inline-block;
   margin-right: 20px;
 }
 
-.cbox0 { background: blend-primary-secondary(0%); }
-.cbox10 { background: blend-primary-secondary(10%); }
-.cbox20 { background: blend-primary-secondary(20%); }
-.cbox30 { background: blend-primary-secondary(30%); }
-.cbox40 { background: blend-primary-secondary(40%); }
-.cbox50 { background: blend-primary-secondary(50%); }
-.cbox60 { background: blend-primary-secondary(60%); }
-.cbox70 { background: blend-primary-secondary(70%); }
-.cbox80 { background: blend-primary-secondary(80%); }
-.cbox90 { background: blend-primary-secondary(90%); }
-.cbox100 { background: blend-primary-secondary(100%); }
-.cbox5 { background: blend-primary-secondary(5%); }
-.cbox7 { background: blend-primary-secondary(7%); }
-.cbox15 { background: blend-primary-secondary(15%); }
-.cbox17 { background: blend-primary-secondary(17%); }
-.cbox25 { background: blend-primary-secondary(25%); }
-.cbox95 { background: blend-primary-secondary(95%); }
-.cbox85 { background: blend-primary-secondary(85%); }
-.cbox75 { background: blend-primary-secondary(75%); }
+a.inline-editable-field {
+  color: var(--primary);
+  cursor: pointer;
+}
 
-.dbox0 { background: dark-light-diff($primary, $secondary, 0%, -0%); }
-.dbox10 { background: dark-light-diff($primary, $secondary, 10%, -10%); }
-.dbox20 { background: dark-light-diff($primary, $secondary, 20%, -20%); }
-.dbox30 { background: dark-light-diff($primary, $secondary, 30%, -30%); }
-.dbox40 { background: dark-light-diff($primary, $secondary, 40%, -40%); }
-.dbox50 { background: blend-primary-secondary(50%); }
-.dbox60 { background: dark-light-diff($primary, $secondary, 60%, -60%); }
-.dbox70 { background: dark-light-diff($primary, $secondary, 70%, -70%); }
-.dbox80 { background: dark-light-diff($primary, $secondary, 80%, -80%); }
-.dbox90 { background: $primary-low;  }
-.dbox100 { background: dark-light-diff($primary, $secondary, 100%, -100%); }
-.dbox5 { background: dark-light-diff($primary, $secondary, 5%, -5%); }
-.dbox15 { background: dark-light-diff($primary, $secondary, 15%, -15%); }
-.dbox25 { background: dark-light-diff($primary, $secondary, 25%, -25%); }
-.dbox95 { background: dark-light-diff($primary, $secondary, 95%, -95%); }
-.dbox85 { background: dark-light-diff($primary, $secondary, 85%, -85%); }
-.dbox75 { background: dark-light-diff($primary, $secondary, 75%, -75%); }
+// Styles for subtabs in admin
+@import "common/admin/dashboard";
+@import "common/admin/settings";
+@import "common/admin/users";
+@import "common/admin/suspend";
+@import "common/admin/badges";
+@import "common/admin/emails";
+@import "common/admin/staff_logs";
+@import "common/admin/customize";
+@import "common/admin/customize-install-theme";
+@import "common/admin/api";
+@import "common/admin/backups";
+@import "common/admin/plugins";
+@import "common/admin/admin_reports";
+@import "common/admin/admin_report";
+@import "common/admin/admin_report_counters";
+@import "common/admin/admin_report_chart";
+@import "common/admin/admin_report_stacked_chart";
+@import "common/admin/admin_report_table";
+@import "common/admin/admin_report_inline_table";
+@import "common/admin/admin_intro";
+@import "common/admin/admin_emojis";

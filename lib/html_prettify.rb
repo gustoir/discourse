@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # heavily based off
 # https://github.com/vmg/redcarpet/blob/master/ext/redcarpet/html_smartypants.c
 # and
@@ -97,7 +99,7 @@ class HtmlPrettify < String
     in_pre = false
 
     # Here is the result stored in.
-    result = ""
+    result = +""
 
     # This is a cheat, used to get some context for one-character
     # tokens that consist of just a quote char. What we do is remember
@@ -238,11 +240,11 @@ class HtmlPrettify < String
   def educate_fractions(str)
     str.gsub(/(\s+|^)(1\/4|1\/2|3\/4)([,.;\s]|$)/) do
       frac =
-        if $2 == "1/2".freeze
+        if $2 == "1/2"
           entity(:frac12)
-        elsif $2 == "1/4".freeze
+        elsif $2 == "1/4"
           entity(:frac14)
-        elsif $2 == "3/4".freeze
+        elsif $2 == "3/4"
           entity(:frac34)
         end
       "#{$1}#{frac}#{$3}"
@@ -366,17 +368,17 @@ class HtmlPrettify < String
 
   def default_entities
     {
-      single_left_quote:    "&lsquo;",
-      double_left_quote:    "&ldquo;",
-      single_right_quote:   "&rsquo;",
-      double_right_quote:   "&rdquo;",
-      em_dash:              "&mdash;",
-      en_dash:              "&ndash;",
-      ellipsis:             "&hellip;",
-      html_quote:           "&quot;",
-      frac12:               "&frac12;",
-      frac14:               "&frac14;",
-      frac34:               "&frac34;",
+      single_left_quote: "&lsquo;",
+      double_left_quote: "&ldquo;",
+      single_right_quote: "&rsquo;",
+      double_right_quote: "&rdquo;",
+      em_dash: "&mdash;",
+      en_dash: "&ndash;",
+      ellipsis: "&hellip;",
+      html_quote: "&quot;",
+      frac12: "&frac12;",
+      frac14: "&frac14;",
+      frac34: "&frac34;",
     }
   end
 

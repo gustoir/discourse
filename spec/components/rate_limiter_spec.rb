@@ -1,16 +1,21 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 require 'rate_limiter'
 
 describe RateLimiter do
 
-  let(:user) { Fabricate(:user) }
+  fab!(:user) { Fabricate(:user) }
   let(:rate_limiter) { RateLimiter.new(user, "peppermint-butler", 2, 60) }
 
   context 'disabled' do
     before do
-      RateLimiter.stubs(:disabled?).returns(true)
       rate_limiter.performed!
       rate_limiter.performed!
+    end
+
+    it "should be disabled" do
+      expect(RateLimiter.disabled?).to eq(true)
     end
 
     it "returns true for can_perform?" do
@@ -25,8 +30,91 @@ describe RateLimiter do
 
   context 'enabled' do
     before do
-      RateLimiter.stubs(:disabled?).returns(false)
+      RateLimiter.enable
       rate_limiter.clear!
+    end
+
+    after do
+      RateLimiter.disable
+    end
+
+    context 'aggressive rate limiter' do
+
+      it 'can operate correctly and totally stop limiting' do
+
+        freeze_time
+
+        # 2 requests every 30 seconds
+        limiter = RateLimiter.new(nil, "test", 2, 30, global: true, aggressive: true)
+        limiter.clear!
+
+        limiter.performed!
+        limiter.performed!
+
+        freeze_time 29.seconds.from_now
+
+        expect do
+          limiter.performed!
+        end.to raise_error(RateLimiter::LimitExceeded)
+
+        expect do
+          limiter.performed!
+        end.to raise_error(RateLimiter::LimitExceeded)
+
+        # in aggressive mode both these ^^^ count as an attempt
+        freeze_time 29.seconds.from_now
+
+        expect do
+          limiter.performed!
+        end.to raise_error(RateLimiter::LimitExceeded)
+
+        expect do
+          limiter.performed!
+        end.to raise_error(RateLimiter::LimitExceeded)
+
+        freeze_time 30.seconds.from_now
+
+        expect { limiter.performed! }.not_to raise_error
+        expect { limiter.performed! }.not_to raise_error
+
+      end
+    end
+
+    context 'global rate limiter' do
+
+      it 'can operate in global mode' do
+        limiter = RateLimiter.new(nil, "test", 2, 30, global: true)
+        limiter.clear!
+
+        thrown = false
+
+        limiter.performed!
+        limiter.performed!
+        begin
+          limiter.performed!
+        rescue RateLimiter::LimitExceeded => e
+          expect(Integer === e.available_in).to eq(true)
+          expect(e.available_in).to be > 28
+          expect(e.available_in).to be < 32
+          thrown = true
+        end
+        expect(thrown).to be(true)
+      end
+
+    end
+
+    context 'handles readonly' do
+      before do
+        Discourse.redis.without_namespace.slaveof '10.0.0.1', '99999'
+      end
+
+      after do
+        Discourse.redis.without_namespace.slaveof 'no', 'one'
+      end
+
+      it 'does not explode' do
+        expect { rate_limiter.performed! }.not_to raise_error
+      end
     end
 
     context 'never done' do
@@ -49,8 +137,20 @@ describe RateLimiter do
       end
     end
 
+    context 'max is less than or equal to zero' do
+
+      it 'should raise the right error' do
+        [-1, 0, nil].each do |max|
+          expect do
+            RateLimiter.new(user, "a", max, 60).performed!
+          end.to raise_error(RateLimiter::LimitExceeded)
+        end
+      end
+    end
+
     context "multiple calls" do
       before do
+        freeze_time
         rate_limiter.performed!
         rate_limiter.performed!
       end
@@ -61,7 +161,15 @@ describe RateLimiter do
       end
 
       it "raises an error the third time called" do
-        expect { rate_limiter.performed! }.to raise_error(RateLimiter::LimitExceeded)
+        expect { rate_limiter.performed! }.to raise_error do |error|
+          expect(error).to be_a(RateLimiter::LimitExceeded)
+          expect(error).to having_attributes(available_in: 60)
+        end
+      end
+
+      it 'raises no error when the sliding window ended' do
+        freeze_time 60.seconds.from_now
+        expect { rate_limiter.performed! }.not_to raise_error
       end
 
       context "as an admin/moderator" do

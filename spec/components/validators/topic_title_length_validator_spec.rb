@@ -1,4 +1,5 @@
 # encoding: UTF-8
+# frozen_string_literal: true
 
 require 'rails_helper'
 require 'validators/topic_title_length_validator'
@@ -52,14 +53,14 @@ describe TopicTitleLengthValidator do
   describe 'private message' do
     let(:record) { Fabricate.build(:private_message_topic) }
 
-    it 'adds an error when topic title is shorter than SiteSetting.min_private_message_title_length' do
-      record.title = 'a' * (SiteSetting.min_private_message_title_length - 1)
+    it 'adds an error when topic title is shorter than SiteSetting.min_personal_message_title_length' do
+      record.title = 'a' * (SiteSetting.min_personal_message_title_length - 1)
       validate
       expect(record.errors[:title]).to be_present
     end
 
     it 'does not add an error when topic title is shorter than SiteSetting.min_topic_title_length' do
-      record.title = 'a' * (SiteSetting.min_private_message_title_length)
+      record.title = 'a' * (SiteSetting.min_personal_message_title_length)
       validate
       expect(record.errors[:title]).to_not be_present
     end

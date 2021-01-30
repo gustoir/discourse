@@ -1,23 +1,73 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'jobs/base'
 
 describe Jobs do
 
   describe 'enqueue' do
 
-    describe 'when queue_jobs is true' do
+    describe 'run_later!' do
       before do
-        SiteSetting.expects(:queue_jobs?).at_least_once.returns(true)
+        Jobs.run_later!
       end
 
       it 'enqueues a job in sidekiq' do
-        Sidekiq::Client.expects(:enqueue).with(Jobs::ProcessPost, post_id: 1, current_site_id: 'default')
+        Sidekiq::Testing.fake! do
+          jobs = Jobs::ProcessPost.jobs
+
+          jobs.clear
+          Jobs.enqueue(:process_post, post_id: 1)
+          expect(jobs.length).to eq(1)
+          job = jobs.first
+
+          expected = {
+            "class" => "Jobs::ProcessPost",
+            "args" => [{ "post_id" => 1, "current_site_id" => "default" }],
+            "queue" => "default"
+          }
+          expect(job.slice("class", "args", "queue")).to eq(expected)
+        end
+      end
+
+      it "enqueues the job after the current transaction has committed" do
+        jobs = Jobs::ProcessPost.jobs
+        expect(jobs.length).to eq(0)
+
         Jobs.enqueue(:process_post, post_id: 1)
+        expect(jobs.length).to eq(1)
+
+        ActiveRecord::Base.transaction do
+          Jobs.enqueue(:process_post, post_id: 1)
+          expect(jobs.length).to eq(1)
+        end
+        expect(jobs.length).to eq(2)
+
+        # Failed transation
+        ActiveRecord::Base.transaction do
+          Jobs.enqueue(:process_post, post_id: 1)
+          raise ActiveRecord::Rollback
+        end
+
+        expect(jobs.length).to eq(2) # No change
       end
 
       it "does not pass current_site_id when 'all_sites' is present" do
-        Sidekiq::Client.expects(:enqueue).with(Jobs::ProcessPost, post_id: 1)
-        Jobs.enqueue(:process_post, post_id: 1, all_sites: true)
+        Sidekiq::Testing.fake! do
+          jobs = Jobs::ProcessPost.jobs
+
+          jobs.clear
+          Jobs.enqueue(:process_post, post_id: 1, all_sites: true)
+
+          expect(jobs.length).to eq(1)
+          job = jobs.first
+
+          expected = {
+            "class" => "Jobs::ProcessPost",
+            "args" => [{ "post_id" => 1 }],
+            "queue" => "default"
+          }
+          expect(job.slice("class", "args", "queue")).to eq(expected)
+        end
       end
 
       it "doesn't execute the job" do
@@ -27,16 +77,29 @@ describe Jobs do
       end
 
       it "should enqueue with the correct database id when the current_site_id option is given" do
-        Sidekiq::Client.expects(:enqueue).with do |arg1, arg2|
-          arg2[:current_site_id] == 'test_db' && arg2[:sync_exec].nil?
+
+        Sidekiq::Testing.fake! do
+          jobs = Jobs::ProcessPost.jobs
+
+          jobs.clear
+          Jobs.enqueue(:process_post, post_id: 1, current_site_id: 'test_db')
+
+          expect(jobs.length).to eq(1)
+          job = jobs.first
+
+          expected = {
+            "class" => "Jobs::ProcessPost",
+            "args" => [{ "post_id" => 1, "current_site_id" => "test_db" }],
+            "queue" => "default"
+          }
+          expect(job.slice("class", "args", "queue")).to eq(expected)
         end
-        Jobs.enqueue(:process_post, post_id: 1, current_site_id: 'test_db')
       end
     end
 
-    describe 'when queue_jobs is false' do
+    describe 'run_immediately!' do
       before do
-        SiteSetting.expects(:queue_jobs?).at_least_once.returns(false)
+        Jobs.run_immediately!
       end
 
       it "doesn't enqueue in sidekiq" do
@@ -55,20 +118,13 @@ describe Jobs do
           Jobs::ProcessPost.any_instance.stubs(:execute).returns(true)
         end
 
-        it 'should not execute the job' do
-          Jobs::ProcessPost.any_instance.expects(:execute).never
-          Jobs.enqueue(:process_post, post_id: 1, current_site_id: 'test_db') rescue nil
-        end
-
         it 'should raise an exception' do
+          Jobs::ProcessPost.any_instance.expects(:execute).never
+          RailsMultisite::ConnectionManagement.expects(:establish_connection).never
+
           expect {
             Jobs.enqueue(:process_post, post_id: 1, current_site_id: 'test_db')
           }.to raise_error(ArgumentError)
-        end
-
-        it 'should not connect to the given database' do
-          RailsMultisite::ConnectionManagement.expects(:establish_connection).never
-          Jobs.enqueue(:process_post, post_id: 1, current_site_id: 'test_db') rescue nil
         end
       end
     end
@@ -76,13 +132,15 @@ describe Jobs do
   end
 
   describe 'cancel_scheduled_job' do
+    let(:scheduled_jobs) { Sidekiq::ScheduledSet.new }
+
+    after do
+      scheduled_jobs.clear
+    end
 
     it 'deletes the matching job' do
-      SiteSetting.queue_jobs = true
-
       Sidekiq::Testing.disable! do
-        scheduled_jobs = Sidekiq::ScheduledSet.new
-
+        scheduled_jobs.clear
         expect(scheduled_jobs.size).to eq(0)
 
         Jobs.enqueue_in(1.year, :run_heartbeat, topic_id: 123)
@@ -107,14 +165,18 @@ describe Jobs do
   describe 'enqueue_at' do
     it 'calls enqueue_in for you' do
       freeze_time
-      Jobs.expects(:enqueue_in).with(3 * 60 * 60, :eat_lunch, {}).returns(true)
-      Jobs.enqueue_at(3.hours.from_now, :eat_lunch, {})
+
+      expect_enqueued_with(job: :process_post, at: 3.hours.from_now) do
+        Jobs.enqueue_at(3.hours.from_now, :process_post, {})
+      end
     end
 
     it 'handles datetimes that are in the past' do
       freeze_time
-      Jobs.expects(:enqueue_in).with(0, :eat_lunch, {}).returns(true)
-      Jobs.enqueue_at(3.hours.ago, :eat_lunch, {})
+
+      expect_enqueued_with(job: :process_post, at: Time.zone.now) do
+        Jobs.enqueue_at(3.hours.ago, :process_post, {})
+      end
     end
   end
 

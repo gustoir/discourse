@@ -1874,7 +1874,7 @@ define('ember-test-helpers/wait', ['exports', 'ember'], function (exports, _embe
   exports._setupAJAXHooks = _setupAJAXHooks;
   exports['default'] = wait;
 
-  var jQuery = _ember['default'].$;
+  var jQuery = $;
 
   var requests;
   function incrementAjaxPendingRequests(_, xhr) {
@@ -1987,5 +1987,7 @@ for (var exportName in emberQUnit) {
   window[exportName] = emberQUnit[exportName];
 }
 
+var emberTestHelpers = requireModule("ember-test-helpers");
+window.TestModuleForComponent = emberTestHelpers.TestModuleForComponent;
+
 })();
-//# sourceMappingURL=ember-qunit.map

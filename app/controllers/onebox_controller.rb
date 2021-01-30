@@ -1,33 +1,46 @@
-require_dependency 'oneboxer'
+# frozen_string_literal: true
 
 class OneboxController < ApplicationController
-  before_action :ensure_logged_in
+  requires_login
 
   def show
-    params.require(:user_id)
-
     unless params[:refresh] == 'true'
       preview = Oneboxer.cached_preview(params[:url])
-      preview.strip! if preview.present?
+      preview = preview.strip if preview.present?
       return render(plain: preview) if preview.present?
     end
 
     # only 1 outgoing preview per user
-    return render(body: nil, status: 429) if Oneboxer.is_previewing?(params[:user_id])
+    return render(body: nil, status: 429) if Oneboxer.is_previewing?(current_user.id)
 
-    Oneboxer.preview_onebox!(params[:user_id])
+    user_id = current_user.id
+    category_id = params[:category_id].to_i
+    topic_id = params[:topic_id].to_i
+    invalidate = params[:refresh] == 'true'
+    url = params[:url]
 
-    preview = Oneboxer.preview(params[:url], invalidate_oneboxes: params[:refresh] == 'true')
-    preview.strip! if preview.present?
+    return render(body: nil, status: 404) if Oneboxer.recently_failed?(url)
 
-    Scheduler::Defer.later("Onebox previewed") {
-      Oneboxer.onebox_previewed!(params[:user_id])
-    }
+    hijack(info: "#{url} topic_id: #{topic_id} user_id: #{user_id}") do
+      Oneboxer.preview_onebox!(user_id)
 
-    if preview.blank?
-      render body: nil, status: 404
-    else
-      render plain: preview
+      preview = Oneboxer.preview(url,
+        invalidate_oneboxes: invalidate,
+        user_id: user_id,
+        category_id: category_id,
+        topic_id: topic_id
+      )
+
+      preview = preview.strip if preview.present?
+
+      Oneboxer.onebox_previewed!(user_id)
+
+      if preview.blank?
+        Oneboxer.cache_failed!(url)
+        render body: nil, status: 404
+      else
+        render plain: preview
+      end
     end
   end
 

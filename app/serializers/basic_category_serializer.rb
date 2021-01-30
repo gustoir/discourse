@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class BasicCategorySerializer < ApplicationSerializer
 
   attributes :id,
@@ -10,6 +12,7 @@ class BasicCategorySerializer < ApplicationSerializer
              :position,
              :description,
              :description_text,
+             :description_excerpt,
              :topic_url,
              :read_restricted,
              :permission,
@@ -24,7 +27,11 @@ class BasicCategorySerializer < ApplicationSerializer
              :num_featured_topics,
              :default_view,
              :subcategory_list_style,
-             :default_top_period
+             :default_top_period,
+             :default_list_filter,
+             :minimum_required_tags,
+             :navigate_to_first_post_after_read,
+             :custom_fields
 
   has_one :uploaded_logo, embed: :object, serializer: CategoryUploadSerializer
   has_one :uploaded_background, embed: :object, serializer: CategoryUploadSerializer
@@ -33,8 +40,20 @@ class BasicCategorySerializer < ApplicationSerializer
     parent_category_id
   end
 
+  def name
+    object.uncategorized? ? I18n.t('uncategorized_category_name', locale: SiteSetting.default_locale) : object.name
+  end
+
+  def description_text
+    object.uncategorized? ? I18n.t('category.uncategorized_description', locale: SiteSetting.default_locale) : object.description_text
+  end
+
   def description
-    object.uncategorized? ? I18n.t('category.uncategorized_description') : object.description
+    object.uncategorized? ? I18n.t('category.uncategorized_description', locale: SiteSetting.default_locale) : object.description
+  end
+
+  def description_excerpt
+    object.uncategorized? ? I18n.t('category.uncategorized_description', locale: SiteSetting.default_locale) : object.description_excerpt
   end
 
   def can_edit
@@ -47,5 +66,13 @@ class BasicCategorySerializer < ApplicationSerializer
 
   def notification_level
     object.notification_level
+  end
+
+  def custom_fields
+    object.preloaded_custom_fields
+  end
+
+  def include_custom_fields?
+    custom_fields.present?
   end
 end

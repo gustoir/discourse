@@ -1,9 +1,15 @@
+# frozen_string_literal: true
+
 require "demon/base"
 
 class Demon::RailsAutospec < Demon::Base
 
   def self.prefix
     "rails-autospec"
+  end
+
+  def stop_signal
+    "TERM"
   end
 
   private

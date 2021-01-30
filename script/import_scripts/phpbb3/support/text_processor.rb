@@ -1,44 +1,75 @@
+# frozen_string_literal: true
+
+require_relative 'bbcode/xml_to_markdown'
+
 module ImportScripts::PhpBB3
   class TextProcessor
     # @param lookup [ImportScripts::LookupContainer]
     # @param database [ImportScripts::PhpBB3::Database_3_0 | ImportScripts::PhpBB3::Database_3_1]
     # @param smiley_processor [ImportScripts::PhpBB3::SmileyProcessor]
     # @param settings [ImportScripts::PhpBB3::Settings]
-    def initialize(lookup, database, smiley_processor, settings)
+    # @param phpbb_config [Hash]
+    def initialize(lookup, database, smiley_processor, settings, phpbb_config)
       @lookup = lookup
       @database = database
       @smiley_processor = smiley_processor
+      @he = HTMLEntities.new
+      @use_xml_to_markdown = phpbb_config[:phpbb_version].start_with?('3.2')
 
       @settings = settings
       @new_site_prefix = settings.new_site_prefix
       create_internal_link_regexps(settings.original_site_prefix)
     end
 
-    def process_raw_text(raw)
-      text = raw.dup
-      text = CGI.unescapeHTML(text)
+    def process_raw_text(raw, attachments = nil)
+      if @use_xml_to_markdown
+        unreferenced_attachments = attachments&.dup
 
-      clean_bbcodes(text)
-      if @settings.use_bbcode_to_md
-        text = bbcode_to_md(text)
+        converter = BBCode::XmlToMarkdown.new(
+          raw,
+          username_from_user_id: lambda { |user_id| @lookup.find_username_by_import_id(user_id) },
+          smilie_to_emoji: lambda { |smilie| @smiley_processor.emoji(smilie).dup },
+          quoted_post_from_post_id: lambda { |post_id| @lookup.topic_lookup_from_imported_post_id(post_id) },
+          upload_md_from_file: (lambda do |filename, index|
+            unreferenced_attachments[index] = nil
+            attachments.fetch(index, filename).dup
+          end if attachments),
+          url_replacement: nil,
+          allow_inline_code: false
+        )
+
+        text = converter.convert
+
+        text.gsub!(@short_internal_link_regexp) do |link|
+          replace_internal_link(link, $1, $2)
+        end
+
+        add_unreferenced_attachments(text, unreferenced_attachments)
+      else
+        text = raw.dup
+        text = CGI.unescapeHTML(text)
+
+        clean_bbcodes(text)
+        if @settings.use_bbcode_to_md
+          text = bbcode_to_md(text)
+        end
+        process_smilies(text)
+        process_links(text)
+        process_lists(text)
+        process_code(text)
+        fix_markdown(text)
+        process_attachments(text, attachments) if attachments.present?
+
+        text
       end
-      process_smilies(text)
-      process_links(text)
-      process_lists(text)
-
-      text
     end
 
     def process_post(raw, attachments)
-      text = process_raw_text(raw)
-      text = process_attachments(text, attachments) if attachments.present?
-      text
+      process_raw_text(raw, attachments) rescue raw
     end
 
     def process_private_msg(raw, attachments)
-      text = process_raw_text(raw)
-      text = process_attachments(text, attachments) if attachments.present?
-      text
+      process_raw_text(raw, attachments) rescue raw
     end
 
     protected
@@ -48,6 +79,9 @@ module ImportScripts::PhpBB3
       #   [url=https&#58;//google&#46;com:1qh1i7ky]click here[/url:1qh1i7ky]
       #   [quote=&quot;cybereality&quot;:b0wtlzex]Some text.[/quote:b0wtlzex]
       text.gsub!(/:(?:\w{8})\]/, ']')
+
+      # remove color tags
+      text.gsub!(/\[\/?color(=#[a-z0-9]*)?\]/i, "")
     end
 
     def bbcode_to_md(text)
@@ -110,11 +144,13 @@ module ImportScripts::PhpBB3
       # convert list tags to ul and list=1 tags to ol
       # list=a is not supported, so handle it like list=1
       # list=9 and list=x have the same result as list=1 and list=a
-      text.gsub!(/\[list\](.*?)\[\/list:u\]/mi, '[ul]\1[/ul]')
-      text.gsub!(/\[list=.*?\](.*?)\[\/list:o\]/mi, '[ol]\1[/ol]')
+      text.gsub!(/\[list\](.*?)\[\/list:u\]/mi) do
+        $1.gsub(/\[\*\](.*?)\[\/\*:m\]\n*/mi) { "* #{$1}\n" }
+      end
 
-      # convert *-tags to li-tags so bbcode-to-md can do its magic on phpBB's lists:
-      text.gsub!(/\[\*\](.*?)\[\/\*:m\]/mi, '[li]\1[/li]')
+      text.gsub!(/\[list=.*?\](.*?)\[\/list:o\]/mi) do
+        $1.gsub(/\[\*\](.*?)\[\/\*:m\]\n*/mi) { "1. #{$1}\n" }
+      end
     end
 
     # This replaces existing [attachment] BBCodes with the corresponding HTML tags for Discourse.
@@ -130,6 +166,12 @@ module ImportScripts::PhpBB3
         attachments.fetch(index, real_filename)
       end
 
+      add_unreferenced_attachments(text, unreferenced_attachments)
+    end
+
+    def add_unreferenced_attachments(text, unreferenced_attachments)
+      return text unless unreferenced_attachments
+
       unreferenced_attachments = unreferenced_attachments.compact
       text << "\n" << unreferenced_attachments.join("\n") unless unreferenced_attachments.empty?
       text
@@ -141,6 +183,19 @@ module ImportScripts::PhpBB3
 
       @long_internal_link_regexp = Regexp.new(%Q|<!-- l --><a(?:.+)href="#{link_regex}"(?:.*)</a><!-- l -->|, Regexp::IGNORECASE)
       @short_internal_link_regexp = Regexp.new(link_regex, Regexp::IGNORECASE)
+    end
+
+    def process_code(text)
+      text.gsub!(/<span class="syntax.*?>(.*?)<\/span>/) { "#{$1}" }
+      text.gsub!(/\[code(=[a-z]*)?\](.*?)\[\/code\]/i) { "[code]\n#{@he.decode($2)}\n[/code]" }
+      text.gsub!(/<br \/>/, "\n")
+      text
+    end
+
+    def fix_markdown(text)
+      text.gsub!(/(\n*\[\/?quote.*?\]\n*)/mi) { |q| "\n#{q.strip}\n" }
+      text.gsub!(/^!\[[^\]]*\]\([^\]]*\)$/i) { |img| "\n#{img.strip}\n" } # space out images single on line
+      text
     end
   end
 end

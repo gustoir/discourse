@@ -1,23 +1,10 @@
+# frozen_string_literal: true
+
 require "rails_helper"
 require "i18n/duplicate_key_finder"
 
 def extract_locale(path)
   path[/\.([^.]{2,})\.yml$/, 1]
-end
-
-PLURALIZATION_KEYS ||= ['zero', 'one', 'two', 'few', 'many', 'other']
-
-def find_pluralizations(hash, parent_key = '', pluralizations = Hash.new)
-  hash.each do |key, value|
-    if Hash === value
-      current_key = parent_key.blank? ? key : "#{parent_key}.#{key}"
-      find_pluralizations(value, current_key, pluralizations)
-    elsif PLURALIZATION_KEYS.include? key
-      pluralizations[parent_key] = hash
-    end
-  end
-
-  pluralizations
 end
 
 def is_yaml_compatible?(english, translated)
@@ -37,7 +24,6 @@ def is_yaml_compatible?(english, translated)
 end
 
 describe "i18n integrity checks" do
-
   it 'has an i18n key for each Trust Levels' do
     TrustLevel.all.each do |ts|
       expect(ts.name).not_to match(/translation missing/)
@@ -76,8 +62,11 @@ describe "i18n integrity checks" do
       expect(yaml.keys).to eq([locale])
 
       expect(yaml[locale]["js"]).to be
-      expect(yaml[locale]["admin_js"]).to be
-      # expect(yaml[locale]["wizard_js"]).to be
+
+      if !LocaleSiteSetting.fallback_locale(locale)
+        expect(yaml[locale]["admin_js"]).to be
+        expect(yaml[locale]["wizard_js"]).to be
+      end
     end
   end
 
@@ -88,14 +77,6 @@ describe "i18n integrity checks" do
       it "has no duplicate keys" do
         english_duplicates = DuplicateKeyFinder.new.find_duplicates(english_path)
         expect(english_duplicates).to be_empty
-      end
-
-      find_pluralizations(english_yaml).each do |key, hash|
-        next if key["messages.restrict_dependent_destroy"]
-
-        it "has valid pluralizations for '#{key}'" do
-          expect(hash.keys).to contain_exactly("one", "other")
-        end
       end
     end
 
@@ -116,16 +97,46 @@ describe "i18n integrity checks" do
         end
 
         unless path["transliterate"]
-
           it "is compatible with english" do
             expect(is_yaml_compatible?(english_yaml, yaml)).to eq(true)
           end
-
         end
-
       end
+    end
+  end
+end
 
+describe "fallbacks" do
+  before do
+    I18n.backend = I18n::Backend::DiscourseI18n.new
+    I18n.fallbacks = I18n::Backend::FallbackLocaleList.new
+    I18n.reload!
+    I18n.init_accelerator!
+  end
+
+  it "finds the fallback translation" do
+    I18n.backend.store_translations(:en, test: "en test")
+
+    I18n.with_locale("pl_PL") do
+      expect(I18n.t("test")).to eq("en test")
     end
   end
 
+  context "in a multi-threaded environment" do
+    it "finds the fallback translation" do
+      I18n.backend.store_translations(:en, test: "en test")
+
+      thread = Thread.new do
+        I18n.with_locale("pl_PL") do
+          expect(I18n.t("test")).to eq("en test")
+        end
+      end
+
+      begin
+        thread.join
+      ensure
+        thread.exit
+      end
+    end
+  end
 end

@@ -1,4 +1,4 @@
-require_dependency 'ip_addr'
+# frozen_string_literal: true
 
 class Admin::ScreenedIpAddressesController < Admin::AdminController
 
@@ -32,8 +32,8 @@ class Admin::ScreenedIpAddressesController < Admin::AdminController
   end
 
   def update
-    if @screened_ip_address.update_attributes(allowed_params)
-      render json: success_json
+    if @screened_ip_address.update(allowed_params)
+      render_serialized(@screened_ip_address, ScreenedIpAddressSerializer)
     else
       render_json_error(@screened_ip_address)
     end
@@ -51,13 +51,13 @@ class Admin::ScreenedIpAddressesController < Admin::AdminController
 
   private
 
-    def allowed_params
-      params.require(:ip_address)
-      params.permit(:ip_address, :action_name)
-    end
+  def allowed_params
+    params.require(:ip_address)
+    params.permit(:ip_address, :action_name)
+  end
 
-    def fetch_screened_ip_address
-      @screened_ip_address = ScreenedIpAddress.find(params[:id])
-    end
+  def fetch_screened_ip_address
+    @screened_ip_address = ScreenedIpAddress.find(params[:id])
+  end
 
 end

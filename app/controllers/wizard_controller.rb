@@ -1,11 +1,10 @@
-require_dependency 'wizard'
-require_dependency 'wizard/builder'
+# frozen_string_literal: true
 
 class WizardController < ApplicationController
-  before_action :ensure_wizard_enabled, only: [:index]
-  before_action :ensure_logged_in, except: [:qunit]
-  before_action :ensure_admin, except: [:qunit]
+  requires_login except: [:qunit]
 
+  before_action :ensure_admin, except: [:qunit]
+  before_action :ensure_wizard_enabled, only: [:index]
   skip_before_action :check_xhr, :preload_json
 
   layout false

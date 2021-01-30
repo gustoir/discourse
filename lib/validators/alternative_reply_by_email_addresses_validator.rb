@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AlternativeReplyByEmailAddressesValidator
   def initialize(opts = {})
     @opts = opts

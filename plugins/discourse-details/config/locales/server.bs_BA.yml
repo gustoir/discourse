@@ -1,0 +1,11 @@
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
+#
+# To work with us on translations, join this project:
+# https://translate.discourse.org/
+
+bs_BA:
+  site_settings:
+    details_enabled: 'Uključi opciju detalji. Ukoliko ovo izmijenite, morate odraditi ponovno pečenje svih postova koristeći: "rake posts:rebake".'
+  details:
+    excerpt_details: "(kliknite za više detalja)"

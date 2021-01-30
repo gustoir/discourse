@@ -1,7 +1,10 @@
+# frozen_string_literal: true
+
 class Permalink < ActiveRecord::Base
   belongs_to :topic
   belongs_to :post
   belongs_to :category
+  belongs_to :tag
 
   before_validation :normalize_url
 
@@ -21,8 +24,8 @@ class Permalink < ActiveRecord::Base
       return unless rule =~ /\/.*\//
 
       escaping = false
-      regex = ""
-      sub = ""
+      regex = +""
+      sub = +""
       c = 0
 
       rule.chars.each do |l|
@@ -37,7 +40,7 @@ class Permalink < ActiveRecord::Base
       end
 
       if regex.length > 1
-        [Regexp.new(regex[1..-1]), sub[1..-1] || ""] rescue nil
+        [Regexp.new(regex[1..-1]), sub[1..-1] || ""]
       end
 
     end
@@ -75,15 +78,16 @@ class Permalink < ActiveRecord::Base
 
   def target_url
     return external_url if external_url
-    return "#{Discourse::base_uri}#{post.url}" if post
+    return "#{Discourse.base_path}#{post.url}" if post
     return topic.relative_url if topic
     return category.url if category
+    return tag.full_url if tag
     nil
   end
 
   def self.filter_by(url = nil)
     permalinks = Permalink
-      .includes(:topic, :post, :category)
+      .includes(:topic, :post, :category, :tag)
       .order('permalinks.created_at desc')
 
     permalinks.where!('url ILIKE :url OR external_url ILIKE :url', url: "%#{url}%") if url.present?
@@ -104,6 +108,7 @@ end
 #  created_at   :datetime         not null
 #  updated_at   :datetime         not null
 #  external_url :string(1000)
+#  tag_id       :integer
 #
 # Indexes
 #

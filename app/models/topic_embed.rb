@@ -1,4 +1,4 @@
-require_dependency 'nokogiri'
+# frozen_string_literal: true
 
 class TopicEmbed < ActiveRecord::Base
   include Trashable
@@ -26,16 +26,6 @@ class TopicEmbed < ActiveRecord::Base
     "\n<hr>\n<small>#{I18n.t('embed.imported_from', link: "<a href='#{url}'>#{url}</a>")}</small>\n"
   end
 
-  DOUBLE_ESCAPED_EXPR = /%25([0-9a-f]{2})/i
-
-  # Prevents double URL encode
-  # https://stackoverflow.com/a/37599235
-  def self.escape_uri(uri, pattern = URI::UNSAFE)
-    encoded = URI.encode(uri, pattern)
-    encoded.gsub!(DOUBLE_ESCAPED_EXPR, '%\1')
-    encoded
-  end
-
   # Import an article from a source (RSS/Atom/Other)
   def self.import(user, url, title, contents)
     return unless url =~ /^https?\:\/\//
@@ -44,7 +34,7 @@ class TopicEmbed < ActiveRecord::Base
       contents = first_paragraph_from(contents)
     end
     contents ||= ''
-    contents << imported_from_html(url)
+    contents = +contents << imported_from_html(url)
 
     url = normalize_url(url)
 
@@ -57,12 +47,24 @@ class TopicEmbed < ActiveRecord::Base
       Topic.transaction do
         eh = EmbeddableHost.record_for_url(url)
 
-        creator = PostCreator.new(user,
-                                  title: title,
-                                  raw: absolutize_urls(url, contents),
-                                  skip_validations: true,
-                                  cook_method: Post.cook_methods[:raw_html],
-                                  category: eh.try(:category_id))
+        cook_method = if SiteSetting.embed_support_markdown
+          Post.cook_methods[:regular]
+        else
+          Post.cook_methods[:raw_html]
+        end
+
+        create_args = {
+          title: title,
+          raw: absolutize_urls(url, contents),
+          skip_validations: true,
+          cook_method: cook_method,
+          category: eh.try(:category_id)
+        }
+        if SiteSetting.embed_unlisted?
+          create_args[:visible] = false
+        end
+
+        creator = PostCreator.new(user, create_args)
         post = creator.create
         if post.present?
           TopicEmbed.create!(topic_id: post.topic_id,
@@ -74,10 +76,28 @@ class TopicEmbed < ActiveRecord::Base
     else
       absolutize_urls(url, contents)
       post = embed.post
+
       # Update the topic if it changed
-      if post && post.topic && content_sha1 != embed.content_sha1
-        post.revise(user, { raw: absolutize_urls(url, contents) }, skip_validations: true, bypass_rate_limiter: true)
-        embed.update_column(:content_sha1, content_sha1)
+      if post&.topic
+        if post.user != user
+          PostOwnerChanger.new(
+            post_ids: [post.id],
+            topic_id: post.topic_id,
+            new_owner: user,
+            acting_user: Discourse.system_user
+          ).change_owner!
+
+          # make sure the post returned has the right author
+          post.reload
+        end
+
+        if (content_sha1 != embed.content_sha1) || (title && title != post&.topic&.title)
+          changes = { raw: absolutize_urls(url, contents) }
+          changes[:title] = title if title.present?
+
+          post.revise(user, changes, skip_validations: true, bypass_rate_limiter: true)
+          embed.update!(content_sha1: content_sha1)
+        end
       end
     end
 
@@ -87,17 +107,26 @@ class TopicEmbed < ActiveRecord::Base
   def self.find_remote(url)
     require 'ruby-readability'
 
-    url = escape_uri(url)
+    url = UrlHelper.escape_uri(url)
     original_uri = URI.parse(url)
+    fd = FinalDestination.new(
+      url,
+      validate_uri: true,
+      max_redirects: 5
+    )
+
+    url = fd.resolve
+    return if url.blank?
+
     opts = {
       tags: %w[div p code pre h1 h2 h3 b em i strong a img ul li ol blockquote],
       attributes: %w[href src class],
       remove_empty_nodes: false
     }
 
-    opts[:whitelist] = SiteSetting.embed_whitelist_selector if SiteSetting.embed_whitelist_selector.present?
-    opts[:blacklist] = SiteSetting.embed_blacklist_selector if SiteSetting.embed_blacklist_selector.present?
-    embed_classname_whitelist = SiteSetting.embed_classname_whitelist if SiteSetting.embed_classname_whitelist.present?
+    opts[:whitelist] = SiteSetting.allowed_embed_selectors if SiteSetting.allowed_embed_selectors.present?
+    opts[:blacklist] = SiteSetting.blocked_embed_selectors if SiteSetting.blocked_embed_selectors.present?
+    allowed_embed_classnames = SiteSetting.allowed_embed_classnames if SiteSetting.allowed_embed_classnames.present?
 
     response = FetchResponse.new
     begin
@@ -106,7 +135,7 @@ class TopicEmbed < ActiveRecord::Base
       return
     end
 
-    raw_doc = Nokogiri::HTML(html)
+    raw_doc = Nokogiri::HTML5(html)
     auth_element = raw_doc.at('meta[@name="author"]')
     if auth_element.present?
       response.author = User.where(username_lower: auth_element[:content].strip).first
@@ -114,7 +143,7 @@ class TopicEmbed < ActiveRecord::Base
 
     read_doc = Readability::Document.new(html, opts)
 
-    title = raw_doc.title || ''
+    title = +(raw_doc.title || '')
     title.strip!
 
     if SiteSetting.embed_title_scrubber.present?
@@ -122,7 +151,7 @@ class TopicEmbed < ActiveRecord::Base
       title.strip!
     end
     response.title = title
-    doc = Nokogiri::HTML(read_doc.content)
+    doc = Nokogiri::HTML5(read_doc.content)
 
     tags = { 'img' => 'src', 'script' => 'src', 'a' => 'href' }
     doc.search(tags.keys.join(',')).each do |node|
@@ -130,18 +159,18 @@ class TopicEmbed < ActiveRecord::Base
       src = node[url_param]
       unless (src.nil? || src.empty?)
         begin
-          uri = URI.parse(escape_uri(src))
+          uri = URI.parse(UrlHelper.escape_uri(src))
           unless uri.host
             uri.scheme = original_uri.scheme
             uri.host = original_uri.host
             node[url_param] = uri.to_s
           end
-        rescue URI::InvalidURIError, URI::InvalidComponentError
+        rescue URI::Error
           # If there is a mistyped URL, just do nothing
         end
       end
-      # only allow classes in the whitelist
-      allowed_classes = if embed_classname_whitelist.blank? then [] else embed_classname_whitelist.split(/[ ,]+/i) end
+      # only allow classes in the allowlist
+      allowed_classes = if allowed_embed_classnames.blank? then [] else allowed_embed_classnames.split(/[ ,]+/i) end
       doc.search('[class]:not([class=""])').each do |classnode|
         classes = classnode[:class].split(' ').select { |classname| allowed_classes.include?(classname) }
         if classes.length === 0
@@ -170,11 +199,15 @@ class TopicEmbed < ActiveRecord::Base
   # Convert any relative URLs to absolute. RSS is annoying for this.
   def self.absolutize_urls(url, contents)
     url = normalize_url(url)
-    uri = URI(escape_uri(url))
+    begin
+      uri = URI(UrlHelper.escape_uri(url))
+    rescue URI::Error
+      return contents
+    end
     prefix = "#{uri.scheme}://#{uri.host}"
-    prefix << ":#{uri.port}" if uri.port != 80 && uri.port != 443
+    prefix += ":#{uri.port}" if uri.port != 80 && uri.port != 443
 
-    fragment = Nokogiri::HTML.fragment("<div>#{contents}</div>")
+    fragment = Nokogiri::HTML5.fragment("<div>#{contents}</div>")
     fragment.css('a').each do |a|
       href = a['href']
       if href.present? && href.start_with?('/')
@@ -191,14 +224,14 @@ class TopicEmbed < ActiveRecord::Base
   end
 
   def self.topic_id_for_embed(embed_url)
-    embed_url = normalize_url(embed_url)
-    TopicEmbed.where("lower(embed_url) = ?", embed_url).pluck(:topic_id).first
+    embed_url = normalize_url(embed_url).sub(/^https?\:\/\//, '')
+    TopicEmbed.where("embed_url ~* ?", "^https?://#{Regexp.escape(embed_url)}$").pluck_first(:topic_id)
   end
 
   def self.first_paragraph_from(html)
-    doc = Nokogiri::HTML(html)
+    doc = Nokogiri::HTML5(html)
 
-    result = ""
+    result = +""
     doc.css('p').each do |p|
       if p.text.present?
         result << p.to_s
@@ -208,12 +241,12 @@ class TopicEmbed < ActiveRecord::Base
     return result unless result.blank?
 
     # If there is no first paragaph, return the first div (onebox)
-    doc.css('div').first
+    doc.css('div').first.to_s
   end
 
   def self.expanded_for(post)
-    Rails.cache.fetch("embed-topic:#{post.topic_id}", expires_in: 10.minutes) do
-      url = TopicEmbed.where(topic_id: post.topic_id).pluck(:embed_url).first
+    Discourse.cache.fetch("embed-topic:#{post.topic_id}", expires_in: 10.minutes) do
+      url = TopicEmbed.where(topic_id: post.topic_id).pluck_first(:embed_url)
       response = TopicEmbed.find_remote(url)
 
       body = response.body

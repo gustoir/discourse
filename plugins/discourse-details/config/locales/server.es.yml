@@ -1,0 +1,11 @@
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
+#
+# To work with us on translations, join this project:
+# https://translate.discourse.org/
+
+es:
+  site_settings:
+    details_enabled: 'Habilitar la característica de detalles. Si cambias esto, debes hacer rebake de todos los mensajes con: «rake posts:rebake».'
+  details:
+    excerpt_details: "(haz clic para más detalles)"

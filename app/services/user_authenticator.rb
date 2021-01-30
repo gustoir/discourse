@@ -1,19 +1,25 @@
+# frozen_string_literal: true
+
 class UserAuthenticator
 
   def initialize(user, session, authenticator_finder = Users::OmniauthCallbacksController)
     @user = user
-    @session = session[:authentication]
+    @session = session
+    if session[:authentication] && session[:authentication].is_a?(Hash)
+      @auth_result = Auth::Result.from_session_data(session[:authentication], user: user)
+    end
     @authenticator_finder = authenticator_finder
   end
 
   def start
     if authenticated?
       @user.active = true
+      @auth_result.apply_user_attributes!
     else
       @user.password_required!
     end
 
-    @user.skip_email_validation = true if @session && @session[:skip_email_validation].present?
+    @user.skip_email_validation = true if @auth_result && @auth_result.skip_email_validation
   end
 
   def has_authenticator?
@@ -21,19 +27,32 @@ class UserAuthenticator
   end
 
   def finish
-    authenticator.after_create_account(@user, @session) if authenticator
-    @session = nil
+    if authenticator
+      authenticator.after_create_account(@user, @auth_result)
+      confirm_email
+    end
+    @session[:authentication] = @auth_result = nil if @session[:authentication]
   end
 
   def email_valid?
-    @session && @session[:email_valid]
+    @auth_result&.email_valid
   end
 
   def authenticated?
-    @session && @session[:email] == @user.email && @session[:email_valid]
+    return false if !@auth_result
+    return false if @auth_result&.email&.downcase != @user.email.downcase
+    return false if @auth_result.email_valid != true # strong check for truth, in case we have another object type
+    true
   end
 
   private
+
+  def confirm_email
+    if authenticated?
+      EmailToken.confirm(@user.email_tokens.first.token)
+      @user.set_automatic_groups
+    end
+  end
 
   def authenticator
     if authenticator_name
@@ -42,7 +61,7 @@ class UserAuthenticator
   end
 
   def authenticator_name
-    @session && @session[:authenticator_name]
+    @auth_result&.authenticator_name
   end
 
 end

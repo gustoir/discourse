@@ -5,31 +5,87 @@
 // Base
 // --------------------------------------------------
 
-.btn {
-  display: inline-block;
+@mixin btn(
+  $text-color: var(--primary),
+  $bg-color: var(--primary-low),
+  $icon-color: var(--primary-high),
+  $hover-text-color: var(--secondary),
+  $hover-bg-color: var(--primary-medium),
+  $hover-icon-color: var(--primary-low)
+) {
+  box-sizing: border-box;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   margin: 0;
-  padding: 6px 12px;
-  font-weight: 500;
-  font-size: 1em;
-  line-height: 18px;
-  text-align: center;
+  padding: 0.53em 0.8em;
+  border: none;
+  font-weight: normal;
+  font-size: $font-0;
+  line-height: normal;
+  color: $text-color;
+  background: $bg-color;
   cursor: pointer;
-  transition: all .25s;
-
-  &:active, &.btn-active {
-    text-shadow: none;
-  }
-  &[disabled], &.disabled {
-    cursor: default;
-    opacity: 0.4;
-  }
-  .fa {
-    margin-right: 7px;
+  transition: all 0.25s;
+  .d-icon {
+    color: $icon-color;
+    margin-right: 0.45em;
+    transition: color 0.25s;
   }
   &.no-text {
-    .fa {
+    .d-icon {
       margin-right: 0;
-      line-height: 10px;
+    }
+  }
+  @include hover {
+    background: $hover-bg-color;
+    color: $hover-text-color;
+    .d-icon {
+      color: $hover-icon-color;
+    }
+  }
+  &[href] {
+    color: $text-color;
+  }
+  &:active,
+  &.btn-active {
+    @include linear-gradient($hover-bg-color 0%, $bg-color 100%);
+  }
+  &[disabled],
+  &.disabled {
+    opacity: 0.4;
+    &:hover {
+      color: $text-color;
+      background: $bg-color;
+      .d-icon {
+        color: $icon-color;
+      }
+    }
+    cursor: not-allowed;
+  }
+
+  .loading-container {
+    display: none;
+    margin: 0 6.75px 0 0;
+  }
+
+  &.is-loading {
+    &.btn-text {
+      .d-button-label {
+        font-size: $font-down-2;
+      }
+
+      &.btn-small {
+        .loading-icon {
+          font-size: $font-down-1;
+          margin-right: 0.2em;
+        }
+      }
+    }
+
+    .loading-icon {
+      -webkit-animation: rotate-forever 1s infinite linear, fadein 1s;
+      animation: rotate-forever 1s infinite linear, fadein 1s;
     }
   }
 }
@@ -42,130 +98,115 @@
 // --------------------------------------------------
 
 .btn {
-  border: none;
-  color: $primary;
-  font-weight: normal;
-  background: $primary-low; 
-
-  &[href] {
-    color: $primary;
-  }
-  &:hover, &.btn-hover {
-    background: $primary-medium; 
-    color: $secondary;
-  }
-  &[disabled], &.disabled {
-    background: $primary-low; 
-    &:hover { color: dark-light-choose($primary-low-mid, $secondary-high); }
-    cursor: not-allowed;
-  }
-
-  .d-icon {
-    opacity: 0.7;
-  }
-  &.btn-primary .d-icon {
-    opacity: 1;
-  }
+  @include btn;
 }
 
 // Primary button
 // --------------------------------------------------
 
 .btn-primary {
-  border: none;
-  font-weight: normal;
-  color: dark-light-choose(#fff, $primary-medium);
-  background: $tertiary;
-
-  &[href] {
-    color: $secondary;
-  }
-  &:hover, &.btn-hover {
-    color: #fff;
-    background: dark-light-choose($tertiary, $tertiary);
-  }
-  &:active, &.btn-active {
-    @include linear-gradient($tertiary, $tertiary);
-    color: $secondary;
-  }
-  &[disabled], &.disabled {
-    background: $tertiary;
-  }
+  @include btn(
+    $text-color: var(--secondary),
+    $bg-color: var(--tertiary),
+    $icon-color: var(--secondary),
+    $hover-bg-color: var(--tertiary-hover),
+    $hover-icon-color: var(--secondary)
+  );
 }
 
 // Danger button
 // --------------------------------------------------
 
 .btn-danger {
-  color: $secondary;
-  font-weight: normal;
-  background: $danger;
-  &[href] {
-    color: $secondary;
-  }
-  &:hover, &.btn-hover {
-    background: scale-color($danger, $lightness: -20%);
-  }
-  &:active, &.btn-active {
-    @include linear-gradient(scale-color($danger, $lightness: -20%), $danger);
-  }
-  &[disabled], &.disabled {
-    background: $danger;
-  }
+  @include btn(
+    $text-color: var(--secondary),
+    $bg-color: var(--danger),
+    $icon-color: var(--danger-low),
+    $hover-bg-color: var(--danger-hover),
+    $hover-icon-color: var(--danger-low)
+  );
+}
+
+// ✘ and ✔ buttons
+// --------------------------------------------------
+
+.btn.cancel {
+  @include btn(
+    $text-color: var(--secondary),
+    $bg-color: var(--danger),
+    $icon-color: var(--secondary),
+    $hover-bg-color: var(--danger-hover),
+    $hover-icon-color: var(--secondary)
+  );
+}
+
+.btn.ok {
+  @include btn(
+    $text-color: var(--secondary),
+    $bg-color: var(--success),
+    $icon-color: var(--secondary),
+    $hover-bg-color: var(--success-hover),
+    $hover-icon-color: var(--secondary)
+  );
 }
 
 // Social buttons
 // --------------------------------------------------
 
 .btn-social {
-  color: $secondary;
-  text-shadow: 0 1px 0 rgba($primary, 0.2);
-  box-shadow: inset 0 1px 0 rgba(0,0,0, 0.1);
+  .d-icon {
+    color: #fff;
+  }
+  color: #fff;
+  background: #666;
+  &:hover {
+    color: #fff;
+  }
   &[href] {
-    color: $secondary;
+    color: var(--secondary);
   }
   &:before {
     margin-right: 9px;
-    font-family: FontAwesome;
-    font-size: 17px;
+    font-size: $font-0;
   }
-  &.google, &.google_oauth2 {
-    background: $google;
-    &:before {
-      content: $fa-var-google;
+  &.google_oauth2 {
+    background: var(--google);
+    color: #333;
+    border: 1px solid var(--primary-low);
+    // non-FA SVG icon for Google in login-buttons.hbs
+    .d-icon {
+      opacity: 0.9;
     }
-  }
-  &.instagram {
-    background: $instagram;
-    &:before {
-      content: $fa-var-instagram;
+    &:hover {
+      color: currentColor;
+      background: var(--google-hover);
     }
   }
   &.facebook {
     background: $facebook;
-    &:before {
-      content: $fa-var-facebook;
+    &:hover {
+      background: var(--facebook-hover);
     }
   }
   &.cas {
-    background: $cas;
+    background: var(--cas);
   }
   &.twitter {
-    background: $twitter;
-    &:before {
-      content: $fa-var-twitter;
-    }
-  }
-  &.yahoo {
-    background: $yahoo;
-    &:before {
-      content: $fa-var-yahoo;
+    background: var(--twitter);
+    &:hover {
+      background: var(--twitter-hover);
     }
   }
   &.github {
-    background: $github;
-    &:before {
-      content: $fa-var-github;
+    background: var(--github);
+    &:hover {
+      background: var(--github-hover);
+    }
+  }
+  &.discord {
+    background: var(--discord);
+    &:hover {
+      background: var(--discord-hover);
     }
   }
 }
@@ -176,24 +217,60 @@
 // Small
 
 .btn-small {
-  padding: 3px 6px;
-  font-size: 0.857em;
-  line-height: 16px;
+  padding: 6px;
+  font-size: $font-down-1;
+  min-height: 20px;
+  .d-icon {
+    max-height: 0.87em;
+  }
 }
 
 // Large
 
 .btn-large {
   padding: 9px 18px;
-  font-size: 1.143em;
-  line-height: 20px;
+  font-size: $font-up-1;
+  line-height: $line-height-small;
 }
 
 .btn-flat {
   background: transparent;
   border: 0;
   outline: 0;
+  line-height: $line-height-small;
+  transition: color 0.25s, background 0.25s;
   .d-icon {
-    opacity: 0.7;
+    color: var(--primary-low-mid);
+  }
+  @include hover {
+    .d-icon {
+      color: var(--primary);
+    }
+  }
+  &.close {
+    padding: 0;
+    min-height: unset;
+    background: transparent;
+    font-size: $font-up-3;
+    .d-icon {
+      color: var(--primary-high);
+    }
+    @include hover {
+      background: transparent;
+      .d-icon {
+        color: var(--primary);
+      }
+    }
+  }
+}
+
+.btn-link {
+  background: transparent;
+  border: 0;
+  outline: 0;
+  padding: 0;
+  color: var(--tertiary);
+  &:focus {
+    outline: 1px currentColor dotted;
   }
 }

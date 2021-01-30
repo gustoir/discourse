@@ -1,9 +1,8 @@
-# encoding: utf-8
-#
-# Never edit this file. It will be overwritten when translations are pulled from Transifex.
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
 #
 # To work with us on translations, join this project:
-# https://www.transifex.com/projects/p/discourse-org/
+# https://translate.discourse.org/
 
 vi:
   js:
@@ -14,16 +13,15 @@ vi:
         other: "tổng số bình chọn"
       average_rating: "Trung bình: <strong>%{average}</strong>."
       public:
-        title: "Thăm dò này là công khai."
+        title: "Bình chọn <strong>công khai</strong>"
       multiple:
         help:
           at_least_min_options:
-            other: "Chọn ít nhất <strong>%{count}</strong> lựa chọn"
+            other: "Chọn ít nhất <strong>%{count}</strong> tùy chọn."
           up_to_max_options:
-            other: "Chọn tối đa <strong>%{count}</strong> lựa chọn"
+            other: "Chọn tối đa <strong>%{count}</strong> tùy chọn."
           x_options:
-            other: "Chọn <strong>%{count}</strong> lựa chọn"
-          between_min_and_max_options: "Chọn giữa <strong>%{min}</strong> và <strong>%{max}</strong> lựa chọn."
+            other: "Chọn <strong>%{count}</strong> tùy chọn."
       cast-votes:
         title: "Thay đổi bình chọn của bạn"
         label: "Bình chọn ngay!"
@@ -32,7 +30,8 @@ vi:
         label: "Hiện kết quả"
       hide-results:
         title: "Trở lại bình chọn của bạn"
-        label: "Ẩn kết quả"
+      export-results:
+        label: "Xuất"
       open:
         title: "Mở thăm dò"
         label: "Mở"
@@ -48,13 +47,15 @@ vi:
         title: Tạo thăm dò
         insert: Chèn thăm dò
         help:
-          options_count: Nhập vào ít nhất 2 lựa chọn
           invalid_values: Giá trị nhỏ nhất phải nhỏ hơn giá trị lớn nhất.
+          min_step_value: Khoảng cách tối thiểu là 1
         poll_type:
           label: Loại
           regular: Một lựa chọn
           multiple: Nhiều lựa chọn
           number: Xếp hạng
+        poll_result:
+          label: Kết quả
         poll_config:
           max: Tối đa
           min: Tối thiểu

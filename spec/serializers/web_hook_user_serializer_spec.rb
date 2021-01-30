@@ -1,14 +1,35 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 RSpec.describe WebHookUserSerializer do
-  let(:user) { Fabricate(:user) }
-  let(:admin) { Fabricate(:admin) }
+  let(:user) do
+    user = Fabricate(:user)
+    SingleSignOnRecord.create!(user_id: user.id, external_id: '12345', last_payload: '')
+    user
+  end
 
-  subject { described_class.new(user, scope: Guardian.new(admin), root: false) }
+  fab!(:admin) { Fabricate(:admin) }
 
-  it "should include the user's email" do
-    payload = subject.as_json
+  let :serializer do
+    WebHookUserSerializer.new(user, scope: Guardian.new(admin), root: false)
+  end
 
+  it "should include relevant user info" do
+    payload = serializer.as_json
     expect(payload[:email]).to eq(user.email)
+    expect(payload[:external_id]).to eq('12345')
+  end
+
+  it 'should only include the required keys' do
+    count = serializer.as_json.keys.count
+    difference = count - 51
+
+    expect(difference).to eq(0), lambda {
+      message = (difference < 0 ?
+                "#{difference * -1} key(s) have been removed from this serializer." :
+                "#{difference} key(s) have been added to this serializer.") +
+                "\nPlease verify if those key(s) are required as part of the web hook's payload."
+    }
   end
 end

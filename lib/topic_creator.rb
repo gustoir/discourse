@@ -1,4 +1,4 @@
-require_dependency 'has_errors'
+# frozen_string_literal: true
 
 class TopicCreator
 
@@ -24,11 +24,6 @@ class TopicCreator
     # this allows us to add errors
     valid = topic.valid?
 
-    # not sure where this should go
-    if !@guardian.is_staff? && staff_only = DiscourseTagging.staff_only_tags(@opts[:tags])
-      topic.errors[:base] << I18n.t("tags.staff_tag_disallowed", tag: staff_only.join(" "))
-    end
-
     DiscourseEvent.trigger(:after_validate_topic, topic, self)
     valid &&= topic.errors.empty?
 
@@ -41,6 +36,10 @@ class TopicCreator
     topic = Topic.new(setup_topic_params)
     setup_tags(topic)
 
+    if fields = @opts[:custom_fields]
+      topic.custom_fields.merge!(fields)
+    end
+
     DiscourseEvent.trigger(:before_create_topic, topic, self)
 
     setup_auto_close_time(topic)
@@ -48,11 +47,20 @@ class TopicCreator
     save_topic(topic)
     create_warning(topic)
     watch_topic(topic)
+    create_shared_draft(topic)
+    UserActionManager.topic_created(topic)
 
     topic
   end
 
   private
+
+  def create_shared_draft(topic)
+    return if @opts[:shared_draft].blank? || @opts[:shared_draft] == 'false'
+
+    category_id = @opts[:category].blank? ? SiteSetting.shared_drafts_category.to_i : @opts[:category]
+    SharedDraft.create(topic_id: topic.id, category_id: category_id)
+  end
 
   def create_warning(topic)
     return unless @opts[:is_warning]
@@ -77,21 +85,8 @@ class TopicCreator
       topic.notifier.watch!(tau.user_id)
     end
 
-    topic.reload.topic_allowed_groups.each do |tag|
-      tag.group.group_users.each do |gu|
-        next if gu.user_id == -1 || gu.user_id == topic.user_id
-
-        action =
-          case gu.notification_level
-          when TopicUser.notification_levels[:tracking] then "track!"
-          when TopicUser.notification_levels[:regular]  then "regular!"
-          when TopicUser.notification_levels[:muted]    then "mute!"
-          when TopicUser.notification_levels[:watching] then "watch!"
-          else "track!"
-          end
-
-        topic.notifier.send(action, gu.user_id)
-      end
+    topic.reload.topic_allowed_groups.each do |topic_allowed_group|
+      topic_allowed_group.group.set_message_default_notification_levels!(topic)
     end
   end
 
@@ -113,18 +108,25 @@ class TopicCreator
       topic_params[:views] = @opts[:views].to_i
     end
 
+    if topic_params[:import_mode] && @opts[:participant_count].to_i > 0
+      topic_params[:participant_count] = @opts[:participant_count].to_i
+    end
+
     # Automatically give it a moderator warning subtype if specified
     topic_params[:subtype] = TopicSubtype.moderator_warning if @opts[:is_warning]
 
     category = find_category
-
     @guardian.ensure_can_create!(Topic, category) unless (@opts[:skip_validations] || @opts[:archetype] == Archetype.private_message)
+
+    if @opts[:category].present? && category.nil?
+      raise Discourse::InvalidParameters.new(:category)
+    end
 
     topic_params[:category_id] = category.id if category.present?
 
-    topic_params[:created_at] = Time.zone.parse(@opts[:created_at].to_s) if @opts[:created_at].present?
+    topic_params[:created_at] = convert_time(@opts[:created_at]) if @opts[:created_at].present?
 
-    topic_params[:pinned_at] = Time.zone.parse(@opts[:pinned_at].to_s) if @opts[:pinned_at].present?
+    topic_params[:pinned_at] = convert_time(@opts[:pinned_at]) if @opts[:pinned_at].present?
     topic_params[:pinned_globally] = @opts[:pinned_globally] if @opts[:pinned_globally].present?
 
     if SiteSetting.topic_featured_link_enabled && @opts[:featured_link].present? && @guardian.can_edit_featured_link?(topic_params[:category_id])
@@ -134,22 +136,46 @@ class TopicCreator
     topic_params
   end
 
-  def find_category
-    # PM can't have a category
-    @opts.delete(:category) if @opts[:archetype].present? && @opts[:archetype] == Archetype.private_message
-
-    # Temporary fix to allow older clients to create topics.
-    # When all clients are updated the category variable should
-    # be set directly to the contents of the if statement.
-    if (@opts[:category].is_a? Integer) || (@opts[:category] =~ /^\d+$/)
-      Category.find_by(id: @opts[:category])
+  def convert_time(timestamp)
+    if timestamp.is_a?(Time)
+      timestamp
     else
-      Category.find_by(name_lower: @opts[:category].try(:downcase))
+      Time.zone.parse(timestamp.to_s)
+    end
+  end
+
+  def find_category
+    @category ||= begin
+      # PM can't have a category
+      @opts.delete(:category) if @opts[:archetype].present? && @opts[:archetype] == Archetype.private_message
+
+      if @opts[:shared_draft]
+        return Category.find(SiteSetting.shared_drafts_category)
+      end
+
+      if (@opts[:category].is_a? Integer) || (@opts[:category] =~ /^\d+$/)
+        Category.find_by(id: @opts[:category])
+      end
     end
   end
 
   def setup_tags(topic)
-    DiscourseTagging.tag_topic_by_names(topic, @guardian, @opts[:tags])
+    if @opts[:tags].blank?
+      unless @guardian.is_staff? || !guardian.can_tag?(topic)
+        category = find_category
+
+        if !DiscourseTagging.validate_min_required_tags_for_category(@guardian, topic, category) ||
+            !DiscourseTagging.validate_required_tags_from_group(@guardian, topic, category)
+          rollback_from_errors!(topic)
+        end
+      end
+    else
+      valid_tags = DiscourseTagging.tag_topic_by_names(topic, @guardian, @opts[:tags])
+      unless valid_tags
+        topic.errors.add(:base, :unable_to_tag)
+        rollback_from_errors!(topic)
+      end
+    end
   end
 
   def setup_auto_close_time(topic)
@@ -166,14 +192,18 @@ class TopicCreator
       rollback_with!(topic, :no_user_selected)
     end
 
-    if @opts[:target_emails].present? && !@guardian.cand_send_private_messages_to_email? then
+    if @opts[:target_emails].present? && !@guardian.can_send_private_messages_to_email? then
       rollback_with!(topic, :reply_by_email_disabled)
     end
 
     add_users(topic, @opts[:target_usernames])
     add_emails(topic, @opts[:target_emails])
     add_groups(topic, @opts[:target_group_names])
-    topic.topic_allowed_users.build(user_id: @user.id)
+
+    if !@added_users.include?(user)
+      topic.topic_allowed_users.build(user_id: @user.id)
+    end
+
   end
 
   def save_topic(topic)
@@ -187,10 +217,10 @@ class TopicCreator
   def add_users(topic, usernames)
     return unless usernames
 
-    names = usernames.split(',').flatten
+    names = usernames.split(',').flatten.map(&:downcase)
     len = 0
 
-    User.includes(:user_option).where(username: names).find_each do |user|
+    User.includes(:user_option).where('username_lower in (?)', names).find_each do |user|
       check_can_send_permission!(topic, user)
       @added_users << user
       topic.topic_allowed_users.build(user_id: user.id)
@@ -211,8 +241,10 @@ class TopicCreator
         display_name = email.split("@").first
 
         if user = find_or_create_user(email, display_name)
-          @added_users << user
-          topic.topic_allowed_users.build(user_id: user.id)
+          if !@added_users.include?(user)
+            @added_users << user
+            topic.topic_allowed_users.build(user_id: user.id)
+          end
           len += 1
         end
       end
@@ -223,10 +255,10 @@ class TopicCreator
 
   def add_groups(topic, groups)
     return unless groups
-    names = groups.split(',').flatten
+    names = groups.split(',').flatten.map(&:downcase)
     len = 0
 
-    Group.where(name: names).each do |group|
+    Group.where('lower(name) in (?)', names).each do |group|
       check_can_send_permission!(topic, group)
       topic.topic_allowed_groups.build(group_id: group.id)
       len += 1
@@ -237,7 +269,10 @@ class TopicCreator
   end
 
   def check_can_send_permission!(topic, obj)
-    rollback_with!(topic, :cant_send_pm) unless @opts[:skip_validations] || @guardian.can_send_private_message?(obj)
+    unless @opts[:skip_validations] ||
+      @guardian.can_send_private_message?(obj, notify_moderators: topic&.subtype == TopicSubtype.notify_moderators)
+      rollback_with!(topic, :cant_send_pm)
+    end
   end
 
   def find_or_create_user(email, display_name)

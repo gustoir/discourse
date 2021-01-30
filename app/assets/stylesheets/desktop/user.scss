@@ -1,25 +1,14 @@
 // Desktop styles for "/user" section
-.user-right {
-  display: table-cell;
-
+.user-content-wrapper {
   &,
   > .user-stream {
     > .alert:first-child {
       margin-top: 10px;
     }
   }
-}
 
-.profile-image {
-  height: 420px;
-  width: 100%;
-  background-size: cover;
-  transition: height .15s linear;
-}
-
-.no-background {
-  .profile-image {
-    height: 200px;
+  .show-mores {
+    position: absolute;
   }
 }
 
@@ -27,21 +16,12 @@
   margin-top: 18px;
 }
 
-.user-table {
-  width: 100%;
-  display: table;
-  table-layout: fixed;
-
-  .wrapper {
-    display: table-row;
-  }
+.user-profile-hidden {
+  font-size: 1.5em;
+  text-align: center;
 }
-
-.user-navigation {
-  display: table-cell;
-  vertical-align: top;
-  width: 170px;
-
+.user-secondary-navigation {
+  min-width: 150px;
   .nav-stacked {
     background-color: transparent;
 
@@ -49,15 +29,15 @@
       border-bottom: none;
 
       &.archive {
-        padding-left: 15px;
+        padding-left: 1.4em;
       }
     }
 
     a {
-      color: dark-light-choose($primary-medium, $secondary-high);
+      color: var(--primary-medium);
 
       &.active {
-        color: $primary;
+        color: var(--primary);
         font-weight: bold;
         background-color: transparent;
 
@@ -70,13 +50,18 @@
 }
 
 .user-content {
-  padding: 10px 8px;
-  background-color: $secondary;
-  margin-bottom: 10px;
+  padding-bottom: 12px;
+  margin-bottom: 12px;
+  background-color: var(--secondary);
   box-sizing: border-box;
 
+  &.user-badges-list {
+    display: flex;
+    flex-wrap: wrap;
+  }
+
   .btn.right {
-    float: right
+    float: right;
   }
 
   h2 {
@@ -86,33 +71,27 @@
 
 .pref-avatar {
   .avatar {
-    max-width: 45px;
-    max-height: 45px;
+    max-width: 90px;
+    max-height: 90px;
   }
+}
+
+.pref-second-factor {
+  margin-top: 10px;
+}
+
+.invite-controls .btn {
+  margin-right: 0px;
 }
 
 .user-invite-list {
   width: 100%;
   margin-top: 15px;
-
-  th {
-    text-align: left;
-    border-bottom: 3px solid $primary-low;
-    padding: 0 0 10px 0;
-    color: dark-light-choose($primary-medium, $secondary-medium);
-    font-weight: normal;
+  tr {
+    td {
+      padding: 0.667em;
+    }
   }
-
-  td {
-    padding: 10px 0 10px 0;
-    border-bottom: 1px solid $primary-low;
-  }
-}
-
-.user-invite-controls {
-  background-color: $primary-low;
-  padding: 5px 10px 0px 0;
-  height: 35px;
 }
 
 .user-invite-search {
@@ -121,60 +100,43 @@
 }
 
 .user-invite-none {
-  clear: both;
-  padding: 15px;
+  padding: 15px 0;
 }
 
 .user-main {
   margin-bottom: 50px;
 
   .about {
-    background-position: center center;
-    background-size: cover;
-
     &.group {
       .details {
-        padding: 15px 0px;
+        padding: 15px 0;
         margin: 0;
-        color: dark-light-choose(lighten($primary, 10%), $secondary);
-      }
-    }
-
-  .secondary {
-    background: $secondary;
-    border-top: 1px solid $primary-low;
-    border-bottom: 1px solid $primary-low;
-
-      dl {
-        padding: 8px 10px;
-      }
-
-      dd {
-        display: inline;
-        margin: 0 10px 0 0;
-      }
-
-      dt {
-        margin: 0 5px 0 0;
-        padding: 0;
+        color: var(--secondary);
       }
     }
 
     .details {
-      padding: 0 0 4px 0;
-      margin-top: -200px;
-      transition: margin .15s linear;
-
       img.avatar {
         margin: 0 20px 10px 0;
-        transition: all .1s linear;
       }
 
       .primary {
         .primary-textual {
-          padding: 3px;
+          padding: 0 4px 4px;
           a[href] {
             text-decoration: underline;
+          }
+          h1 {
+            max-width: 100%;
+            @include ellipsis;
+          }
+          .location-and-website {
+            display: flex;
+            max-width: 100%;
+            @include ellipsis;
+            .user-profile-location {
+              margin-right: 1em;
+            }
           }
         }
 
@@ -186,11 +148,21 @@
           }
         }
       }
+
+      .secondary {
+        margin-top: 16px;
+      }
     }
 
     &.has-background {
+      .user-profile-image {
+        height: 300px;
+      }
       .details {
-        padding: 15px 15px 4px 15px;
+        box-sizing: border-box;
+        width: 100%;
+        padding: 15px 0 0 0;
+        bottom: 0;
       }
     }
 
@@ -198,56 +170,43 @@
       padding: 0 0 12px 0;
       float: right;
       text-align: right;
-      width: 180px;
 
-      a {
-        width: 140px;
-      }
-
-      .right {
-        float: right;
-        margin-left: 5px;
+      .btn {
+        min-width: 140px;
       }
     }
 
     &.collapsed-info {
+      .user-profile-image {
+        display: none;
+      }
       .controls {
         width: auto;
 
-        ul {
-
-          li {
-            display: inline;
+        > ul {
+          display: inline-flex;
+          > li {
+            display: inline-flex;
+            margin-left: 0.75em;
           }
 
           a {
-            padding: 5px 10px;
-            margin-bottom: 10px;
             width: auto;
           }
         }
       }
 
       .details {
-        padding: 0 0 2px 0;
-        border-bottom: 1px solid $primary-low;
-      }
-
-      &.has-background {
-        .details {
-          padding: 12px 15px 2px 15px;
-        }
+        position: relative;
+        padding: 0;
+        margin-top: 0;
+        border-bottom: 1px solid var(--primary-low);
       }
     }
   }
 
-  .staff-counters {
-    color: $secondary;
-    margin-bottom: 20px;
-  }
-
   .user-field {
-    input[type=text] {
+    input[type="text"] {
       width: 530px;
     }
 
@@ -258,67 +217,37 @@
     }
   }
 
-  .viewing-self & .about.collapsed-info {
-    .secondary, .staff-counters {
-      display: inherit;
-    }
+  .public-user-fields {
+    overflow: hidden;
   }
 }
 
 .user-preferences {
-  display: table-cell;
-  vertical-align: top;
   padding-top: 10px;
   padding-left: 30px;
 
+  .form-vertical {
+    width: 500px;
+    max-width: 100%;
+  }
+
   h3 {
-    color: $primary;
+    color: var(--primary);
     margin: 20px 0 10px 0;
   }
 
-  textarea {
-    width: 530px;
+  .category-selector,
+  .tag-chooser,
+  textarea,
+  input.user-selector,
+  .user-chooser {
+    width: 100%;
   }
+}
 
-  input {
-    &.category-selector,
-    &.user-selector,
-    &.tag-chooser {
-      width: 530px;
-    }
-
-    &[type=text] {
-      @include small-width {
-        width: 450px;
-      }
-    }
-  }
-
-  .instructions {
+.user-crawler {
+  .username {
+    margin-left: 5px;
     display: inline-block;
-    margin-top: 0;
-  }
-
-  .form-horizontal .instructions {
-    margin-left: 160px;
-  }
-
-  .pref-mailing-list-mode .controls {
-    select {
-      width: 400px;
-    }
-  }
-
-  .notifications,
-  .category-notifications,
-  .tag-notifications,
-  .user-custom-preferences-outlet {
-    .controls select {
-      width: 280px;
-    }
-  }
-
-  .user-main & .user-field.text {
-    padding-top: 0;
   }
 }

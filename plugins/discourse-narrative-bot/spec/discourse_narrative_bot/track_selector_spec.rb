@@ -1,25 +1,31 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe DiscourseNarrativeBot::TrackSelector do
   let(:user) { Fabricate(:user) }
-  let(:discobot_user) { User.find(-2) }
+  let(:narrative_bot) { ::DiscourseNarrativeBot::Base.new }
+  let(:discobot_user) { narrative_bot.discobot_user }
+  let(:discobot_username) { narrative_bot.discobot_username }
   let(:narrative) { DiscourseNarrativeBot::NewUserNarrative.new }
 
   let(:random_mention_reply) do
     I18n.t('discourse_narrative_bot.track_selector.random_mention.reply',
-     discobot_username: discobot_user.username,
+     discobot_username: discobot_username,
      help_trigger: described_class.help_trigger
     )
   end
 
-  let(:help_message) do
-    discobot_username = discobot_user.username
+  before do
+    stub_request(:get, "http://api.forismatic.com/api/1.0/?format=json&lang=en&method=getQuote").
+      to_return(status: 200, body: "{\"quoteText\":\"Be Like Water\",\"quoteAuthor\":\"Bruce Lee\"}")
+  end
 
+  let(:help_message) do
     end_message = <<~RAW
     #{I18n.t(
       'discourse_narrative_bot.track_selector.random_mention.tracks',
       discobot_username: discobot_username,
-      default_track: DiscourseNarrativeBot::NewUserNarrative.reset_trigger,
       reset_trigger: described_class.reset_trigger,
       tracks: "#{DiscourseNarrativeBot::NewUserNarrative.reset_trigger}, #{DiscourseNarrativeBot::AdvancedUserNarrative.reset_trigger}"
     )}
@@ -29,11 +35,16 @@ describe DiscourseNarrativeBot::TrackSelector do
       discobot_username: discobot_username,
       dice_trigger: described_class.dice_trigger,
       quote_trigger: described_class.quote_trigger,
+      quote_sample: DiscourseNarrativeBot::QuoteGenerator.format_quote('Be Like Water', 'Bruce Lee'),
       magic_8_ball_trigger: described_class.magic_8_ball_trigger
     )}
     RAW
 
     end_message.chomp
+  end
+
+  before do
+    Jobs.run_immediately!
   end
 
   describe '#select' do
@@ -105,7 +116,7 @@ describe DiscourseNarrativeBot::TrackSelector do
 
           it 'should not enqueue any user email' do
             NotificationEmailer.enable
-            user.user_option.update!(email_always: true)
+            user.user_option.update!(email_level: UserOption.email_level_types[:always])
 
             post.update!(
               raw: 'show me what you can do',
@@ -232,7 +243,7 @@ describe DiscourseNarrativeBot::TrackSelector do
 
         context 'generic replies' do
           after do
-            $redis.del("#{described_class::GENERIC_REPLIES_COUNT_PREFIX}#{user.id}")
+            Discourse.redis.del("#{described_class::GENERIC_REPLIES_COUNT_PREFIX}#{user.id}")
           end
 
           it 'should create the right generic do not understand responses' do
@@ -254,6 +265,7 @@ describe DiscourseNarrativeBot::TrackSelector do
 
             expect(new_post.raw).to eq(I18n.t(
               'discourse_narrative_bot.track_selector.do_not_understand.second_response',
+              base_path: Discourse.base_path,
               reset_trigger: "#{described_class.reset_trigger} #{DiscourseNarrativeBot::NewUserNarrative.reset_trigger}",
             ))
 
@@ -307,7 +319,7 @@ describe DiscourseNarrativeBot::TrackSelector do
                 )
 
                 BadgeGranter.grant(
-                  Badge.find_by(name: DiscourseNarrativeBot::NewUserNarrative::BADGE_NAME),
+                  Badge.find_by(name: DiscourseNarrativeBot::NewUserNarrative.badge_name),
                   user
                 )
 
@@ -370,7 +382,7 @@ describe DiscourseNarrativeBot::TrackSelector do
                 new_post = Post.last
 
                 expected_raw = <<~RAW
-                #{I18n.t('discourse_narrative_bot.dice.not_enough_dice', num_of_dice: DiscourseNarrativeBot::Dice::MAXIMUM_NUM_OF_DICE)}
+                #{I18n.t('discourse_narrative_bot.dice.not_enough_dice', count: DiscourseNarrativeBot::Dice::MAXIMUM_NUM_OF_DICE)}
 
                 #{I18n.t('discourse_narrative_bot.dice.results', results: '1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1')}
                 RAW
@@ -402,6 +414,15 @@ describe DiscourseNarrativeBot::TrackSelector do
             new_post = Post.last
 
             expect(new_post.raw).to eq(random_mention_reply)
+          end
+
+          it 'works with french locale' do
+            I18n.with_locale("fr") do
+              post.update!(raw: "@discobot afficher l'aide")
+              described_class.new(:reply, user, post_id: post.id).select
+              # gsub'ing to ensure non-breaking whitespaces matches regular whitespaces
+              expect(Post.last.raw.gsub(/[[:space:]]+/, " ")).to eq(help_message.gsub(/[[:space:]]+/, " "))
+            end
           end
 
           it 'should not rate limit help message' do
@@ -460,17 +481,17 @@ describe DiscourseNarrativeBot::TrackSelector do
           let(:post) { Fabricate(:post, topic: topic) }
 
           after do
-            $redis.flushall
+            Discourse.redis.flushdb
           end
 
           describe 'when random reply massage has been displayed in the last 6 hours' do
             it 'should not do anything' do
-              $redis.set(
+              Discourse.redis.set(
                 "#{described_class::PUBLIC_DISPLAY_BOT_HELP_KEY}:#{other_post.topic_id}",
                 post.post_number - 11
               )
 
-              $redis.class.any_instance.expects(:ttl).returns(19.hours.to_i)
+              Discourse.redis.class.any_instance.expects(:ttl).returns(19.hours.to_i)
 
               user
               post.update!(raw: "Show me what you can do @discobot")
@@ -482,12 +503,12 @@ describe DiscourseNarrativeBot::TrackSelector do
 
           describe 'when random reply message has not been displayed in the last 6 hours' do
             it 'should create the right reply' do
-              $redis.set(
+              Discourse.redis.set(
                 "#{described_class::PUBLIC_DISPLAY_BOT_HELP_KEY}:#{other_post.topic_id}",
                 post.post_number - 11
               )
 
-              $redis.class.any_instance.expects(:ttl).returns(7.hours.to_i)
+              Discourse.redis.class.any_instance.expects(:ttl).returns(7.hours.to_i)
 
               user
               post.update!(raw: "Show me what you can do @discobot")
@@ -503,7 +524,7 @@ describe DiscourseNarrativeBot::TrackSelector do
               described_class.new(:reply, user, post_id: other_post.id).select
               expect(Post.last.raw).to eq(random_mention_reply)
 
-              expect($redis.get(
+              expect(Discourse.redis.get(
                 "#{described_class::PUBLIC_DISPLAY_BOT_HELP_KEY}:#{other_post.topic_id}"
               ).to_i).to eq(other_post.post_number.to_i)
 
@@ -529,7 +550,7 @@ describe DiscourseNarrativeBot::TrackSelector do
         describe 'when asking discobot to start new user track' do
           describe 'invalid text' do
             it 'should not trigger the bot' do
-              post.update!(raw: '`@discobot start new user track`')
+              post.update!(raw: "`@discobot #{I18n.t('discourse_narrative_bot.track_selector.reset_trigger')} #{I18n.t(DiscourseNarrativeBot::NewUserNarrative.reset_trigger)}`")
 
               expect { described_class.new(:reply, user, post_id: post.id).select }
                 .to_not change { Post.count }
@@ -571,19 +592,15 @@ describe DiscourseNarrativeBot::TrackSelector do
 
         describe 'when a quote is requested' do
           it 'should create the right reply' do
-            stub_request(:get, "http://api.forismatic.com/api/1.0/?format=json&lang=en&method=getQuote").
-              to_return(status: 200, body: "{\"quoteText\":\"Be Like Water\",\"quoteAuthor\":\"Bruce Lee\"}")
 
-            ['@discobot quote', 'hello @discobot quote there'].each do |raw|
-              post.update!(raw: raw)
-              described_class.new(:reply, user, post_id: post.id).select
-              new_post = Post.last
+            post.update!(raw: "@discobot quote")
+            described_class.new(:reply, user, post_id: post.id).select
+            new_post = Post.last
 
-              expect(new_post.raw).to eq(
-                I18n.t("discourse_narrative_bot.quote.results",
-                quote: "Be Like Water", author: "Bruce Lee"
-              ))
-            end
+            expect(new_post.raw).to eq(
+              I18n.t("discourse_narrative_bot.quote.results",
+              quote: "Be Like Water", author: "Bruce Lee"
+            ))
           end
 
           describe 'when quote is requested incorrectly' do
@@ -645,14 +662,40 @@ describe DiscourseNarrativeBot::TrackSelector do
               another_post = Fabricate(:post,
                 user: Fabricate(:user),
                 topic: topic,
-                raw: "@discobot start new user"
+                raw: "@discobot #{I18n.t('discourse_narrative_bot.track_selector.reset_trigger')} #{I18n.t(DiscourseNarrativeBot::NewUserNarrative.reset_trigger)}"
               )
 
               user
 
               expect do
-                PostAction.act(user, another_post, PostActionType.types[:like])
+                PostActionCreator.like(user, another_post)
               end.to_not change { Post.count }
+            end
+          end
+
+          describe "when new and advanced user triggers overlap" do
+            before do
+              @overrides = []
+
+              @overrides << TranslationOverride.upsert!(
+                I18n.locale, 'discourse_narrative_bot.new_user_narrative.reset_trigger', 'tutorial'
+              )
+
+              @overrides << TranslationOverride.upsert!(
+                I18n.locale, 'discourse_narrative_bot.advanced_user_narrative.reset_trigger', 'tutorial advanced'
+              )
+            end
+
+            after do
+              @overrides.each(&:destroy!)
+            end
+
+            it "should start the right track" do
+              post.update!(raw: "@discobot #{I18n.t('discourse_narrative_bot.track_selector.reset_trigger')} #{DiscourseNarrativeBot::AdvancedUserNarrative.reset_trigger}")
+
+              expect do
+                described_class.new(:reply, user, post_id: post.id).select
+              end.to change { Post.count }.by(2)
             end
           end
         end

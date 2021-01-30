@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AdminPluginSerializer < ApplicationSerializer
   attributes :id,
              :name,
@@ -5,10 +7,12 @@ class AdminPluginSerializer < ApplicationSerializer
              :url,
              :admin_route,
              :enabled,
-             :enabled_setting
+             :enabled_setting,
+             :has_settings,
+             :is_official
 
   def id
-    object.metadata.name
+    object.directory_name
   end
 
   def name
@@ -27,12 +31,16 @@ class AdminPluginSerializer < ApplicationSerializer
     object.enabled?
   end
 
+  def include_enabled_setting?
+    enabled_setting.present?
+  end
+
   def enabled_setting
     object.enabled_site_setting
   end
 
-  def include_enabled_setting?
-    enabled_setting.present?
+  def has_settings
+    SiteSetting.plugins.values.include?(id)
   end
 
   def include_url?
@@ -50,5 +58,9 @@ class AdminPluginSerializer < ApplicationSerializer
 
   def include_admin_route?
     admin_route.present?
+  end
+
+  def is_official
+    Plugin::Metadata::OFFICIAL_PLUGINS.include?(object.name)
   end
 end

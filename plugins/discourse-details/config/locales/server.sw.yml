@@ -1,0 +1,9 @@
+# WARNING: Never edit this file.
+# It will be overwritten when translations are pulled from Crowdin.
+#
+# To work with us on translations, join this project:
+# https://translate.discourse.org/
+
+sw:
+  site_settings:
+    details_enabled: 'Wezesha Vipengele vya maelezo. Na kama ukibadilisha, lazima useti machapisho yote kwa kutumia: "rake posts:rebake".'

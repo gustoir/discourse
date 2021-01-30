@@ -1,17 +1,22 @@
-class UserExport < ActiveRecord::Base
+# frozen_string_literal: true
 
-  def self.get_download_path(filename)
-    path = File.join(UserExport.base_directory, filename)
-    File.exists?(path) ? path : nil
-  end
+class UserExport < ActiveRecord::Base
+  belongs_to :user
+  belongs_to :upload, dependent: :destroy
+  belongs_to :topic, dependent: :destroy
+
+  DESTROY_CREATED_BEFORE = 2.days.ago
 
   def self.remove_old_exports
-    UserExport.where('created_at < ?', 2.days.ago).find_each do |expired_export|
-      file_name = "#{expired_export.file_name}-#{expired_export.id}.csv.gz"
-      file_path = "#{UserExport.base_directory}/#{file_name}"
-
-      File.delete(file_path) if File.exist?(file_path)
-      expired_export.destroy
+    UserExport.where('created_at < ?', DESTROY_CREATED_BEFORE).find_each do |user_export|
+      UserExport.transaction do
+        begin
+          Post.where(topic_id: user_export.topic_id).find_each { |p| p.destroy! }
+          user_export.destroy!
+        rescue => e
+          Rails.logger.warn("Failed to remove user_export record with id #{user_export.id}: #{e.message}\n#{e.backtrace.join("\n")}")
+        end
+      end
     end
   end
 
@@ -30,4 +35,6 @@ end
 #  user_id    :integer          not null
 #  created_at :datetime         not null
 #  updated_at :datetime         not null
+#  upload_id  :integer
+#  topic_id   :integer
 #

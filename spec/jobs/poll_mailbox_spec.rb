@@ -1,5 +1,6 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency 'jobs/regular/process_post'
 
 describe Jobs::PollMailbox do
 
@@ -24,14 +25,12 @@ describe Jobs::PollMailbox do
   describe ".poll_pop3" do
 
     context "pop errors" do
-      let(:user) { Fabricate(:user) }
-
       before do
         Discourse.expects(:handle_job_exception).at_least_once
       end
 
       after do
-        $redis.del(Jobs::PollMailbox::POLL_MAILBOX_TIMEOUT_ERROR_KEY)
+        Discourse.redis.del(Jobs::PollMailbox::POLL_MAILBOX_TIMEOUT_ERROR_KEY)
       end
 
       it "add an admin dashboard message on pop authentication error" do
@@ -43,7 +42,7 @@ describe Jobs::PollMailbox do
         i18n_key = 'dashboard.poll_pop3_auth_error'
 
         expect(AdminDashboardData.problem_message_check(i18n_key))
-          .to eq(I18n.t(i18n_key))
+          .to eq(I18n.t(i18n_key, base_path: Discourse.base_path))
       end
 
       it "logs an error on pop connection timeout error" do
@@ -54,7 +53,7 @@ describe Jobs::PollMailbox do
         i18n_key = 'dashboard.poll_pop3_timeout'
 
         expect(AdminDashboardData.problem_message_check(i18n_key))
-          .to eq(I18n.t(i18n_key))
+          .to eq(I18n.t(i18n_key, base_path: Discourse.base_path))
       end
     end
 
@@ -71,13 +70,66 @@ describe Jobs::PollMailbox do
       Net::POP3.any_instance.expects(:enable_ssl).never
       poller.poll_pop3
     end
+
+    context "has emails" do
+      let(:oldmail) { file_from_fixtures("old_destination.eml", "emails").read }
+
+      # the date is dynamic here because there is a 1 week cutoff for
+      # the pop3 polling
+      let(:example_email) do
+        email = <<~EMAIL
+        Return-Path: <one@foo.com>
+        From: One <one@foo.com>
+        To: team@bar.com
+        Subject: Testing email
+        Date: #{1.day.ago.strftime("%a, %d %b %Y")} 03:12:43 +0100
+        Message-ID: <34@foo.bar.mail>
+        Mime-Version: 1.0
+        Content-Type: text/plain
+        Content-Transfer-Encoding: 7bit
+
+        This is an email example.
+        EMAIL
+      end
+      before do
+        mail1 = Net::POPMail.new(1, nil, nil, nil)
+        mail2 = Net::POPMail.new(2, nil, nil, nil)
+        mail3 = Net::POPMail.new(3, nil, nil, nil)
+        mail4 = Net::POPMail.new(4, nil, nil, nil)
+        Net::POP3.any_instance.stubs(:start).yields(Net::POP3.new(nil, nil))
+        Net::POP3.any_instance.stubs(:mails).returns([mail1, mail2, mail3, mail4])
+        Net::POP3.any_instance.expects(:delete_all).never
+        mail1.stubs(:pop).returns(example_email)
+        mail2.stubs(:pop).returns(example_email)
+        mail3.stubs(:pop).returns(example_email)
+        mail4.stubs(:pop).returns(oldmail)
+        poller.expects(:process_popmail).times(3)
+      end
+
+      it "deletes emails from server when when deleting emails from server is enabled" do
+        Net::POPMail.any_instance.stubs(:delete).times(3)
+        SiteSetting.pop3_polling_delete_from_server = true
+        poller.poll_pop3
+      end
+
+      it "does not delete emails server inbox when deleting emails from server is disabled" do
+        Net::POPMail.any_instance.stubs(:delete).never
+        SiteSetting.pop3_polling_delete_from_server = false
+        poller.poll_pop3
+      end
+
+      it "does not process emails > 1 week old" do
+        SiteSetting.pop3_polling_delete_from_server = false
+        poller.poll_pop3
+      end
+    end
   end
 
   describe "#process_popmail" do
     def process_popmail(email_name)
       pop_mail = stub("pop mail")
       pop_mail.expects(:pop).returns(email(email_name))
-      Jobs::PollMailbox.new.process_popmail(pop_mail)
+      Jobs::PollMailbox.new.process_popmail(pop_mail.pop)
     end
 
     it "does not reply to a bounced email" do

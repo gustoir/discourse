@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'socket'
 
 class SocketServer
@@ -16,7 +18,7 @@ class SocketServer
   end
 
   def stop
-    @server&.close rescue nil
+    @server&.close
     FileUtils.rm_f(@socket_path)
     @server = nil
     @blk = nil
@@ -49,7 +51,7 @@ class SocketServer
     end
 
     start = Time.now
-    line = ""
+    line = +""
 
     while Time.now - start < 10
       if IO.select([socket], nil, nil, 10)
@@ -70,9 +72,9 @@ class SocketServer
   rescue IOError, Errno::EPIPE
     # nothing to do here, case its normal on shutdown
   rescue => e
-    Rails.logger.warn("Failed to handle connection in stats socket #{e}:\n#{e.backtrace.join("\n")}")
+    Rails.logger.warn("Failed to handle connection #{e}:\n#{e.backtrace.join("\n")}")
   ensure
-    socket&.close rescue nil
+    socket&.close
   end
 
   def get_response(command)

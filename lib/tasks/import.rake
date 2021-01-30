@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Use http://tatiyants.com/pev/#/plans/new if you want to optimize a query
 
 task "import:ensure_consistency" => :environment do
@@ -19,6 +21,8 @@ task "import:ensure_consistency" => :environment do
   update_categories
   update_users
   update_groups
+  update_tag_stats
+  create_category_definitions
 
   log "Done!"
 end
@@ -28,7 +32,7 @@ MS_SPEND_CREATING_POST ||= 5000
 def insert_post_timings
   log "Inserting post timings..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO post_timings (topic_id, post_number, user_id, msecs)
          SELECT topic_id, post_number, user_id, #{MS_SPEND_CREATING_POST}
            FROM posts
@@ -40,8 +44,8 @@ end
 def insert_post_replies
   log "Inserting post replies..."
 
-  exec_sql <<-SQL
-    INSERT INTO post_replies (post_id, reply_id, created_at, updated_at)
+  DB.exec <<-SQL
+    INSERT INTO post_replies (post_id, reply_post_id, created_at, updated_at)
          SELECT p2.id, p.id, p.created_at, p.created_at
            FROM posts p
      INNER JOIN posts p2 ON p2.post_number = p.reply_to_post_number AND p2.topic_id = p.topic_id
@@ -52,7 +56,7 @@ end
 def insert_topic_users
   log "Inserting topic users..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO topic_users (user_id, topic_id, posted, last_read_post_number, highest_seen_post_number, first_visited_at, last_visited_at, total_msecs_viewed)
          SELECT user_id, topic_id, 't' , MAX(post_number), MAX(post_number), MIN(created_at), MAX(created_at), COUNT(id) * #{MS_SPEND_CREATING_POST}
            FROM posts
@@ -65,7 +69,7 @@ end
 def insert_topic_views
   log "Inserting topic views..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     WITH X AS (
           SELECT topic_id, user_id, DATE(p.created_at) posted_at
             FROM posts p
@@ -85,7 +89,7 @@ end
 def insert_user_actions
   log "Inserting user actions for NEW_TOPIC = 4..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO user_actions (action_type, user_id, target_topic_id, target_post_id, acting_user_id, created_at, updated_at)
          SELECT 4, p.user_id, topic_id, p.id, p.user_id, p.created_at, p.created_at
            FROM posts p
@@ -99,7 +103,7 @@ def insert_user_actions
 
   log "Inserting user actions for REPLY = 5..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO user_actions (action_type, user_id, target_topic_id, target_post_id, acting_user_id, created_at, updated_at)
          SELECT 5, p.user_id, topic_id, p.id, p.user_id, p.created_at, p.created_at
            FROM posts p
@@ -113,7 +117,7 @@ def insert_user_actions
 
   log "Inserting user actions for RESPONSE = 6..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO user_actions (action_type, user_id, target_topic_id, target_post_id, acting_user_id, created_at, updated_at)
          SELECT 6, p.user_id, p.topic_id, p.id, p2.user_id, p.created_at, p.created_at
            FROM posts p
@@ -136,14 +140,13 @@ end
 def insert_user_options
   log "Inserting user options..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO user_options (
                   user_id,
-                  email_always,
                   mailing_list_mode,
                   mailing_list_mode_frequency,
-                  email_direct,
-                  email_private_messages,
+                  email_level,
+                  email_messages_level,
                   email_previous_replies,
                   email_in_reply_to,
                   email_digests,
@@ -153,18 +156,17 @@ def insert_user_options
                   enable_quoting,
                   external_links_in_new_tab,
                   dynamic_favicon,
-                  disable_jump_reply,
                   new_topic_duration_minutes,
                   auto_track_topics_after_msecs,
                   notification_level_when_replying,
-                  like_notification_frequency
+                  like_notification_frequency,
+                  skip_new_user_tips
                 )
              SELECT u.id
-                  , #{SiteSetting.default_email_always}
                   , #{SiteSetting.default_email_mailing_list_mode}
                   , #{SiteSetting.default_email_mailing_list_mode_frequency}
-                  , #{SiteSetting.default_email_direct}
-                  , #{SiteSetting.default_email_private_messages}
+                  , #{SiteSetting.default_email_level}
+                  , #{SiteSetting.default_email_messages_level}
                   , #{SiteSetting.default_email_previous_replies}
                   , #{SiteSetting.default_email_in_reply_to}
                   , #{SiteSetting.default_email_digest_frequency.to_i > 0}
@@ -174,11 +176,11 @@ def insert_user_options
                   , #{SiteSetting.default_other_enable_quoting}
                   , #{SiteSetting.default_other_external_links_in_new_tab}
                   , #{SiteSetting.default_other_dynamic_favicon}
-                  , #{SiteSetting.default_other_disable_jump_reply}
                   , #{SiteSetting.default_other_new_topic_duration_minutes}
                   , #{SiteSetting.default_other_auto_track_topics_after_msecs}
                   , #{SiteSetting.default_other_notification_level_when_replying}
                   , #{SiteSetting.default_other_like_notification_frequency}
+                  , #{SiteSetting.default_other_skip_new_user_tips}
                FROM users u
           LEFT JOIN user_options uo ON uo.user_id = u.id
               WHERE uo.user_id IS NULL
@@ -188,7 +190,7 @@ end
 def insert_user_stats
   log "Inserting user stats..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO user_stats (user_id, new_since)
          SELECT id, created_at
            FROM users
@@ -199,7 +201,7 @@ end
 def insert_user_visits
   log "Inserting user visits..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO user_visits (user_id, visited_at, posts_read)
          SELECT user_id, DATE(created_at), COUNT(*)
            FROM posts
@@ -212,7 +214,7 @@ end
 def insert_draft_sequences
   log "Inserting draft sequences..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     INSERT INTO draft_sequences (user_id, draft_key, sequence)
          SELECT user_id, CONCAT('#{Draft::EXISTING_TOPIC}', id), 1
            FROM topics
@@ -225,27 +227,15 @@ end
 def update_user_stats
   log "Updating user stats..."
 
-  exec_sql <<-SQL
+  # TODO: topic_count is counting all topics you replied in as if you started the topic.
+  # TODO: post_count is counting first posts.
+  DB.exec <<-SQL
     WITH X AS (
       SELECT p.user_id
            , COUNT(p.id) posts
            , COUNT(DISTINCT p.topic_id) topics
            , MIN(p.created_at) min_created_at
            , COALESCE(COUNT(DISTINCT DATE(p.created_at)), 0) days
-           , COALESCE((
-              SELECT COUNT(*)
-                FROM topics
-               WHERE id IN (
-                SELECT topic_id
-                  FROM posts p2
-                  JOIN topics t2 ON t2.id = p2.topic_id
-                 WHERE p2.deleted_at IS NULL
-                   AND p2.post_type = 1
-                   AND NOT COALESCE(p2.hidden, 't')
-                   AND p2.user_id <> t2.user_id
-                   AND p2.user_id = p.user_id
-                )
-              ), 0) topic_replies
         FROM posts p
         JOIN topics t ON t.id = p.topic_id
        WHERE p.deleted_at IS NULL
@@ -265,7 +255,6 @@ def update_user_stats
          , topics_entered = X.topics
          , first_post_created_at = X.min_created_at
          , days_visited = X.days
-         , topic_reply_count = X.topic_replies
       FROM X
      WHERE user_stats.user_id = X.user_id
        AND (post_count <> X.posts
@@ -275,14 +264,14 @@ def update_user_stats
          OR topics_entered <> X.topics
          OR COALESCE(first_post_created_at, '1970-01-01') <> X.min_created_at
          OR days_visited <> X.days
-         OR topic_reply_count <> X.topic_replies)
+         )
   SQL
 end
 
 def update_posts
   log "Updating posts..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     WITH Y AS (
       SELECT post_id, COUNT(*) replies FROM post_replies GROUP BY post_id
     )
@@ -297,7 +286,7 @@ def update_posts
   # WITH X AS (
   #   SELECT pr.post_id, p.user_id
   #     FROM post_replies pr
-  #     JOIN posts p ON p.id = pr.reply_id
+  #     JOIN posts p ON p.id = pr.reply_post_id
   # )
   # UPDATE posts
   #    SET reply_to_user_id = X.user_id
@@ -309,7 +298,7 @@ end
 def update_topics
   log "Updating topics..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     WITH X AS (
       SELECT topic_id
            , COUNT(*) posts
@@ -349,7 +338,7 @@ end
 def update_categories
   log "Updating categories..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     WITH X AS (
         SELECT category_id
              , MAX(p.id) post_id
@@ -381,14 +370,15 @@ end
 def update_users
   log "Updating users..."
 
-  exec_sql <<-SQL
+  DB.exec(<<~SQL, Archetype.private_message)
     WITH X AS (
-        SELECT user_id
-             , MIN(created_at) min_created_at
-             , MAX(created_at) max_created_at
-          FROM posts
-         WHERE deleted_at IS NULL
-      GROUP BY user_id
+        SELECT p.user_id
+             , MIN(p.created_at) min_created_at
+             , MAX(p.created_at) max_created_at
+          FROM posts p
+          JOIN topics t ON t.id = p.topic_id AND t.archetype <> ?
+         WHERE p.deleted_at IS NULL
+      GROUP BY p.user_id
     )
     UPDATE users
        SET first_seen_at  = X.min_created_at
@@ -405,7 +395,7 @@ end
 def update_groups
   log "Updating groups..."
 
-  exec_sql <<-SQL
+  DB.exec <<-SQL
     WITH X AS (
         SELECT group_id, COUNT(*) count
           FROM group_users
@@ -419,14 +409,17 @@ def update_groups
   SQL
 end
 
-def log(message)
-  puts "[#{DateTime.now.strftime("%Y-%m-%d %H:%M:%S")}] #{message}"
+def update_tag_stats
+  Tag.ensure_consistency!
 end
 
-def exec_sql(sql)
-  ActiveRecord::Base.transaction do
-    ActiveRecord::Base.exec_sql(sql)
-  end
+def create_category_definitions
+  log "Creating category definitions"
+  Category.ensure_consistency!
+end
+
+def log(message)
+  puts "[#{DateTime.now.strftime("%Y-%m-%d %H:%M:%S")}] #{message}"
 end
 
 task "import:create_phpbb_permalinks" => :environment do
@@ -449,12 +442,11 @@ task "import:remap_old_phpbb_permalinks" => :environment do
   log 'Remapping Permalinks...'
 
   i = 0
-  # discussions.flightaware.com
-  Post.where("raw LIKE ?", "%discussions.flightaware.com%").each do |p|
+  Post.where("raw LIKE ?", "%discussions.example.com%").each do |p|
     begin
       new_raw = p.raw.dup
-      # \((https?:\/\/discussions\.flightaware\.com\/\S*-t\d+.html)\)
-      new_raw.gsub!(/\((https?:\/\/discussions\.flightaware\.com\/\S*-t\d+.html)\)/) do
+      # \((https?:\/\/discussions\.example\.com\/\S*-t\d+.html)\)
+      new_raw.gsub!(/\((https?:\/\/discussions\.example\.com\/\S*-t\d+.html)\)/) do
         normalized_url = Permalink.normalize_url($1)
         permalink = Permalink.find_by_url(normalized_url) rescue nil
         if permalink && permalink.target_url
@@ -473,7 +465,6 @@ task "import:remap_old_phpbb_permalinks" => :environment do
       # skip
     end
   end
-  i
 
   log "Done! #{i} posts remapped."
 end
@@ -499,4 +490,33 @@ task "import:create_vbulletin_permalinks" => :environment do
   end
 
   log "Done!"
+end
+
+desc 'Import existing exported file'
+task 'import:file', [:file_name] => [:environment] do |_, args|
+  require "import_export"
+
+  ImportExport.import(args[:file_name])
+  puts "", "Done", ""
+end
+
+desc "Update first_post_created_at column in user_stats table"
+task "import:update_first_post_created_at" => :environment do
+  log "Updating first_post_created_at..."
+
+  DB.exec <<~SQL
+    WITH sub AS (
+      SELECT user_id, MIN(posts.created_at) AS first_post_created_at
+      FROM posts
+      GROUP BY user_id
+    )
+    UPDATE user_stats
+    SET first_post_created_at = sub.first_post_created_at
+    FROM user_stats u1
+    JOIN sub ON sub.user_id = u1.user_id
+    WHERE u1.user_id = user_stats.user_id
+      AND user_stats.first_post_created_at IS DISTINCT FROM sub.first_post_created_at
+  SQL
+
+  log "Done"
 end

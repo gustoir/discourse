@@ -1,10 +1,12 @@
+# frozen_string_literal: true
+
 require "rails_helper"
 
 describe Searchable do
   context "has search data" do
     before do
-      Topic.exec_sql("create temporary table searchable_records(id SERIAL primary key)")
-      Topic.exec_sql("create temporary table searchable_record_search_data(searchable_record_id int primary key, search_data tsvector, raw_data text, locale text)")
+      DB.exec("create temporary table searchable_records(id SERIAL primary key)")
+      DB.exec("create temporary table searchable_record_search_data(searchable_record_id int primary key, search_data tsvector, raw_data text, locale text)")
 
       class SearchableRecord < ActiveRecord::Base
         include Searchable
@@ -17,13 +19,13 @@ describe Searchable do
     end
 
     after do
-      Topic.exec_sql("drop table searchable_records")
-      Topic.exec_sql("drop table searchable_record_search_data")
+      DB.exec("drop table searchable_records")
+      DB.exec("drop table searchable_record_search_data")
 
-      # import is making my life hard, we need to nuke this out of orbit
-      des = ActiveSupport::DescendantsTracker.class_variable_get :@@direct_descendants
-      des[ActiveRecord::Base].delete(SearchableRecord)
-      des[ActiveRecord::Base].delete(SearchableRecordSearchData)
+      # this weakref in the descendant tracker should clean up the two tests
+      # if this becomes an issue we can revisit (watch out for erratic tests)
+      Object.send(:remove_const, :SearchableRecord)
+      Object.send(:remove_const, :SearchableRecordSearchData)
     end
 
     let(:item) { SearchableRecord.create! }

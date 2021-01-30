@@ -1,15 +1,82 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 
 describe StaticController do
+  fab!(:upload) { Fabricate(:upload) }
+
+  context '#favicon' do
+    let(:filename) { 'smallest.png' }
+    let(:file) { file_from_fixtures(filename) }
+
+    let(:upload) do
+      UploadCreator.new(file, filename).create_for(Discourse.system_user.id)
+    end
+
+    before_all do
+      DistributedMemoizer.flush!
+    end
+
+    after do
+      DistributedMemoizer.flush!
+    end
+
+    describe 'local store' do
+      it 'returns the default favicon if favicon has not been configured' do
+        get '/favicon/proxied'
+
+        expect(response.status).to eq(200)
+        expect(response.media_type).to eq('image/png')
+        expect(response.body.bytesize).to eq(SiteIconManager.favicon.filesize)
+      end
+
+      it 'returns the configured favicon' do
+        SiteSetting.favicon = upload
+
+        get '/favicon/proxied'
+
+        expect(response.status).to eq(200)
+        expect(response.media_type).to eq('image/png')
+        expect(response.body.bytesize).to eq(upload.filesize)
+      end
+    end
+
+    describe 'external store' do
+      let(:upload) do
+        Upload.create!(
+          url: '//s3-upload-bucket.s3-us-east-1.amazonaws.com/somewhere/a.png',
+          original_filename: filename,
+          filesize: file.size,
+          user_id: Discourse.system_user.id
+        )
+      end
+
+      before do
+        setup_s3
+      end
+
+      it 'can proxy a favicon correctly' do
+        SiteSetting.favicon = upload
+
+        stub_request(:get, "https:/#{upload.url}")
+          .to_return(status: 200, body: file)
+
+        get '/favicon/proxied'
+
+        expect(response.status).to eq(200)
+        expect(response.media_type).to eq('image/png')
+        expect(response.body.bytesize).to eq(upload.filesize)
+      end
+    end
+  end
 
   context '#brotli_asset' do
     it 'returns a non brotli encoded 404 if asset is missing' do
-
       get "/brotli_asset/missing.js"
 
       expect(response.status).to eq(404)
       expect(response.headers['Content-Encoding']).not_to eq('br')
-      expect(response.headers["Cache-Control"]).to match(/max-age=1/)
+      expect(response.headers['Cache-Control']).to match(/max-age=1/)
     end
 
     it 'can handle fallback brotli assets' do
@@ -49,6 +116,47 @@ describe StaticController do
         File.delete(file_path)
       end
     end
+
+    it 'has correct cors headers for brotli assets' do
+      begin
+        assets_path = Rails.root.join("public/assets")
+
+        FileUtils.mkdir_p(assets_path)
+
+        file_path = assets_path.join("test.js.br")
+        File.write(file_path, 'fake brotli file')
+        GlobalSetting.stubs(:cdn_url).returns("https://www.example.com/")
+
+        get "/brotli_asset/test.js"
+
+        expect(response.status).to eq(200)
+        expect(response.headers["Access-Control-Allow-Origin"]).to match("*")
+      ensure
+        File.delete(file_path)
+      end
+    end
+  end
+
+  context '#cdn_asset' do
+    let (:site) { RailsMultisite::ConnectionManagement.current_db }
+
+    it 'can serve assets' do
+      begin
+        assets_path = Rails.root.join("public/assets")
+
+        FileUtils.mkdir_p(assets_path)
+
+        file_path = assets_path.join("test.js.br")
+        File.write(file_path, 'fake brotli file')
+
+        get "/cdn_asset/#{site}/test.js.br"
+
+        expect(response.status).to eq(200)
+        expect(response.headers["Cache-Control"]).to match(/public/)
+      ensure
+        File.delete(file_path)
+      end
+    end
   end
 
   context '#show' do
@@ -60,17 +168,18 @@ describe StaticController do
     end
 
     context "with a static file that's present" do
-      it "should return the right response" do
+      it "should return the right response for /faq" do
         get "/faq"
 
-        expect(response).to be_success
+        expect(response.status).to eq(200)
         expect(response.body).to include(I18n.t('js.faq'))
+        expect(response.body).to include("<title>FAQ - Discourse</title>")
       end
     end
 
     [
-      ['tos', :tos_url, I18n.t('terms_of_service.title')],
-      ['privacy', :privacy_policy_url, I18n.t('privacy')]
+      ['tos', :tos_url, I18n.t('js.tos')],
+      ['privacy', :privacy_policy_url, I18n.t('js.privacy')]
     ].each do |id, setting_name, text|
 
       context "#{id}" do
@@ -78,14 +187,14 @@ describe StaticController do
           it "renders the #{id} page" do
             get "/#{id}"
 
-            expect(response).to be_success
+            expect(response.status).to eq(200)
             expect(response.body).to include(text)
           end
         end
 
         context "when #{setting_name} site setting is set" do
           before do
-            SiteSetting.public_send("#{setting_name}=", 'http://example.com/page')
+            SiteSetting.set(setting_name, 'http://example.com/page')
           end
 
           it "redirects to the #{setting_name}" do
@@ -102,6 +211,18 @@ describe StaticController do
         get "/static/does-not-exist"
         expect(response.status).to eq(404)
       end
+
+      context "modal pages" do
+        it "should return the right response for /signup" do
+          get "/signup"
+          expect(response.status).to eq(200)
+        end
+
+        it "should return the right response for /password-reset" do
+          get "/password-reset"
+          expect(response.status).to eq(200)
+        end
+      end
     end
 
     it 'should redirect to / when logged in and path is /login' do
@@ -115,7 +236,7 @@ describe StaticController do
 
       get "/login"
 
-      expect(response).to be_success
+      expect(response.status).to eq(200)
 
       expect(response.body).to include(PrettyText.cook(I18n.t(
         'login_required.welcome_message', title: SiteSetting.title
@@ -127,32 +248,33 @@ describe StaticController do
         SiteSetting.login_required = true
       end
 
-      it 'faq page redirects to login page for anon' do
-        get '/faq'
-        expect(response).to redirect_to '/login'
+      ['faq', 'guidelines', 'rules', 'conduct'].each do |page_name|
+        it "#{page_name} page redirects to login page for anon" do
+          get "/#{page_name}"
+          expect(response).to redirect_to '/login'
+        end
+
+        it "#{page_name} page redirects to login page for anon" do
+          get "/#{page_name}"
+          expect(response).to redirect_to '/login'
+        end
+
+        it "#{page_name} page loads for logged in user" do
+          sign_in(Fabricate(:user))
+
+          get "/#{page_name}"
+
+          expect(response.status).to eq(200)
+          expect(response.body).to include(I18n.t('js.guidelines'))
+        end
       end
+    end
 
-      it 'guidelines page redirects to login page for anon' do
-        get '/guidelines'
-        expect(response).to redirect_to '/login'
-      end
-
-      it 'faq page loads for logged in user' do
-        sign_in(Fabricate(:user))
-
-        get '/faq'
-
-        expect(response).to be_success
-        expect(response.body).to include(I18n.t('js.faq'))
-      end
-
-      it 'guidelines page loads for logged in user' do
-        sign_in(Fabricate(:user))
-
-        get '/guidelines'
-
-        expect(response).to be_success
-        expect(response.body).to include(I18n.t('guidelines'))
+    context "crawler view" do
+      it "should include correct title" do
+        get '/faq', headers: { 'HTTP_USER_AGENT' => 'Googlebot' }
+        expect(response.status).to eq(200)
+        expect(response.body).to include("<title>FAQ - Discourse</title>")
       end
     end
   end
@@ -179,6 +301,13 @@ describe StaticController do
       end
     end
 
+    context 'with a redirect path with query params' do
+      it 'redirects to the redirect path and preserves query params' do
+        post "/login.json", params: { redirect: '/foo?bar=1' }
+        expect(response).to redirect_to('/foo?bar=1')
+      end
+    end
+
     context 'with a period to force a new host' do
       it 'redirects to the root path' do
         post "/login.json", params: { redirect: ".org/foo" }
@@ -197,6 +326,18 @@ describe StaticController do
       it "redirects to the root" do
         post "/login.json", params: { redirect: "javascript:alert('trout')" }
         expect(response).to redirect_to('/')
+      end
+    end
+
+    context 'with an array' do
+      it "redirects to the root" do
+        post "/login.json", params: { redirect: ["/foo"] }
+        expect(response.status).to eq(400)
+        json = response.parsed_body
+        expect(json["errors"]).to be_present
+        expect(json["errors"]).to include(
+          I18n.t("invalid_params", message: "redirect")
+        )
       end
     end
 

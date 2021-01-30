@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module Auth; end
 class Auth::CurrentUserProvider
 
@@ -12,7 +14,7 @@ class Auth::CurrentUserProvider
   end
 
   # log on a user and set cookies and session etc.
-  def log_on_user(user, session, cookies)
+  def log_on_user(user, session, cookies, opts = {})
     raise NotImplementedError
   end
 

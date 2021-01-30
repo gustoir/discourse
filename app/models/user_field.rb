@@ -1,8 +1,11 @@
+# frozen_string_literal: true
+
 class UserField < ActiveRecord::Base
 
   include AnonCacheInvalidator
 
-  validates_presence_of :name, :description, :field_type
+  validates_presence_of :description, :field_type
+  validates_presence_of :name, unless: -> { field_type == "confirm" }
   has_many :user_field_options, dependent: :destroy
   accepts_nested_attributes_for :user_field_options
 
@@ -26,4 +29,6 @@ end
 #  show_on_profile   :boolean          default(FALSE), not null
 #  position          :integer          default(0)
 #  show_on_user_card :boolean          default(FALSE), not null
+#  external_name     :string
+#  external_type     :string
 #

@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class Admin::PermalinksController < Admin::AdminController
 
   before_action :fetch_permalink, only: [:destroy]
@@ -12,6 +14,11 @@ class Admin::PermalinksController < Admin::AdminController
     params.require(:url)
     params.require(:permalink_type)
     params.require(:permalink_type_value)
+
+    if params[:permalink_type] == "tag_name"
+      params[:permalink_type] = "tag_id"
+      params[:permalink_type_value] = Tag.find_by_name(params[:permalink_type_value])&.id
+    end
 
     permalink = Permalink.new(:url => params[:url], params[:permalink_type] => params[:permalink_type_value])
     if permalink.save

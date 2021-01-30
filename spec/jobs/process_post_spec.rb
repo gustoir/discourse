@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 require 'jobs/regular/process_post'
 
@@ -9,7 +11,7 @@ describe Jobs::ProcessPost do
 
   context 'with a post' do
 
-    let(:post) { Fabricate(:post) }
+    fab!(:post) { Fabricate(:post) }
 
     it 'does not erase posts when CookedPostProcessor malfunctions' do
       # Look kids, an actual reason why you want to use mocks
@@ -62,6 +64,19 @@ describe Jobs::ProcessPost do
       expect { Jobs::ProcessPost.new.execute(post_id: post.id) }.to change { TopicLink.count }.by(2)
     end
 
+    it "works for posts that belong to no existing user" do
+      cooked = post.cooked
+
+      post.update_columns(cooked: "frogs", user_id: nil)
+      Jobs::ProcessPost.new.execute(post_id: post.id, cook: true)
+      post.reload
+      expect(post.cooked).to eq(cooked)
+
+      post.update_columns(cooked: "frogs", user_id: User.maximum("id") + 1)
+      Jobs::ProcessPost.new.execute(post_id: post.id, cook: true)
+      post.reload
+      expect(post.cooked).to eq(cooked)
+    end
   end
 
 end

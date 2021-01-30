@@ -1,20 +1,72 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
 require 'email/sender'
 
 describe Email::Sender do
-
-  it "doesn't deliver mail when mails are disabled" do
-    SiteSetting.disable_emails = true
-    Mail::Message.any_instance.expects(:deliver_now).never
-    message = Mail::Message.new(to: "hello@world.com" , body: "hello")
-    expect(Email::Sender.new(message, :hello).send).to eq(nil)
+  before do
+    SiteSetting.secure_media_allow_embed_images_in_emails = false
   end
+  fab!(:post) { Fabricate(:post) }
 
-  it "delivers mail when mails are disabled but the email_type is admin_login" do
-    SiteSetting.disable_emails = true
-    Mail::Message.any_instance.expects(:deliver_now).once
-    message = Mail::Message.new(to: "hello@world.com" , body: "hello")
-    Email::Sender.new(message, :admin_login).send
+  context "disable_emails is enabled" do
+    fab!(:user) { Fabricate(:user) }
+    fab!(:moderator) { Fabricate(:moderator) }
+
+    context "disable_emails is enabled for everyone" do
+      before { SiteSetting.disable_emails = "yes" }
+
+      it "doesn't deliver mail when mails are disabled" do
+        message = UserNotifications.email_login(moderator)
+        Email::Sender.new(message, :email_login).send
+
+        expect(ActionMailer::Base.deliveries).to eq([])
+      end
+
+      it "delivers mail when mails are disabled but the email_type is admin_login" do
+        message = UserNotifications.admin_login(moderator)
+        Email::Sender.new(message, :admin_login).send
+
+        expect(ActionMailer::Base.deliveries.first.to).to eq([moderator.email])
+      end
+
+      it "delivers mail when mails are disabled but the email_type is test_message" do
+        message = TestMailer.send_test(moderator.email)
+        Email::Sender.new(message, :test_message).send
+
+        expect(ActionMailer::Base.deliveries.first.to).to eq([moderator.email])
+      end
+    end
+
+    context "disable_emails is enabled for non-staff users" do
+      before { SiteSetting.disable_emails = "non-staff" }
+
+      it "doesn't deliver mail to normal user" do
+        Mail::Message.any_instance.expects(:deliver_now).never
+        message = Mail::Message.new(to: user.email, body: "hello")
+        expect(Email::Sender.new(message, :hello).send).to eq(nil)
+      end
+
+      it "delivers mail to staff user" do
+        Mail::Message.any_instance.expects(:deliver_now).once
+        message = Mail::Message.new(to: moderator.email, body: "hello")
+        Email::Sender.new(message, :hello).send
+      end
+
+      it "delivers mail to staff user when confirming new email if user is provided" do
+        Mail::Message.any_instance.expects(:deliver_now).once
+        Fabricate(:email_change_request, {
+          user: moderator,
+          new_email: "newemail@testmoderator.com",
+          old_email: moderator.email,
+          change_state: EmailChangeRequest.states[:authorizing_new]
+        })
+        message = Mail::Message.new(
+          to: "newemail@testmoderator.com", body: "hello"
+        )
+        Email::Sender.new(message, :confirm_new_email, moderator).send
+      end
+    end
   end
 
   it "doesn't deliver mail when the message is of type NullMail" do
@@ -32,6 +84,13 @@ describe Email::Sender do
     message = Mail::Message.new(body: 'hello')
     message.expects(:deliver_now).never
     Email::Sender.new(message, :hello).send
+  end
+
+  it "doesn't deliver when the to address uses the .invalid tld" do
+    message = Mail::Message.new(body: 'hello', to: 'myemail@example.invalid')
+    message.expects(:deliver_now).never
+    expect { Email::Sender.new(message, :hello).send }.
+      to change { SkippedEmailLog.where(reason_type: SkippedEmailLog.reason_types[:sender_message_to_invalid]).count }.by(1)
   end
 
   it "doesn't deliver when the body is nil" do
@@ -96,9 +155,9 @@ describe Email::Sender do
     end
 
     context "adds a List-ID header to identify the forum" do
-      let(:category) { Fabricate(:category, name: 'Name With Space') }
-      let(:topic) { Fabricate(:topic, category: category) }
-      let(:post) { Fabricate(:post, topic: topic) }
+      fab!(:category) { Fabricate(:category, name: 'Name With Space') }
+      fab!(:topic) { Fabricate(:topic, category: category) }
+      fab!(:post) { Fabricate(:post, topic: topic) }
 
       before do
         message.header['X-Discourse-Post-Id']  = post.id
@@ -123,8 +182,8 @@ describe Email::Sender do
     end
 
     context "adds Precedence header" do
-      let(:topic) { Fabricate(:topic) }
-      let(:post) { Fabricate(:post, topic: topic) }
+      fab!(:topic) { Fabricate(:topic) }
+      fab!(:post) { Fabricate(:post, topic: topic) }
 
       before do
         message.header['X-Discourse-Post-Id']  = post.id
@@ -138,8 +197,8 @@ describe Email::Sender do
     end
 
     context "removes custom Discourse headers from topic notification mails" do
-      let(:topic) { Fabricate(:topic) }
-      let(:post) { Fabricate(:post, topic: topic) }
+      fab!(:topic) { Fabricate(:topic) }
+      fab!(:post) { Fabricate(:post, topic: topic) }
 
       before do
         message.header['X-Discourse-Post-Id']  = post.id
@@ -164,12 +223,12 @@ describe Email::Sender do
     end
 
     context "email threading" do
-      let(:topic) { Fabricate(:topic) }
+      fab!(:topic) { Fabricate(:topic) }
 
-      let(:post_1) { Fabricate(:post, topic: topic, post_number: 1) }
-      let(:post_2) { Fabricate(:post, topic: topic, post_number: 2) }
-      let(:post_3) { Fabricate(:post, topic: topic, post_number: 3) }
-      let(:post_4) { Fabricate(:post, topic: topic, post_number: 4) }
+      fab!(:post_1) { Fabricate(:post, topic: topic, post_number: 1) }
+      fab!(:post_2) { Fabricate(:post, topic: topic, post_number: 2) }
+      fab!(:post_3) { Fabricate(:post, topic: topic, post_number: 3) }
+      fab!(:post_4) { Fabricate(:post, topic: topic, post_number: 4) }
 
       let!(:post_reply_1_4) { PostReply.create(post: post_1, reply: post_4) }
       let!(:post_reply_2_4) { PostReply.create(post: post_2, reply: post_4) }
@@ -211,9 +270,9 @@ describe Email::Sender do
         email_sender.send
 
         references = [
+          "<topic/#{topic.id}@test.localhost>",
           "<topic/#{topic.id}/#{post_3.id}@test.localhost>",
           "<topic/#{topic.id}/#{post_2.id}@test.localhost>",
-          "<topic/#{topic.id}@test.localhost>",
         ]
 
         expect(message.header['References'].to_s).to eq(references.join(" "))
@@ -231,9 +290,9 @@ describe Email::Sender do
         expect(message.header['Message-Id'].to_s).to eq("<#{post_4_incoming_email.message_id}>")
 
         references = [
+          "<#{topic_incoming_email.message_id}>",
           "<topic/#{topic.id}/#{post_3.id}@test.localhost>",
           "<#{post_2_incoming_email.message_id}>",
-          "<#{topic_incoming_email.message_id}>",
         ]
 
         expect(message.header['References'].to_s).to eq(references.join(" "))
@@ -269,19 +328,19 @@ describe Email::Sender do
       let(:email_log) { EmailLog.last }
 
       it 'should create the right log' do
-        email_sender.send
+        expect do
+          email_sender.send
+        end.to_not change { PostReplyKey.count }
 
         expect(email_log).to be_present
         expect(email_log.email_type).to eq('valid_type')
         expect(email_log.to_address).to eq('eviltrout@test.domain')
-        expect(email_log.reply_key).to be_blank
         expect(email_log.user_id).to be_blank
       end
     end
 
     context "email log with a post id and topic id" do
-      let(:topic) { Fabricate(:topic) }
-      let(:post) { Fabricate(:post, topic: topic) }
+      let(:topic) { post.topic }
 
       before do
         message.header['X-Discourse-Post-Id'] = post.id
@@ -293,20 +352,7 @@ describe Email::Sender do
       it 'should create the right log' do
         email_sender.send
         expect(email_log.post_id).to eq(post.id)
-        expect(email_log.topic_id).to eq(topic.id)
-      end
-    end
-
-    context "email log with a reply key" do
-      before do
-        message.header['X-Discourse-Reply-Key'] = reply_key
-      end
-
-      let(:email_log) { EmailLog.last }
-
-      it 'should create the right log' do
-        email_sender.send
-        expect(email_log.reply_key).to eq(reply_key)
+        expect(email_log.topic.id).to eq(topic.id)
       end
     end
 
@@ -322,6 +368,227 @@ describe Email::Sender do
     end
   end
 
+  context "with attachments" do
+    fab!(:small_pdf) do
+      SiteSetting.authorized_extensions = 'pdf'
+      UploadCreator.new(file_from_fixtures("small.pdf", "pdf"), "small.pdf")
+        .create_for(Discourse.system_user.id)
+    end
+    fab!(:large_pdf) do
+      SiteSetting.authorized_extensions = 'pdf'
+      UploadCreator.new(file_from_fixtures("large.pdf", "pdf"), "large.pdf")
+        .create_for(Discourse.system_user.id)
+    end
+    fab!(:csv_file) do
+      SiteSetting.authorized_extensions = 'csv'
+      UploadCreator.new(file_from_fixtures("words.csv", "csv"), "words.csv")
+        .create_for(Discourse.system_user.id)
+    end
+    fab!(:image) do
+      SiteSetting.authorized_extensions = 'png'
+      UploadCreator.new(file_from_fixtures("logo.png", "images"), "logo.png")
+        .create_for(Discourse.system_user.id)
+    end
+    fab!(:post) { Fabricate(:post) }
+    fab!(:reply) do
+      raw = <<~RAW
+        Hello world! It’s a great day!
+        #{UploadMarkdown.new(small_pdf).attachment_markdown}
+        #{UploadMarkdown.new(large_pdf).attachment_markdown}
+        #{UploadMarkdown.new(image).image_markdown}
+        #{UploadMarkdown.new(csv_file).attachment_markdown}
+      RAW
+      reply = Fabricate(:post, raw: raw, topic: post.topic, user: Fabricate(:user))
+      reply.link_post_uploads
+      reply
+    end
+    fab!(:notification) { Fabricate(:posted_notification, user: post.user, post: reply) }
+    let(:message) do
+      UserNotifications.user_posted(
+        post.user,
+        post: reply,
+        notification_type: notification.notification_type,
+        notification_data_hash: notification.data_hash
+      )
+    end
+
+    it "adds only non-image uploads as attachments to the email" do
+      SiteSetting.email_total_attachment_size_limit_kb = 10_000
+      Email::Sender.new(message, :valid_type).send
+
+      expect(message.attachments.length).to eq(3)
+      expect(message.attachments.map(&:filename))
+        .to contain_exactly(*[small_pdf, large_pdf, csv_file].map(&:original_filename))
+    end
+
+    context "when secure media enabled" do
+      before do
+        setup_s3
+        store = stub_s3_store
+
+        SiteSetting.secure_media = true
+        SiteSetting.login_required = true
+        SiteSetting.email_total_attachment_size_limit_kb = 14_000
+        SiteSetting.secure_media_max_email_embed_image_size_kb = 5_000
+
+        Jobs.run_immediately!
+        Jobs::PullHotlinkedImages.any_instance.expects(:execute)
+        FileStore::S3Store.any_instance.expects(:has_been_uploaded?).returns(true).at_least_once
+        CookedPostProcessor.any_instance.stubs(:get_size).returns([244, 66])
+
+        @secure_image_file = file_from_fixtures("logo.png", "images")
+        @secure_image = UploadCreator.new(@secure_image_file, "logo.png")
+          .create_for(Discourse.system_user.id)
+        @secure_image.update_secure_status(override: true)
+        @secure_image.update(access_control_post_id: reply.id)
+        reply.update(raw: reply.raw + "\n" + "#{UploadMarkdown.new(@secure_image).image_markdown}")
+        reply.rebake!
+      end
+
+      it "does not attach images when embedding them is not allowed" do
+        Email::Sender.new(message, :valid_type).send
+        expect(message.attachments.length).to eq(3)
+      end
+
+      context "when embedding secure images in email is allowed" do
+        before do
+          SiteSetting.secure_media_allow_embed_images_in_emails = true
+        end
+
+        it "does not attach images that are not marked as secure" do
+          Email::Sender.new(message, :valid_type).send
+          expect(message.attachments.length).to eq(4)
+        end
+
+        it "does not embed images that are too big" do
+          SiteSetting.secure_media_max_email_embed_image_size_kb = 1
+          Email::Sender.new(message, :valid_type).send
+          expect(message.attachments.length).to eq(3)
+        end
+
+        it "uses the email styles to inline secure images and attaches the secure image upload to the email" do
+          Email::Sender.new(message, :valid_type).send
+          expect(message.attachments.length).to eq(4)
+          expect(message.attachments.map(&:filename))
+            .to contain_exactly(*[small_pdf, large_pdf, csv_file, @secure_image].map(&:original_filename))
+          expect(message.attachments["logo.png"].body.raw_source.force_encoding("UTF-8")).to eq(File.read(@secure_image_file))
+          expect(message.html_part.body).to include("cid:")
+          expect(message.html_part.body).to include("embedded-secure-image")
+          expect(message.attachments.length).to eq(4)
+        end
+
+        it "uses correct UTF-8 encoding for the body of the email" do
+          Email::Sender.new(message, :valid_type).send
+          expect(message.html_part.body).not_to include("Itâ\u0080\u0099s")
+          expect(message.html_part.body).to include("It’s")
+          expect(message.html_part.charset.downcase).to eq("utf-8")
+        end
+
+        context "when the uploaded secure image has an optimized image" do
+          let!(:optimized) { Fabricate(:optimized_image, upload: @secure_image) }
+          let!(:optimized_image_file) { file_from_fixtures("smallest.png", "images") }
+
+          before do
+            Discourse.store.store_optimized_image(optimized_image_file, optimized)
+            optimized.update(url: Discourse.store.absolute_base_url + '/' + optimized.url)
+            Discourse.store.cache_file(optimized_image_file, File.basename("#{optimized.sha1}.png"))
+          end
+
+          it "uses the email styles and the optimized image to inline secure images and attaches the secure image upload to the email" do
+            Email::Sender.new(message, :valid_type).send
+            expect(message.attachments.length).to eq(4)
+            expect(message.attachments.map(&:filename))
+              .to contain_exactly(*[small_pdf, large_pdf, csv_file, @secure_image].map(&:original_filename))
+            expect(message.attachments["logo.png"].body.raw_source.force_encoding("UTF-8")).to eq(File.read(optimized_image_file))
+            expect(message.html_part.body).to include("cid:")
+            expect(message.html_part.body).to include("embedded-secure-image")
+          end
+
+          it "uses the optimized image size in the max size limit calculation, not the original image size" do
+            SiteSetting.email_total_attachment_size_limit_kb = 45
+            Email::Sender.new(message, :valid_type).send
+            expect(message.attachments.length).to eq(4)
+            expect(message.attachments["logo.png"].body.raw_source.force_encoding("UTF-8")).to eq(File.read(optimized_image_file))
+          end
+        end
+      end
+    end
+
+    it "adds only non-image uploads as attachments to the email and leaves the image intact with original source" do
+      SiteSetting.email_total_attachment_size_limit_kb = 10_000
+      Email::Sender.new(message, :valid_type).send
+
+      expect(message.attachments.length).to eq(3)
+      expect(message.attachments.map(&:filename))
+        .to contain_exactly(*[small_pdf, large_pdf, csv_file].map(&:original_filename))
+      expect(message.html_part.body).to include("<img src=\"#{Discourse.base_url}#{image.url}\"")
+    end
+
+    it "respects the size limit and attaches only files that fit into the max email size" do
+      SiteSetting.email_total_attachment_size_limit_kb = 40
+      Email::Sender.new(message, :valid_type).send
+
+      expect(message.attachments.length).to eq(2)
+      expect(message.attachments.map(&:filename))
+        .to contain_exactly(*[small_pdf, csv_file].map(&:original_filename))
+    end
+
+    it "structures the email as a multipart/mixed with a multipart/alternative first part" do
+      SiteSetting.email_total_attachment_size_limit_kb = 10_000
+      Email::Sender.new(message, :valid_type).send
+
+      expect(message.content_type).to start_with("multipart/mixed")
+      expect(message.parts.size).to eq(4)
+      expect(message.parts[0].content_type).to start_with("multipart/alternative")
+      expect(message.parts[0].parts.size).to eq(2)
+    end
+
+    it "uses correct UTF-8 encoding for the body of the email" do
+      Email::Sender.new(message, :valid_type).send
+      expect(message.html_part.body).not_to include("Itâ\u0080\u0099s")
+      expect(message.html_part.body).to include("It’s")
+      expect(message.html_part.charset.downcase).to eq("utf-8")
+    end
+  end
+
+  context 'with a deleted post' do
+
+    it 'should skip sending the email' do
+      post = Fabricate(:post, deleted_at: 1.day.ago)
+
+      message = Mail::Message.new to: 'disc@ourse.org', body: 'some content'
+      message.header['X-Discourse-Post-Id'] = post.id
+      message.header['X-Discourse-Topic-Id'] = post.topic_id
+      message.expects(:deliver_now).never
+
+      email_sender = Email::Sender.new(message, :valid_type)
+      expect { email_sender.send }.to change { SkippedEmailLog.count }
+
+      log = SkippedEmailLog.last
+      expect(log.reason_type).to eq(SkippedEmailLog.reason_types[:sender_post_deleted])
+    end
+
+  end
+
+  context 'with a deleted topic' do
+
+    it 'should skip sending the email' do
+      post = Fabricate(:post, topic: Fabricate(:topic, deleted_at: 1.day.ago))
+
+      message = Mail::Message.new to: 'disc@ourse.org', body: 'some content'
+      message.header['X-Discourse-Post-Id'] = post.id
+      message.header['X-Discourse-Topic-Id'] = post.topic_id
+      message.expects(:deliver_now).never
+
+      email_sender = Email::Sender.new(message, :valid_type)
+      expect { email_sender.send }.to change { SkippedEmailLog.count }
+
+      log = SkippedEmailLog.last
+      expect(log.reason_type).to eq(SkippedEmailLog.reason_types[:sender_topic_deleted])
+    end
+
+  end
+
   context 'with a user' do
     let(:message) do
       message = Mail::Message.new to: 'eviltrout@test.domain', body: 'test body'
@@ -329,7 +596,7 @@ describe Email::Sender do
       message
     end
 
-    let(:user) { Fabricate(:user) }
+    fab!(:user) { Fabricate(:user) }
     let(:email_sender) { Email::Sender.new(message, :valid_type, user) }
 
     before do
@@ -341,6 +608,42 @@ describe Email::Sender do
       expect(@email_log.user_id).to eq(user.id)
     end
 
+    describe "post reply keys" do
+      fab!(:post) { Fabricate(:post) }
+
+      before do
+        message.header['X-Discourse-Post-Id'] = post.id
+        message.header['Reply-To'] = "test-%{reply_key}@test.com"
+      end
+
+      describe 'when allow reply by email header is not present' do
+        it 'should not create a post reply key' do
+          expect { email_sender.send }.to_not change { PostReplyKey.count }
+        end
+      end
+
+      describe 'when allow reply by email header is present' do
+        let(:header) { Email::MessageBuilder::ALLOW_REPLY_BY_EMAIL_HEADER }
+
+        before do
+          message.header[header] = "test-%{reply_key}@test.com"
+        end
+
+        it 'should create a post reply key' do
+          expect { email_sender.send }.to change { PostReplyKey.count }.by(1)
+          post_reply_key = PostReplyKey.last
+
+          expect(message.header['Reply-To'].value).to eq(
+            "test-#{post_reply_key.reply_key}@test.com"
+          )
+
+          expect(message.header[header]).to eq(nil)
+          expect(post_reply_key.user_id).to eq(user.id)
+          expect(post_reply_key.post_id).to eq(post.id)
+          expect { email_sender.send }.to change { PostReplyKey.count }.by(0)
+        end
+      end
+    end
   end
 
 end

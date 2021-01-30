@@ -1,4 +1,4 @@
-require_dependency 'trust_level'
+# frozen_string_literal: true
 
 class AdminUserIndexQuery
 
@@ -37,7 +37,8 @@ class AdminUserIndexQuery
   end
 
   def custom_direction
-    asc = params[:ascending]
+    Discourse.deprecate(":ascending is deprecated please use :asc instead", output_in_test: true) if params[:ascending]
+    asc = params[:asc] || params[:ascending]
     asc.present? && asc ? "ASC" : "DESC"
   end
 
@@ -60,11 +61,15 @@ class AdminUserIndexQuery
       order << "users.username"
     end
 
-    if params[:stats].present? && params[:stats] == false
-      klass.order(order.reject(&:blank?).join(","))
-    else
-      klass.includes(:user_stat).order(order.reject(&:blank?).join(","))
+    query = klass
+      .includes(:totps)
+      .order(order.reject(&:blank?).join(","))
+
+    unless params[:stats].present? && params[:stats] == false
+      query = query.includes(:user_stat)
     end
+
+    query
   end
 
   def filter_by_trust
@@ -74,40 +79,30 @@ class AdminUserIndexQuery
     end
   end
 
-  def suspect_users
-    where_conds = []
-
-    # One signal: no reading yet the user has bio text
-    where_conds << "user_stats.posts_read_count <= 1 AND user_stats.topics_entered <= 1"
-
-    @query.activated
-      .human_users
-      .references(:user_stats)
-      .includes(:user_profile)
-      .where("COALESCE(user_profiles.bio_raw, '') != ''")
-      .where('users.created_at <= ?', 1.day.ago)
-      .where(where_conds.map { |c| "(#{c})" }.join(" OR "))
-  end
-
   def filter_by_query_classification
     case params[:query]
     when 'staff'      then @query.where("admin or moderator")
     when 'admins'     then @query.where(admin: true)
     when 'moderators' then @query.where(moderator: true)
-    when 'blocked'    then @query.blocked
+    when 'silenced'   then @query.silenced
     when 'suspended'  then @query.suspended
     when 'pending'    then @query.not_suspended.where(approved: false, active: true)
-    when 'suspect'    then suspect_users
+    when 'staged'     then @query.where(staged: true)
     end
   end
 
   def filter_by_search
-    if params[:filter].present?
-      params[:filter].strip!
-      if ip = IPAddr.new(params[:filter]) rescue nil
+    if params[:email].present?
+      return @query.where('user_emails.email = ?', params[:email].downcase)
+    end
+
+    filter = params[:filter]
+    if filter.present?
+      filter = filter.strip
+      if ip = IPAddr.new(filter) rescue nil
         @query.where('ip_address <<= :ip OR registration_ip_address <<= :ip', ip: ip.to_cidr_s)
       else
-        @query.where('username_lower ILIKE :filter OR user_emails.email ILIKE :filter', filter: "%#{params[:filter]}%")
+        @query.filter_by_username_or_email(filter)
       end
     end
   end

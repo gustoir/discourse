@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class IncomingEmailDetailsSerializer < ApplicationSerializer
 
   attributes :error,
@@ -13,7 +15,7 @@ class IncomingEmailDetailsSerializer < ApplicationSerializer
     @mail = Mail.new(incoming_email.raw)
   end
 
-  EMAIL_RECEIVER_ERROR_PREFIX = "Email::Receiver::".freeze
+  EMAIL_RECEIVER_ERROR_PREFIX = "Email::Receiver::"
 
   def error
     @error_string.presence || I18n.t("emails.incoming.unrecognized_error")
@@ -25,7 +27,7 @@ class IncomingEmailDetailsSerializer < ApplicationSerializer
   end
 
   def include_error_description?
-    @error_string[EMAIL_RECEIVER_ERROR_PREFIX]
+    @error_string && @error_string[EMAIL_RECEIVER_ERROR_PREFIX]
   end
 
   def headers
@@ -33,14 +35,19 @@ class IncomingEmailDetailsSerializer < ApplicationSerializer
   end
 
   def subject
-    @mail.subject.presence || "(no subject)"
+    @mail.subject.presence || I18n.t("emails.incoming.no_subject")
   end
 
   def body
     body   = @mail.text_part.decoded rescue nil
     body ||= @mail.html_part.decoded rescue nil
     body ||= @mail.body.decoded      rescue nil
-    body.strip.truncate_words(100, escape: false)
+
+    return I18n.t("emails.incoming.no_body") if body.blank?
+
+    body.encode("utf-8", invalid: :replace, undef: :replace, replace: "")
+      .strip
+      .truncate_words(100, escape: false)
   end
 
 end

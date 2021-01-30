@@ -1,7 +1,10 @@
+# frozen_string_literal: true
+
 # lightweight Twitter api calls
 class TwitterApi
 
   class << self
+    include ActionView::Helpers::NumberHelper
 
     def prettify_tweet(tweet)
       text = tweet["full_text"].dup
@@ -16,23 +19,59 @@ class TwitterApi
       result = Rinku.auto_link(text, :all, 'target="_blank"').to_s
 
       if tweet['extended_entities'] && media = tweet['extended_entities']['media']
-        result << "<div class='tweet-images'>"
         media.each do |m|
           if m['type'] == 'photo'
             if large = m['sizes']['large']
-              result << "<img class='tweet-image' src='#{m['media_url_https']}' width='#{large['w']}' height='#{large['h']}'>"
+              result << "<div class='tweet-images'><img class='tweet-image' src='#{m['media_url_https']}' width='#{large['w']}' height='#{large['h']}'></div>"
             end
-          elsif m['type'] == 'video'
-            if large = m['sizes']['large']
-              result << "<iframe class='tweet-video' src='https://twitter.com/i/videos/#{tweet['id_str']}' width='#{large['w']}' height='#{large['h']}' frameborder='0'></iframe>"
+          elsif m['type'] == 'video' || m['type'] == 'animated_gif'
+            video_to_display = m['video_info']['variants']
+              .select { |v| v['content_type'] == 'video/mp4' }
+              .sort { |v| v['bitrate'] }.last # choose highest bitrate
+
+            if video_to_display && url = video_to_display['url']
+              width = m['sizes']['large']['w']
+              height = m['sizes']['large']['h']
+
+              attributes =
+                if m['type'] == 'animated_gif'
+                  %w{
+                    playsinline
+                    loop
+                    muted
+                    autoplay
+                    disableRemotePlayback
+                    disablePictureInPicture
+                  }
+                else
+                  %w{
+                    controls
+                    playsinline
+                  }
+                end.join(' ')
+
+              result << <<~HTML
+                <div class='tweet-images'>
+                  <div class='aspect-image-full-size' style='--aspect-ratio:#{width}/#{height};'>
+                    <video class='tweet-video' #{attributes}
+                      width='#{width}'
+                      height='#{height}'
+                      poster='#{m['media_url_https']}'>
+                      <source src='#{url}' type="video/mp4">
+                    </video>
+                  </div>
+                </div>
+              HTML
             end
           end
         end
-        result << "</div>"
-
       end
 
       result
+    end
+
+    def prettify_number(count)
+      number_to_human(count, format: '%n%u', precision: 2, units: { thousand: 'K', million: 'M', billion: 'B' })
     end
 
     def user_timeline(screen_name)
@@ -57,27 +96,27 @@ class TwitterApi
 
     def link_handles_in(text)
       text.scan(/(?:^|\s)@(\w+)/).flatten.uniq.each do |handle|
-        text.gsub!("@#{handle}", [
-          "<a href='https://twitter.com/#{handle}' target='_blank'>",
+        text.gsub!(/(?:^|\s)@#{handle}/, [
+          " <a href='https://twitter.com/#{handle}' target='_blank'>",
             "@#{handle}",
           "</a>"
         ].join)
       end
 
-      text
+      text.strip
     end
 
     def link_hashtags_in(text)
       text.scan(/(?:^|\s)#(\w+)/).flatten.uniq.each do |hashtag|
-        text.gsub!("##{hashtag}", [
-          "<a href='https://twitter.com/search?q=%23#{hashtag}' ",
+        text.gsub!(/(?:^|\s)##{hashtag}/, [
+          " <a href='https://twitter.com/search?q=%23#{hashtag}' ",
           "target='_blank'>",
             "##{hashtag}",
           "</a>"
         ].join)
       end
 
-      text
+      text.strip
     end
 
     def user_timeline_uri_for(screen_name)
@@ -89,7 +128,7 @@ class TwitterApi
     end
 
     unless defined? BASE_URL
-      BASE_URL = 'https://api.twitter.com'.freeze
+      BASE_URL = 'https://api.twitter.com'
     end
 
     def twitter_get(uri)
@@ -117,7 +156,7 @@ class TwitterApi
 
     def bearer_token_credentials
       Base64.strict_encode64(
-        "#{URI::encode(consumer_key)}:#{URI::encode(consumer_secret)}"
+        "#{UrlHelper.encode_component(consumer_key)}:#{UrlHelper.encode_component(consumer_secret)}"
       )
     end
 

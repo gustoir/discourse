@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class CustomEmoji < ActiveRecord::Base
   belongs_to :upload
 
@@ -14,6 +16,7 @@ end
 #  upload_id  :integer          not null
 #  created_at :datetime         not null
 #  updated_at :datetime         not null
+#  group      :string(20)
 #
 # Indexes
 #

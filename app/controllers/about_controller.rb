@@ -1,19 +1,22 @@
-require_dependency 'rate_limiter'
+# frozen_string_literal: true
 
 class AboutController < ApplicationController
+
+  requires_login only: [:live_post_counts]
+
   skip_before_action :check_xhr, only: [:index]
-  before_action :ensure_logged_in, only: [:live_post_counts]
 
   def index
     return redirect_to path('/login') if SiteSetting.login_required? && current_user.nil?
 
-    @about = About.new
+    @about = About.new(current_user)
+    @title = "#{I18n.t("js.about.simple_title")} - #{SiteSetting.title}"
     respond_to do |format|
       format.html do
         render :index
       end
       format.json do
-        render_serialized(@about, AboutSerializer)
+        render_json_dump(AboutSerializer.new(@about, scope: guardian))
       end
     end
   end

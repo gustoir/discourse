@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require 'mysql2'
 
 module ImportScripts::PhpBB3
@@ -20,12 +22,14 @@ module ImportScripts::PhpBB3
       if version.start_with?('3.0')
         require_relative 'database_3_0'
         Database_3_0.new(@database_client, @database_settings)
-      elsif version.start_with?('3.1')
+      elsif version.start_with?('3.1') || version.start_with?('3.2')
         require_relative 'database_3_1'
         Database_3_1.new(@database_client, @database_settings)
       else
-        raise UnsupportedVersionError, "Unsupported version (#{version}) of phpBB detected.\n" \
-          << 'Currently only 3.0.x and 3.1.x are supported by this importer.'
+        raise UnsupportedVersionError, <<~MSG
+          Unsupported version (#{version}) of phpBB detected.
+          Currently only version 3.0, 3.1 and 3.2 are supported by this importer.
+        MSG
       end
     end
 
@@ -53,6 +57,6 @@ module ImportScripts::PhpBB3
     end
   end
 
-  class UnsupportedVersionError < RuntimeError;
+  class UnsupportedVersionError < RuntimeError
   end
 end

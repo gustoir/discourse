@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 require "mysql2"
 require File.expand_path(File.dirname(__FILE__) + "/base.rb")
 require 'htmlentities'
@@ -33,7 +35,7 @@ class ImportScripts::MylittleforumSQL < ImportScripts::Base
   QUIET = true
 
   # Site settings
-  SiteSetting.disable_emails = true
+  SiteSetting.disable_emails = "non-staff"
   if FORCE_HOSTNAME
     SiteSetting.force_hostname = FORCE_HOSTNAME
   end

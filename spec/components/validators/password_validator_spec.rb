@@ -1,5 +1,6 @@
+# frozen_string_literal: true
+
 require 'rails_helper'
-require_dependency "common_passwords/common_passwords"
 
 describe PasswordValidator do
 
@@ -119,6 +120,13 @@ describe PasswordValidator do
       expect(record.errors[:password]).to include(password_error_message(:same_as_username))
     end
 
+    it "adds an error when password is the same as the name" do
+      @password = "myawesomepassword"
+      record.name = @password
+      validate
+      expect(record.errors[:password]).to include(password_error_message(:same_as_name))
+    end
+
     it "adds an error when password is the same as the email" do
       @password = "pork@chops.com"
       record.email = @password
@@ -134,6 +142,19 @@ describe PasswordValidator do
       validate
       expect(record.errors[:password]).to include(password_error_message(:same_as_current))
     end
+
+    it "validation required if password is required" do
+      expect(record.password_validation_required?).to eq(true)
+    end
+
+    it "validation not required after save until a new password is set" do
+      @password = "myoldpassword"
+      record.save!
+      record.reload
+      expect(record.password_validation_required?).to eq(false)
+      record.password = "mynewpassword"
+      expect(record.password_validation_required?).to eq(true)
+    end
   end
 
   context "password not required" do
@@ -143,6 +164,17 @@ describe PasswordValidator do
       @password = nil
       validate
       expect(record.errors[:password]).not_to be_present
+    end
+
+    it "validation required if a password is set" do
+      @password = "mygameshow"
+      expect(record.password_validation_required?).to eq(true)
+    end
+
+    it "adds an error even password not required" do
+      @password = "p"
+      validate
+      expect(record.errors[:password]).to be_present
     end
   end
 

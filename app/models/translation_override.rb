@@ -1,7 +1,26 @@
-require 'js_locale_helper'
+# frozen_string_literal: true
+
 require "i18n/i18n_interpolation_keys_finder"
 
 class TranslationOverride < ActiveRecord::Base
+  # Allowlist i18n interpolation keys that can be included when customizing translations
+  ALLOWED_CUSTOM_INTERPOLATION_KEYS = {
+    "user_notifications.user_" => %w{
+      topic_title_url_encoded
+      site_title_url_encoded
+      context
+
+      site_name
+      optional_re
+      optional_pm
+      optional_cat
+      optional_tags
+      topic_title
+    }
+  }
+  include ActiveSupport::Deprecation::DeprecatedConstantAccessor
+  deprecate_constant 'CUSTOM_INTERPOLATION_KEYS_WHITELIST', 'TranslationOverride::ALLOWED_CUSTOM_INTERPOLATION_KEYS'
+
   validates_uniqueness_of :translation_key, scope: :locale
   validates_presence_of :locale, :translation_key, :value
 
@@ -12,48 +31,107 @@ class TranslationOverride < ActiveRecord::Base
 
     data = { value: value }
     if key.end_with?('_MF')
-      data[:compiled_js] = JsLocaleHelper.compile_message_format(locale, value)
+      _, filename = JsLocaleHelper.find_message_format_locale([locale], fallback_to_english: false)
+      data[:compiled_js] = JsLocaleHelper.compile_message_format(filename, locale, value)
     end
 
     translation_override = find_or_initialize_by(params)
     params.merge!(data) if translation_override.new_record?
-    i18n_changed if translation_override.update(data)
+    i18n_changed(locale, [key]) if translation_override.update(data)
     translation_override
   end
 
-  def self.revert!(locale, *keys)
+  def self.revert!(locale, keys)
+    keys = Array.wrap(keys)
     TranslationOverride.where(locale: locale, translation_key: keys).delete_all
-    i18n_changed
+    i18n_changed(locale, keys)
   end
+
+  def self.reload_all_overrides!
+    reload_locale!
+
+    overrides = TranslationOverride.pluck(:locale, :translation_key)
+    overrides = overrides.group_by(&:first).map { |k, a| [k, a.map(&:last)] }
+    overrides.each do |locale, keys|
+      clear_cached_keys!(locale, keys)
+    end
+  end
+
+  def self.reload_locale!
+    I18n.reload!
+    ExtraLocalesController.clear_cache!
+    MessageBus.publish('/i18n-flush', refresh: true)
+  end
+
+  def self.clear_cached_keys!(locale, keys)
+    should_clear_anon_cache = false
+    keys.each do |key|
+      should_clear_anon_cache |= expire_cache(locale, key)
+    end
+    Site.clear_anon_cache! if should_clear_anon_cache
+  end
+
+  def self.i18n_changed(locale, keys)
+    reload_locale!
+    clear_cached_keys!(locale, keys)
+  end
+
+  def self.expire_cache(locale, key)
+    if key.starts_with?('post_action_types.')
+      ApplicationSerializer.expire_cache_fragment!("post_action_types_#{locale}")
+    elsif key.starts_with?('topic_flag_types.')
+      ApplicationSerializer.expire_cache_fragment!("post_action_flag_types_#{locale}")
+    else
+      return false
+    end
+    true
+  end
+
+  private_class_method :reload_locale!
+  private_class_method :clear_cached_keys!
+  private_class_method :i18n_changed
+  private_class_method :expire_cache
 
   private
 
-    def self.i18n_changed
-      I18n.reload!
-      MessageBus.publish('/i18n-flush', refresh: true)
+  def check_interpolation_keys
+    transformed_key = transform_pluralized_key(translation_key)
+
+    original_text = I18n.overrides_disabled do
+      I18n.t(transformed_key, locale: :en)
     end
 
-    def check_interpolation_keys
-      original_text = I18n.overrides_disabled do
-        I18n.backend.send(:lookup, self.locale, self.translation_key)
-      end
+    if original_text
+      original_interpolation_keys = I18nInterpolationKeysFinder.find(original_text)
+      new_interpolation_keys = I18nInterpolationKeysFinder.find(value)
 
-      if original_text
-        original_interpolation_keys = I18nInterpolationKeysFinder.find(original_text)
-        new_interpolation_keys = I18nInterpolationKeysFinder.find(value)
-        missing_keys = (original_interpolation_keys - new_interpolation_keys)
+      custom_interpolation_keys = []
 
-        if missing_keys.present?
-          self.errors.add(:base, I18n.t(
-            'activerecord.errors.models.translation_overrides.attributes.value.missing_interpolation_keys',
-            keys: missing_keys.join(', ')
-          ))
-
-          return false
+      ALLOWED_CUSTOM_INTERPOLATION_KEYS.select do |key, value|
+        if transformed_key.start_with?(key)
+          custom_interpolation_keys = value
         end
       end
-    end
 
+      invalid_keys = (original_interpolation_keys | new_interpolation_keys) -
+        original_interpolation_keys -
+        custom_interpolation_keys
+
+      if invalid_keys.present?
+        self.errors.add(:base, I18n.t(
+          'activerecord.errors.models.translation_overrides.attributes.value.invalid_interpolation_keys',
+          keys: invalid_keys.join(', ')
+        ))
+
+        false
+      end
+    end
+  end
+
+  def transform_pluralized_key(key)
+    match = key.match(/(.*)\.(zero|two|few|many)$/)
+    match ? match.to_a.second + '.other' : key
+  end
 end
 
 # == Schema Information

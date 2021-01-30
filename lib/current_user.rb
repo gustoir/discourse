@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 module CurrentUser
 
   def self.has_auth_cookie?(env)
@@ -13,8 +15,8 @@ module CurrentUser
     @current_user_provider = Discourse.current_user_provider.new({})
   end
 
-  def log_on_user(user)
-    current_user_provider.log_on_user(user, session, cookies)
+  def log_on_user(user, opts = {})
+    current_user_provider.log_on_user(user, session, cookies, opts)
     user.logged_in
   end
 

@@ -1,4 +1,6 @@
 # encoding: utf-8
+# frozen_string_literal: true
+
 require 'rails_helper'
 require 'composer_messages_finder'
 
@@ -43,7 +45,7 @@ describe ComposerMessagesFinder do
     end
 
     context 'private message' do
-      let(:topic) { Fabricate(:private_message_topic) }
+      fab!(:topic) { Fabricate(:private_message_topic) }
 
       context 'starting a new private message' do
         let(:finder) { ComposerMessagesFinder.new(user, composer_action: 'createTopic', topic_id: topic.id) }
@@ -102,7 +104,7 @@ describe ComposerMessagesFinder do
 
   context '.check_avatar_notification' do
     let(:finder) { ComposerMessagesFinder.new(user, composer_action: 'createTopic') }
-    let(:user) { Fabricate(:user) }
+    fab!(:user) { Fabricate(:user) }
 
     context "success" do
       let!(:message) { finder.check_avatar_notification }
@@ -148,15 +150,18 @@ describe ComposerMessagesFinder do
   end
 
   context '.check_sequential_replies' do
-    let(:user) { Fabricate(:user) }
-    let(:topic) { Fabricate(:topic) }
+    fab!(:user) { Fabricate(:user) }
+    fab!(:topic) { Fabricate(:topic) }
 
     before do
       SiteSetting.educate_until_posts = 10
       user.stubs(:post_count).returns(11)
 
-      Fabricate(:post, topic: topic, user: user)
-      Fabricate(:post, topic: topic, user: user)
+      freeze_time(5.minutes.ago) do
+        Fabricate(:post, topic: topic, user: user)
+        Fabricate(:post, topic: topic, user: user)
+        Fabricate(:post, topic: topic, user: user, post_type: Post.types[:small_action])
+      end
 
       SiteSetting.sequential_replies_threshold = 2
     end
@@ -220,8 +225,8 @@ describe ComposerMessagesFinder do
   end
 
   context '.check_dominating_topic' do
-    let(:user) { Fabricate(:user) }
-    let(:topic) { Fabricate(:topic) }
+    fab!(:user) { Fabricate(:user) }
+    fab!(:topic) { Fabricate(:topic) }
 
     before do
       SiteSetting.educate_until_posts = 10
@@ -305,21 +310,21 @@ describe ComposerMessagesFinder do
   end
 
   context '.check_get_a_room' do
-    let(:user) { Fabricate(:user) }
-    let(:other_user) { Fabricate(:user) }
-    let(:third_user) { Fabricate(:user) }
-    let(:topic) { Fabricate(:topic, user: other_user) }
-    let(:op) { Fabricate(:post, topic_id: topic.id, user: other_user) }
+    fab!(:user) { Fabricate(:user) }
+    fab!(:other_user) { Fabricate(:user) }
+    fab!(:third_user) { Fabricate(:user) }
+    fab!(:topic) { Fabricate(:topic, user: other_user) }
+    fab!(:op) { Fabricate(:post, topic_id: topic.id, user: other_user) }
 
-    let!(:other_user_reply) do
+    fab!(:other_user_reply) do
       Fabricate(:post, topic: topic, user: third_user, reply_to_user_id: op.user_id)
     end
 
-    let!(:first_reply) do
+    fab!(:first_reply) do
       Fabricate(:post, topic: topic, user: user, reply_to_user_id: op.user_id)
     end
 
-    let!(:second_reply) do
+    fab!(:second_reply) do
       Fabricate(:post, topic: topic, user: user, reply_to_user_id: op.user_id)
     end
 
@@ -421,8 +426,8 @@ describe ComposerMessagesFinder do
   end
 
   context '.check_reviving_old_topic' do
-    let(:user)  { Fabricate(:user) }
-    let(:topic) { Fabricate(:topic) }
+    fab!(:user)  { Fabricate(:user) }
+    fab!(:topic) { Fabricate(:topic) }
 
     it "does not give a message without a topic id" do
       expect(described_class.new(user, composer_action: 'createTopic').check_reviving_old_topic).to be_blank
@@ -442,7 +447,9 @@ describe ComposerMessagesFinder do
 
         it "notifies if last post is old" do
           topic = Fabricate(:topic, last_posted_at: 181.days.ago)
-          expect(described_class.new(user, composer_action: 'reply', topic_id: topic.id).check_reviving_old_topic).not_to be_blank
+          message = described_class.new(user, composer_action: 'reply', topic_id: topic.id).check_reviving_old_topic
+          expect(message).not_to be_blank
+          expect(message[:body]).to match(/6 months ago/)
         end
       end
 
@@ -461,6 +468,33 @@ describe ComposerMessagesFinder do
           expect(described_class.new(user, composer_action: 'reply', topic_id: topic.id).check_reviving_old_topic).to be_blank
         end
       end
+    end
+  end
+
+  context 'when editing a post' do
+    fab!(:user) { Fabricate(:user) }
+    fab!(:topic) { Fabricate(:post).topic }
+
+    let!(:post) do
+      PostCreator.create!(
+        user,
+        topic_id: topic.id,
+        post_number: 1,
+        raw: 'omg my first post'
+      )
+    end
+
+    let(:edit_post_finder) do
+      ComposerMessagesFinder.new(user, composer_action: 'edit')
+    end
+
+    before do
+      SiteSetting.disable_avatar_education_message = true
+      SiteSetting.educate_until_posts = 2
+    end
+
+    it "returns nothing even if it normally would" do
+      expect(edit_post_finder.find).to eq(nil)
     end
   end
 

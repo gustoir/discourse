@@ -1,33 +1,47 @@
+# frozen_string_literal: true
+
 require "demon/rails_autospec"
+require 'rbconfig'
 
 module Autospec
 
   class QunitRunner < BaseRunner
 
     WATCHERS = {}
-    def self.watch(pattern, &blk); WATCHERS[pattern] = blk; end
-    def watchers; WATCHERS; end
+    def self.watch(pattern, &blk)
+      WATCHERS[pattern] = blk
+    end
+    def watchers
+      WATCHERS
+    end
 
     # Discourse specific
-    watch(%r{^app/assets/javascripts/discourse/(.+)\.js.es6$}) { |m| "test/javascripts/#{m[1]}-test.js.es6" }
-    watch(%r{^app/assets/javascripts/admin/(.+)\.js.es6$})     { |m| "test/javascripts/admin/#{m[1]}-test.js.es6" }
-    watch(%r{^test/javascripts/.+\.js.es6$})
+    watch(%r{^app/assets/javascripts/discourse/(.+)\.js$}) { |m| "test/javascripts/#{m[1]}-test.js" }
+    watch(%r{^app/assets/javascripts/admin/(.+)\.js$})     { |m| "test/javascripts/admin/#{m[1]}-test.js" }
+    watch(%r{^test/javascripts/.+\.js$})
+    watch(%r{^app/assets/javascripts/discourse/tests/.+\.js$})
 
     RELOADERS = Set.new
-    def self.reload(pattern); RELOADERS << pattern; end
-    def reloaders; RELOADERS; end
+    def self.reload(pattern)
+      RELOADERS << pattern
+    end
+    def reloaders
+      RELOADERS
+    end
 
     # Discourse specific
-    reload(%r{^test/javascripts/fixtures/.+_fixtures\.js(\.es6)?$})
-    reload(%r{^test/javascripts/(helpers|mixins)/.+\.js(\.es6)?$})
-    reload("test/javascripts/test_helper.js")
+    reload(%r{^discourse/tests/javascripts/fixtures/.+_fixtures\.js(\.es6)?$})
+    reload(%r{^discourse/tests/javascripts/(helpers|mixins)/.+\.js(\.es6)?$})
+    reload("app/assets/javascripts/discoruse/tests/javascripts/test_helper.js")
+
+    watch(%r{^plugins/.*/test/.+\.js(\.es6)?$})
 
     require "socket"
 
-    class PhantomJsNotInstalled < StandardError; end
+    class ChromeNotInstalled < StandardError; end
 
     def initialize
-      ensure_phantomjs_is_installed
+      ensure_chrome_is_installed
     end
 
     def start
@@ -53,7 +67,7 @@ module Autospec
 
       abort
 
-      qunit_url = "http://localhost:#{port}/qunit"
+      qunit_url = +"http://localhost:#{port}/qunit"
 
       if specs != "spec"
         module_or_filename, test_id, _name = specs.strip.split(":::")
@@ -66,7 +80,7 @@ module Autospec
         end
       end
 
-      cmd = "phantomjs #{Rails.root}/lib/autospec/run-qunit.js \"#{qunit_url}\""
+      cmd = "node #{Rails.root}/test/run-qunit.js \"#{qunit_url}\" 3000000 ./tmp/qunit_result"
 
       @pid = Process.spawn(cmd)
       _, status = Process.wait2(@pid)
@@ -96,7 +110,6 @@ module Autospec
     end
 
     def stop
-      # kill phantomjs first
       abort
       stop_rails_server
       @running = false
@@ -104,8 +117,19 @@ module Autospec
 
     private
 
-    def ensure_phantomjs_is_installed
-      raise PhantomJsNotInstalled.new unless system("command -v phantomjs >/dev/null;")
+    def ensure_chrome_is_installed
+      if RbConfig::CONFIG['host_os'][/darwin|mac os/]
+        binary = "/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome"
+      elsif system("command -v google-chrome-stable >/dev/null;")
+        binary = "google-chrome-stable"
+      end
+      binary ||= "google-chrome" if system("command -v google-chrome >/dev/null;")
+
+      raise ChromeNotInstalled.new if !binary
+
+      if Gem::Version.new(`\"#{binary}\" --version`.match(/[\d\.]+/)[0]) < Gem::Version.new("59")
+        raise "Chrome 59 or higher is required"
+      end
     end
 
     def port_available?(port)

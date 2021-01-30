@@ -1,6 +1,8 @@
+# frozen_string_literal: true
+
 module TimelineLookup
 
-  # Given an array of tuples (id, post_number, days_ago), return at most `max_values` worth of a
+  # Given an array of tuples containing (id, days_ago), return at most `max_values` worth of a
   # lookup table to help the front end timeline display dates associated with posts
   def self.build(tuples, max_values = 300)
     result = []
@@ -9,9 +11,13 @@ module TimelineLookup
 
     last_days_ago = -1
     tuples.each_with_index do |t, idx|
-      next unless (idx % every) === 0
+      return result unless t.is_a?(Array)
 
-      days_ago = t[2]
+      if idx != tuples.size - 1
+        next unless (idx % every) === 0
+      end
+
+      days_ago = t[1]
 
       if (days_ago != last_days_ago)
         result << [idx + 1, days_ago]

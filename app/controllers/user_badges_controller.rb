@@ -1,15 +1,19 @@
+# frozen_string_literal: true
+
 class UserBadgesController < ApplicationController
+  before_action :ensure_badges_enabled
+
   def index
     params.permit [:granted_before, :offset, :username]
 
     badge = fetch_badge_from_params
     user_badges = badge.user_badges.order('granted_at DESC, id DESC').limit(96)
-    user_badges = user_badges.includes(:user, :granted_by, badge: :badge_type, post: :topic)
+    user_badges = user_badges.includes(:user, :granted_by, badge: :badge_type, post: :topic, user: :primary_group)
 
     grant_count = nil
 
     if params[:username]
-      user_id = User.where(username_lower: params[:username].downcase).pluck(:id).first
+      user_id = User.where(username_lower: params[:username].downcase).pluck_first(:id)
       user_badges = user_badges.where(user_id: user_id) if user_id
       grant_count = badge.user_badges.where(user_id: user_id).count
     end
@@ -28,7 +32,8 @@ class UserBadgesController < ApplicationController
   def username
     params.permit [:grouped]
 
-    user = fetch_user_from_params
+    user = fetch_user_from_params(include_inactive: current_user.try(:staff?) || (current_user && SiteSetting.show_inactive_accounts))
+    raise Discourse::NotFound unless guardian.can_see_profile?(user)
     user_badges = user.user_badges
 
     if params[:grouped]
@@ -48,21 +53,23 @@ class UserBadgesController < ApplicationController
     user = fetch_user_from_params
 
     unless can_assign_badge_to_user?(user)
-      render json: failed_json, status: 403
-      return
+      return render json: failed_json, status: 403
     end
 
     badge = fetch_badge_from_params
     post_id = nil
 
     if params[:reason].present?
-      path = URI.parse(params[:reason]).path rescue nil
-      route = Rails.application.routes.recognize_path(path) if path
-      if route
-        topic_id = route[:topic_id].to_i
-        post_number = route[:post_number] || 1
+      unless is_badge_reason_valid? params[:reason]
+        return render json: failed_json.merge(message: I18n.t('invalid_grant_badge_reason_link')), status: 400
+      end
 
-        post_id = Post.find_by(topic_id: topic_id, post_number: post_number).try(:id) if topic_id > 0
+      if route = Discourse.route_for(params[:reason])
+        if route[:controller] == "topics" && route[:action] == "show"
+          topic_id = (route[:id] || route[:topic_id]).to_i
+          post_number = route[:post_number] || 1
+          post_id = Post.find_by(topic_id: topic_id, post_number: post_number)&.id if topic_id > 0
+        end
       end
     end
 
@@ -86,24 +93,33 @@ class UserBadgesController < ApplicationController
 
   private
 
-    # Get the badge from either the badge name or id specified in the params.
-    def fetch_badge_from_params
-      badge = nil
+  # Get the badge from either the badge name or id specified in the params.
+  def fetch_badge_from_params
+    badge = nil
 
-      params.permit(:badge_name)
-      if params[:badge_name].nil?
-        params.require(:badge_id)
-        badge = Badge.find_by(id: params[:badge_id], enabled: true)
-      else
-        badge = Badge.find_by(name: params[:badge_name], enabled: true)
-      end
-      raise Discourse::NotFound if badge.blank?
-
-      badge
+    params.permit(:badge_name)
+    if params[:badge_name].nil?
+      params.require(:badge_id)
+      badge = Badge.find_by(id: params[:badge_id], enabled: true)
+    else
+      badge = Badge.find_by(name: params[:badge_name], enabled: true)
     end
+    raise Discourse::NotFound if badge.blank?
 
-    def can_assign_badge_to_user?(user)
-      master_api_call = current_user.nil? && is_api?
-      master_api_call || guardian.can_grant_badges?(user)
-    end
+    badge
+  end
+
+  def can_assign_badge_to_user?(user)
+    master_api_call = current_user.nil? && is_api?
+    master_api_call || guardian.can_grant_badges?(user)
+  end
+
+  def ensure_badges_enabled
+    raise Discourse::NotFound unless SiteSetting.enable_badges?
+  end
+
+  def is_badge_reason_valid?(reason)
+    route = Discourse.route_for(reason)
+    route && (route[:controller] == 'posts' || route[:controller] == 'topics')
+  end
 end

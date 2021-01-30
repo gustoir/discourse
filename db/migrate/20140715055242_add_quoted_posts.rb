@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 class AddQuotedPosts < ActiveRecord::Migration[4.2]
   def change
     create_table :quoted_posts do |t|
@@ -28,7 +30,7 @@ SQL
 
     results.each do |row|
       post_id, max_id = row["id"].to_i
-      doc = Nokogiri::HTML.fragment(row["cooked"])
+      doc = Nokogiri::HTML5.fragment(row["cooked"])
 
       uniq = {}
 

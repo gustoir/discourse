@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # Whe use ActiveSupport mb_chars from here to properly support non ascii downcase
 # TODO remove when ruby 2.4 lands
 require 'active_support/core_ext/string/multibyte'
@@ -19,9 +21,9 @@ class TextSentinel
   def self.body_sentinel(text, opts = {})
     entropy = SiteSetting.body_min_entropy
     if opts[:private_message]
-      scale_entropy = SiteSetting.min_private_message_post_length.to_f / SiteSetting.min_post_length.to_f
+      scale_entropy = SiteSetting.min_personal_message_post_length.to_f / SiteSetting.min_post_length.to_f
       entropy = (entropy * scale_entropy).to_i
-      entropy = (SiteSetting.min_private_message_post_length.to_f * ENTROPY_SCALE).to_i if entropy > SiteSetting.min_private_message_post_length
+      entropy = (SiteSetting.min_personal_message_post_length.to_f * ENTROPY_SCALE).to_i if entropy > SiteSetting.min_personal_message_post_length
     else
       entropy = (SiteSetting.min_post_length.to_f * ENTROPY_SCALE).to_i if entropy > SiteSetting.min_post_length
     end
@@ -52,12 +54,6 @@ class TextSentinel
     seems_quiet?
   end
 
-  private
-
-  def symbols_regex
-    /[\ -\/\[-\`\:-\@\{-\~]/m
-  end
-
   def seems_meaningful?
     # Minimum entropy if entropy check required
     @opts[:min_entropy].blank? || (entropy >= @opts[:min_entropy])
@@ -70,13 +66,25 @@ class TextSentinel
   end
 
   def seems_unpretentious?
+    return true if skipped_locale.include?(SiteSetting.default_locale)
     # Don't allow super long words if there is a word length maximum
     @opts[:max_word_length].blank? || @text.split(/\s|\/|-|\.|:/).map(&:size).max <= @opts[:max_word_length]
   end
 
   def seems_quiet?
+    return true if skipped_locale.include?(SiteSetting.default_locale)
     # We don't allow all upper case content
     SiteSetting.allow_uppercase_posts || @text == @text.mb_chars.downcase.to_s || @text != @text.mb_chars.upcase.to_s
+  end
+
+  private
+
+  def symbols_regex
+    /[\ -\/\[-\`\:-\@\{-\~]/m
+  end
+
+  def skipped_locale
+    %w(zh_CN zh_TW ko ja).freeze
   end
 
 end
